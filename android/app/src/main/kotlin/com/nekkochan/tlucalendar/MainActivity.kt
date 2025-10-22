@@ -1,4 +1,4 @@
-package com.example.tlucalendar
+package com.nekkochan.tlucalendar
 
 import io.flutter.embedding.android.FlutterActivity
 

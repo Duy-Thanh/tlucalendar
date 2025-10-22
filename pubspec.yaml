@@ -1,7 +1,7 @@
 name: tlucalendar
-description: "A new Flutter project."
+description: "TLU Calendar for TLU students"
 publish_to: 'none'
-version: 0.1.0
+version: 2025.10.22
 
 environment:
   sdk: ^3.9.2
