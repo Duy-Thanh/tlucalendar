@@ -48,3 +48,8 @@ app.*.map.json
 *.jks
 *.json
 output.txt
+ARCHITECTURE.md
+DEVELOPMENT_GUIDE.md
+PROJECT_SUMMARY.md
+VISUAL_GUIDE.md
+FILES_CREATED.md
