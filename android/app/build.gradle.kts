@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Nguyen Duy Thanh (@Nekkochan0x0007). All right reserved
+i// Copyright (C) 2025 Nguyen Duy Thanh (@Nekkochan0x0007). All right reserved
 
 plugins {
     id("com.android.application")
@@ -68,7 +68,7 @@ android {
             )
 
             // Enable R8 full mode
-            buildConfigField("boolean", "ENABLE_R8_FULL_MODE", "true")
+            //buildConfigField("boolean", "ENABLE_R8_FULL_MODE", "true")
 
             ndk {
                 abiFilters += listOf("armeabi-v7a", "arm64-v8a")
@@ -102,7 +102,7 @@ flutter {
 
 dependencies {
     // Play Core SDK (Flutter deferred components / SplitInstall)
-    implementation("com.google.android.play:core:1.10.3")
-    implementation("com.google.android.play:core-ktx:1.8.1")
+    //implementation("com.google.android.play:core:1.10.3")
+    //implementation("com.google.android.play:core-ktx:1.8.1")
     // implementation("androidx.core:core-ktx:1.13.1")
 }
