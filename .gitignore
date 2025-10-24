@@ -47,9 +47,15 @@ app.*.map.json
 # Additional files to be ignored
 *.jks
 *.json
+*.html
 output.txt
 ARCHITECTURE.md
 DEVELOPMENT_GUIDE.md
 PROJECT_SUMMARY.md
 VISUAL_GUIDE.md
 FILES_CREATED.md
+BUILD_FIX.md
+COMPLETION_SUMMARY.md
+QUICKSTART.md
+SCHEDULE_CARD_DESIGN.md
+FINAL_STATUS.md

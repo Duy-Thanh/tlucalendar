@@ -45,19 +45,12 @@ android {
         }
     }
 
-    signingConfigs {
-        release {
-            storeFile = file("rel.jks")
-            storePassword = System.getenv("STORE_PASSWORD")
-            keyAlias = System.getenv("KEY_ALIAS")
-            keyPassword = System.getenv("KEY_PASSWORD")
-        }
+    buildFeatures {
+        buildConfig = true
     }
-
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             isShrinkResources = false
 
@@ -67,7 +60,6 @@ android {
         }
 
         release {
-            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -80,6 +72,25 @@ android {
 
             ndk {
                 abiFilters += listOf("armeabi-v7a", "arm64-v8a")
+            }
+        }
+    }
+
+    // Signing configuration for release builds
+    val keystoreFile = rootProject.file("rel.jks")
+    if (keystoreFile.exists()) {
+        signingConfigs {
+            create("release") {
+                storeFile = keystoreFile
+                storePassword = System.getenv("STORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            }
+        }
+        
+        buildTypes {
+            getByName("release") {
+                signingConfig = signingConfigs.getByName("release")
             }
         }
     }

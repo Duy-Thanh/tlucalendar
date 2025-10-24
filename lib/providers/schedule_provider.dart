@@ -35,7 +35,7 @@ class ScheduleProvider extends ChangeNotifier {
         id: '1',
         course: Course(
           id: 'c1',
-          name: 'Phân tích dữ liệu ldn-1-25',
+          name: 'Phân tích dữ liệu lớn-1-25',
           code: '64CNTT2',
           classroom: '323-A2',
           instructor: 'Dr. Tran',
