@@ -11,6 +11,17 @@
 # Your app
 -keep class com.nekkochan.tlucalendar.** { *; }
 
+# Keep Play Core classes used by Flutter
+-keep class com.google.android.play.core.splitinstall.** { *; }
+-keep class com.google.android.play.core.tasks.** { *; }
+-keep class com.google.android.play.core.splitcompat.** { *; }
+
+# Prevent R8 from removing Flutter deferred components
+-keep class io.flutter.embedding.engine.deferredcomponents.** { *; }
+
+# Suppress missing class warnings
+-dontwarn com.google.android.play.core.**
+
 # Kotlin
 -keep class kotlin.** { *; }
 -keep class kotlin.Metadata { *; }
