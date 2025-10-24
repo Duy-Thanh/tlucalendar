@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
+import 'package:tlucalendar/screens/login_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -20,6 +21,10 @@ class SettingsScreen extends StatelessWidget {
           child: Consumer<UserProvider>(
             builder: (context, userProvider, _) {
               final user = userProvider.currentUser;
+              // Only show profile card when logged in
+              if (!userProvider.isLoggedIn) {
+                return const SizedBox.shrink();
+              }
               return Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -71,7 +76,81 @@ class SettingsScreen extends StatelessWidget {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Text(
+              'Tài khoản',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Consumer<UserProvider>(
+            builder: (context, userProvider, _) {
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+                      if (userProvider.isLoggedIn) ...[
+                        ListTile(
+                          leading: const Icon(Icons.check_circle),
+                          title: const Text('Đã đăng nhập'),
+                          subtitle: Text(userProvider.currentUser.studentId),
+                          trailing: Icon(
+                            Icons.check,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              userProvider.logout();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Đã đăng xuất'),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                            child: const Text('Đăng xuất'),
+                          ),
+                        ),
+                      ] else ...[
+                        ListTile(
+                          leading: const Icon(Icons.lock_outlined),
+                          title: const Text('Chưa đăng nhập'),
+                          subtitle: const Text('Nhấp để đăng nhập tài khoản'),
+                        ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginScreen(),
+                                ),
+                              );
+                            },
+                            child: const Text('Đăng nhập'),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Text(
               'Hiển thị',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(

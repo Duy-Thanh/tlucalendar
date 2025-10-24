@@ -11,12 +11,15 @@ void main() async {
   
   final themeProvider = ThemeProvider();
   await themeProvider.init();
+  
+  final userProvider = UserProvider();
+  await userProvider.init();
 
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: themeProvider),
-        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider.value(value: userProvider),
         ChangeNotifierProvider(create: (_) => ScheduleProvider()),
       ],
       child: const MyApp(),

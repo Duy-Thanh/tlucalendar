@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/schedule_provider.dart';
+import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/widgets/empty_state_widget.dart';
 import 'package:tlucalendar/widgets/schedule_card.dart';
 
@@ -38,6 +39,18 @@ class TodayScreen extends StatelessWidget {
         Consumer<ScheduleProvider>(
           builder: (context, scheduleProvider, _) {
             final todaySchedules = scheduleProvider.todaySchedules;
+            final isLoggedIn = context.read<UserProvider>().isLoggedIn;
+
+            // Show login prompt if not logged in
+            if (!isLoggedIn) {
+              return SliverFillRemaining(
+                child: EmptyStateWidget(
+                  icon: Icons.lock_outlined,
+                  title: 'Vui lòng đăng nhập',
+                  description: 'Đăng nhập để xem lịch học của bạn',
+                ),
+              );
+            }
 
             if (todaySchedules.isEmpty) {
               return SliverFillRemaining(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/schedule_provider.dart';
+import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/widgets/empty_state_widget.dart';
 import 'package:tlucalendar/widgets/schedule_card.dart';
 
@@ -36,38 +37,53 @@ class _CalendarScreenState extends State<CalendarScreen> {
             child: _buildCalendarHeader(context),
           ),
         ),
-        Consumer<ScheduleProvider>(
-          builder: (context, scheduleProvider, _) {
-            final schedulesForDate = scheduleProvider.schedules
-                .where((s) =>
-                    s.startTime.year == _selectedDate.year &&
-                    s.startTime.month == _selectedDate.month &&
-                    s.startTime.day == _selectedDate.day)
-                .toList()
-              ..sort((a, b) => a.startTime.compareTo(b.startTime));
-
-            if (schedulesForDate.isEmpty) {
+        Consumer<UserProvider>(
+          builder: (context, userProvider, _) {
+            // Show login prompt if not logged in
+            if (!userProvider.isLoggedIn) {
               return SliverFillRemaining(
                 child: EmptyStateWidget(
-                  icon: Icons.event_busy_outlined,
-                  title: 'Không có lớp',
-                  description: 'Chọn một ngày khác để xem lịch học',
+                  icon: Icons.lock_outlined,
+                  title: 'Vui lòng đăng nhập',
+                  description: 'Đăng nhập để xem lịch học của bạn',
                 ),
               );
             }
 
-            return SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
-                  return ScheduleCard(
-                    schedule: schedulesForDate[index],
-                    onTap: () {
-                      // TODO: Navigate to schedule details
-                    },
+            return Consumer<ScheduleProvider>(
+              builder: (context, scheduleProvider, _) {
+                final schedulesForDate = scheduleProvider.schedules
+                    .where((s) =>
+                        s.startTime.year == _selectedDate.year &&
+                        s.startTime.month == _selectedDate.month &&
+                        s.startTime.day == _selectedDate.day)
+                    .toList()
+                  ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+                if (schedulesForDate.isEmpty) {
+                  return SliverFillRemaining(
+                    child: EmptyStateWidget(
+                      icon: Icons.event_busy_outlined,
+                      title: 'Không có lớp',
+                      description: 'Chọn một ngày khác để xem lịch học',
+                    ),
                   );
-                },
-                childCount: schedulesForDate.length,
-              ),
+                }
+
+                return SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      return ScheduleCard(
+                        schedule: schedulesForDate[index],
+                        onTap: () {
+                          // TODO: Navigate to schedule details
+                        },
+                      );
+                    },
+                    childCount: schedulesForDate.length,
+                  ),
+                );
+              },
             );
           },
         ),
