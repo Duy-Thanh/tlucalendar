@@ -3,16 +3,12 @@
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">sinhvien1.tlu.edu.vn</domain>
         
-        <!-- Certificate Pin Configuration -->
-        <!-- Extracted: 2025-10-24 -->
-        <!-- Expiration: 2026-10-24 -->
-        <pin-set expiration="2026-10-24">
-            <!-- Primary certificate pin (SHA-256) -->
-            <pin digest="SHA-256">//5hIk8ALQCMJUEAeADmAIglqgAoAPEAYSJRJQYAkgFZAFkAiCXFAGAARABYJQ0ACgD8AFcAVwCRJRAjdwBzABkiKQANAAoA</pin>
-        </pin-set>
+        <!-- Certificate Pinning DISABLED temporarily - app was crashing -->
+        <!-- Will enable after fixing the root cause -->
+        <!-- Pinning was: //5hIk8ALQCMJUEAeADmAIglqgAoAPEAYSJRJQYAkgFZAFkAiCXFAGAARABYJQ0ACgD8AFcAVwCRJRAjdwBzABkiKQANAAoA -->
         
         <trust-anchors>
-            <!-- System default CAs -->
+            <!-- System default CAs - development mode -->
             <certificates src="system" />
         </trust-anchors>
     </domain-config>

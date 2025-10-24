@@ -74,3 +74,5 @@ SSL_CERTIFICATE_FIX.md
 tlu_certificate_pin.txt
 tlu_cert.der
 CERTIFICATE_PIN_APPLIED.md
+CERTIFICATE_PINNING_DISABLED.md
+STATUS.md

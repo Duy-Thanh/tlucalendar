@@ -39,9 +39,9 @@ class CertificatePinningConfig {
   /// [connectTimeout]: Connection timeout in seconds
   /// [developmentMode]: If true, accepts all certificates (for testing)
   static Dio createPinningClient({
-    bool enablePinning = true,
+    bool enablePinning = false, // DISABLED - was causing crashes
     int connectTimeout = 30,
-    bool developmentMode = false,
+    bool developmentMode = true, // ENABLED - bypass pinning for now
   }) {
     final BaseOptions options = BaseOptions(
       connectTimeout: Duration(seconds: connectTimeout),

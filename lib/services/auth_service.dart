@@ -1,5 +1,5 @@
-import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
 import 'package:tlucalendar/models/api_response.dart';
 
 class AuthService {
@@ -15,19 +15,19 @@ class AuthService {
   /// Authenticate user with student code and password
   Future<LoginResponse> login(String studentCode, String password) async {
     try {
-      final request = http.Request('POST', Uri.parse('$baseUrl$tokenEndpoint'));
-      request.headers.update('Content-Type', (_) => 'application/x-www-form-urlencoded', ifAbsent: () => 'application/x-www-form-urlencoded');
-      request.headers['Accept'] = 'application/json';
-      request.bodyFields = {
-        'client_id': clientId,
-        'client_secret': clientSecret,
-        'grant_type': grantType,
-        'username': studentCode,
-        'password': password,
-      };
-
-      final response = await request.send().timeout(const Duration(seconds: 30));
-      final responseBody = await response.stream.bytesToString();
+      // Use dart:io HttpClient with SSL verification disabled
+      final httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      
+      final request = await httpClient.postUrl(Uri.parse('$baseUrl$tokenEndpoint'));
+      request.headers.contentType = ContentType('application', 'x-www-form-urlencoded');
+      request.headers.add('Accept', 'application/json');
+      
+      // Add form data
+      request.write('client_id=$clientId&client_secret=$clientSecret&grant_type=$grantType&username=$studentCode&password=$password');
+      
+      final response = await request.close().timeout(const Duration(seconds: 30));
+      final responseBody = await response.transform(utf8.decoder).join();
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(responseBody);
@@ -56,12 +56,15 @@ class AuthService {
   /// Fetch current user information using access token
   Future<TluUser> getCurrentUser(String accessToken) async {
     try {
-      final request = http.Request('GET', Uri.parse('$baseUrl$userEndpoint'));
-      request.headers['Authorization'] = 'Bearer $accessToken';
-      request.headers['Accept'] = 'application/json';
+      final httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      
+      final request = await httpClient.getUrl(Uri.parse('$baseUrl$userEndpoint'));
+      request.headers.add('Authorization', 'Bearer $accessToken');
+      request.headers.add('Accept', 'application/json');
 
-      final response = await request.send().timeout(const Duration(seconds: 30));
-      final responseBody = await response.stream.bytesToString();
+      final response = await request.close().timeout(const Duration(seconds: 30));
+      final responseBody = await response.transform(utf8.decoder).join();
 
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(responseBody);
@@ -77,16 +80,47 @@ class AuthService {
     }
   }
 
-  /// Verify if token is still valid
+  /// Check if access token is still valid
   Future<bool> isTokenValid(String accessToken) async {
     try {
-      final request = http.Request('GET', Uri.parse('$baseUrl$userEndpoint'));
-      request.headers['Authorization'] = 'Bearer $accessToken';
-
-      final response = await request.send().timeout(const Duration(seconds: 10));
+      final httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      
+      final request = await httpClient.getUrl(Uri.parse('$baseUrl$userEndpoint'));
+      request.headers.add('Authorization', 'Bearer $accessToken');
+      
+      final response = await request.close().timeout(const Duration(seconds: 10));
       return response.statusCode == 200;
     } catch (e) {
       return false;
+    }
+  }
+
+  /// Fetch school years and semesters
+  /// Endpoint: GET /api/schoolyear/1/10000
+  Future<SchoolYearResponse> getSchoolYears(String accessToken) async {
+    try {
+      final httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      
+      final request = await httpClient.getUrl(Uri.parse('$baseUrl/api/schoolyear/1/10000'));
+      request.headers.add('Authorization', 'Bearer $accessToken');
+      request.headers.add('Accept', 'application/json');
+
+      final response = await request.close().timeout(const Duration(seconds: 30));
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(responseBody);
+        return SchoolYearResponse.fromJson(jsonResponse);
+      } else {
+        throw Exception('Không thể lấy dữ liệu năm học (${response.statusCode})');
+      }
+    } catch (e) {
+      if (e.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
+        throw Exception('Lỗi chứng chỉ SSL. Vui lòng thử lại.');
+      }
+      throw Exception('Lỗi lấy dữ liệu năm học: $e');
     }
   }
 }

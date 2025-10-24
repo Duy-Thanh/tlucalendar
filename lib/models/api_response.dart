@@ -158,3 +158,124 @@ class UserRole {
     );
   }
 }
+
+// School Year / Semester Response
+class SchoolYearResponse {
+  final List<SchoolYear> content;
+  final bool last;
+  final int totalElements;
+  final int totalPages;
+
+  SchoolYearResponse({
+    required this.content,
+    required this.last,
+    required this.totalElements,
+    required this.totalPages,
+  });
+
+  factory SchoolYearResponse.fromJson(Map<String, dynamic> json) {
+    var contentList = json['content'] as List;
+    return SchoolYearResponse(
+      content: contentList.map((item) => SchoolYear.fromJson(item)).toList(),
+      last: json['last'] ?? true,
+      totalElements: json['totalElements'] ?? 0,
+      totalPages: json['totalPages'] ?? 1,
+    );
+  }
+}
+
+class SchoolYear {
+  final int id;
+  final String name;
+  final String code;
+  final int year;
+  final bool current;
+  final int startDate;
+  final int endDate;
+  final String displayName;
+  final List<Semester> semesters;
+
+  SchoolYear({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.year,
+    required this.current,
+    required this.startDate,
+    required this.endDate,
+    required this.displayName,
+    required this.semesters,
+  });
+
+  factory SchoolYear.fromJson(Map<String, dynamic> json) {
+    var semestersList = json['semesters'] as List?;
+    return SchoolYear(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      code: json['code'] ?? '',
+      year: json['year'] ?? 0,
+      current: json['current'] ?? false,
+      startDate: json['startDate'] ?? 0,
+      endDate: json['endDate'] ?? 0,
+      displayName: json['displayName'] ?? '',
+      semesters: semestersList != null 
+        ? semestersList.map((item) => Semester.fromJson(item)).toList()
+        : [],
+    );
+  }
+}
+
+class Semester {
+  final int id;
+  final String semesterCode;
+  final String semesterName;
+  final int startDate;
+  final int endDate;
+  final bool isCurrent;
+  final List<SemesterRegisterPeriod> semesterRegisterPeriods;
+
+  Semester({
+    required this.id,
+    required this.semesterCode,
+    required this.semesterName,
+    required this.startDate,
+    required this.endDate,
+    required this.isCurrent,
+    required this.semesterRegisterPeriods,
+  });
+
+  factory Semester.fromJson(Map<String, dynamic> json) {
+    var periodsList = json['semesterRegisterPeriods'] as List?;
+    return Semester(
+      id: json['id'] ?? 0,
+      semesterCode: json['semesterCode'] ?? '',
+      semesterName: json['semesterName'] ?? '',
+      startDate: json['startDate'] ?? 0,
+      endDate: json['endDate'] ?? 0,
+      isCurrent: json['isCurrent'] ?? false,
+      semesterRegisterPeriods: periodsList != null
+        ? periodsList.map((item) => SemesterRegisterPeriod.fromJson(item)).toList()
+        : [],
+    );
+  }
+}
+
+class SemesterRegisterPeriod {
+  final int id;
+  final String name;
+  final int displayOrder;
+
+  SemesterRegisterPeriod({
+    required this.id,
+    required this.name,
+    required this.displayOrder,
+  });
+
+  factory SemesterRegisterPeriod.fromJson(Map<String, dynamic> json) {
+    return SemesterRegisterPeriod(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      displayOrder: json['displayOrder'] ?? 0,
+    );
+  }
+}
