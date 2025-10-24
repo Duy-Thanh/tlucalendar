@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">sinhvien1.tlu.edu.vn</domain>
+        
+        <!-- Certificate Pin Configuration -->
+        <!-- Extracted: 2025-10-24 -->
+        <!-- Expiration: 2026-10-24 -->
+        <pin-set expiration="2026-10-24">
+            <!-- Primary certificate pin (SHA-256) -->
+            <pin digest="SHA-256">//5hIk8ALQCMJUEAeADmAIglqgAoAPEAYSJRJQYAkgFZAFkAiCXFAGAARABYJQ0ACgD8AFcAVwCRJRAjdwBzABkiKQANAAoA</pin>
+        </pin-set>
+        
+        <trust-anchors>
+            <!-- System default CAs -->
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

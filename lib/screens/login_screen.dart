@@ -60,18 +60,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    // Simulate login delay
-    await Future.delayed(const Duration(milliseconds: 800));
-
     if (!mounted) return;
 
     try {
-      // In real app, you would call an API here
-      // For now, we'll just update the user provider with the student code
-      context.read<UserProvider>().updateUserStudentCode(studentCode);
-
-      // Save credentials to device storage
-      await context.read<UserProvider>().saveLoginCredentials(studentCode, password);
+      // Call real TLU API for login
+      await context.read<UserProvider>().loginWithApi(studentCode, password);
 
       if (!mounted) return;
 
@@ -87,7 +80,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Go back to settings screen
       Navigator.of(context).pop();
     } catch (e) {
-      setState(() => _errorMessage = 'Lỗi đăng nhập: ${e.toString()}');
+      setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
