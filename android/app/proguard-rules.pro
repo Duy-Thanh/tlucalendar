@@ -8,16 +8,6 @@
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
 
-# Play Core
--keep class com.google.android.play.core.** { *; }
--keep class com.google.android.play.core.splitcompat.** { *; }
--keep class com.google.android.play.core.splitinstall.** { *; }
--keep class com.google.android.play.core.tasks.** { *; }
-
-# Google Play Services
--keep class com.google.android.gms.** { *; }
--dontwarn com.google.android.gms.**
-
 # Your app
 -keep class com.nekkochan.tlucalendar.** { *; }
 
@@ -69,48 +59,9 @@
 # Remove kotlin metadata annotations (Safe - reduces size)
 -dontwarn kotlin.reflect.jvm.internal.**
 
-# Firebase Performance (ignore missing classes)
--dontwarn com.google.firebase.perf.**
--dontwarn com.google.firebase.perf.network.FirebasePerfUrlConnection
-
-# --- Firebase Core & Messaging (critical rules) ---
--keep class com.google.firebase.** { *; }
--keep class com.google.android.gms.** { *; }
--dontwarn com.google.firebase.**
--dontwarn com.google.android.gms.**
-
-# Keep Firebase initialization provider
--keepnames class com.google.firebase.provider.FirebaseInitProvider
-
-# Keep Firebase Messaging Service and related components
--keep class com.google.firebase.messaging.FirebaseMessagingService { *; }
--keep class com.google.firebase.iid.FirebaseInstanceIdReceiver { *; }
--keep class * extends com.google.firebase.messaging.FirebaseMessagingService { *; }
-
-# Keep all classes annotated with @Keep
--keep @com.google.firebase.annotations.Keep class * { *; }
--keepclassmembers class * {
-    @com.google.firebase.annotations.Keep *;
-}
-
-# Keep attributes for Crashlytics / Analytics stack traces (optional but safe)
-# -keepattributes SourceFile,LineNumberTable
-
 # XML handling (fix for R8 missing classes)
 -dontwarn javax.xml.stream.**
 -dontwarn org.apache.tika.**
 -dontwarn java.beans.**
 -dontwarn javax.xml.**
 -keep class javax.xml.stream.** { *; }
-
-# WebView and related classes
--keep class android.webkit.** { *; }
--keep class androidx.webkit.** { *; }
-
-# Wireguard flutter
--keep class billion.group.wireguard_flutter.** { *; }
-
-# Keep all classes that might be referenced via reflection
--keepclassmembers class * {
-    @android.webkit.JavascriptInterface <methods>;
-}
