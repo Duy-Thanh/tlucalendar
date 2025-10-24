@@ -1,4 +1,4 @@
-i// Copyright (C) 2025 Nguyen Duy Thanh (@Nekkochan0x0007). All right reserved
+// Copyright (C) 2025 Nguyen Duy Thanh (@Nekkochan0x0007). All right reserved
 
 plugins {
     id("com.android.application")
