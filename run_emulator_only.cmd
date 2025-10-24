@@ -8,6 +8,7 @@ taskkill /F /IM "adb.exe" /T > nul 2>&1
 timeout /t 2 /nobreak > nul
 
 @REM SET ANDROID_HOME=%USERPROFILE%\AppData\Local\Android\Sdk
+SET ANDROID_HOME=D:\Android\Sdk
 SET GRADLE_USER_HOME=D:\.gradle
 SET ANDROID_SDK_ROOT=%ANDROID_HOME%
 SET ANDROID_PLATFORM_TOOLS=%ANDROID_HOME%\platform-tools

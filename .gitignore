@@ -46,6 +46,7 @@ app.*.map.json
 
 # Additional files to be ignored
 *.jks
+key.properties
 *.json
 *.html
 output.txt

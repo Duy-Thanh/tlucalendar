@@ -28,7 +28,7 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
+        versionCode = 2025102510
         versionName = flutter.versionName
 
         ndk {
@@ -78,6 +78,7 @@ android {
 
     // Signing configuration for release builds
     val keystoreFile = rootProject.file("rel.jks")
+    
     if (keystoreFile.exists()) {
         signingConfigs {
             create("release") {
@@ -93,6 +94,9 @@ android {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
+    } else {
+        println("WARNING: Keystore file not found at: ${keystoreFile.absolutePath}")
+        println("APK will NOT be signed!")
     }
 }
 

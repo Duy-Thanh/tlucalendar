@@ -27,7 +27,7 @@ jobs:
       
       - name: Create necessary files
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/rel.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/rel.jks
       
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
