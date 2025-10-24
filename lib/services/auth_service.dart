@@ -123,4 +123,148 @@ class AuthService {
       throw Exception('Lỗi lấy dữ liệu năm học: $e');
     }
   }
+
+  /// Fetch current semester information
+  /// Endpoint: GET /api/semester/semester_info
+  /// Returns: Detailed semester with registration periods and exam schedules
+  Future<SemesterInfo> getSemesterInfo(String accessToken) async {
+    try {
+      final httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      
+      final request = await httpClient.getUrl(Uri.parse('$baseUrl/api/semester/semester_info'));
+      request.headers.add('Authorization', 'Bearer $accessToken');
+      request.headers.add('Accept', 'application/json');
+
+      final response = await request.close().timeout(const Duration(seconds: 30));
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(responseBody);
+        return SemesterInfo.fromJson(jsonResponse);
+      } else {
+        throw Exception('Không thể lấy dữ liệu kỳ học (${response.statusCode})');
+      }
+    } catch (e) {
+      if (e.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
+        throw Exception('Lỗi chứng chỉ SSL. Vui lòng thử lại.');
+      }
+      throw Exception('Lỗi lấy dữ liệu kỳ học: $e');
+    }
+  }
+
+  /// Fetch course hours (time slots: Tiết 1-15)
+  /// Endpoint: GET /api/coursehour/1/1000
+  /// Returns: Map of CourseHour objects by ID
+  Future<Map<int, CourseHour>> getCourseHours(String accessToken) async {
+    try {
+      final httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      
+      final request = await httpClient.getUrl(Uri.parse('$baseUrl/api/coursehour/1/1000'));
+      request.headers.add('Authorization', 'Bearer $accessToken');
+      request.headers.add('Accept', 'application/json');
+
+      final response = await request.close().timeout(const Duration(seconds: 30));
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(responseBody);
+        
+        final Map<int, CourseHour> courseHours = {};
+        
+        // Handle paginated response with 'content' field
+        if (jsonResponse is Map && jsonResponse.containsKey('content')) {
+          final List contentList = jsonResponse['content'] ?? [];
+          
+          for (var item in contentList) {
+            final courseHour = CourseHour.fromJson(item);
+            courseHours[courseHour.id] = courseHour;
+          }
+        }
+        
+        return courseHours;
+      } else {
+        throw Exception('Không thể lấy dữ liệu tiết học (${response.statusCode})');
+      }
+    } catch (e) {
+      if (e.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
+        throw Exception('Lỗi chứng chỉ SSL. Vui lòng thử lại.');
+      }
+      throw Exception('Lỗi lấy dữ liệu tiết học: $e');
+    }
+  }
+
+  /// Fetch student's courses for a specific semester
+  /// Endpoint: GET /api/StudentCourseSubject/studentLoginUser/{semesterId}
+  /// Parameter: semesterId - from Semester.id (e.g., 11, 12, 13, 14)
+  /// Returns: List of StudentCourseSubject objects
+  Future<List<StudentCourseSubject>> getStudentCourseSubject(
+    String accessToken,
+    int semesterId,
+  ) async {
+    try {
+      final httpClient = HttpClient()
+        ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+      
+      final request = await httpClient.getUrl(
+        Uri.parse('$baseUrl/api/StudentCourseSubject/studentLoginUser/$semesterId'),
+      );
+      request.headers.add('Authorization', 'Bearer $accessToken');
+      request.headers.add('Accept', 'application/json');
+
+      final response = await request.close().timeout(const Duration(seconds: 30));
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(responseBody);
+        
+        // Handle both array and object responses
+        List<dynamic> rawCourses = [];
+        if (jsonResponse is List) {
+          rawCourses = jsonResponse;
+        } else if (jsonResponse is Map && jsonResponse.containsKey('content')) {
+          rawCourses = jsonResponse['content'] ?? [];
+        }
+        
+        // Expand courses: create one entry per timetable
+        List<StudentCourseSubject> expandedCourses = [];
+        for (var courseJson in rawCourses) {
+          // Check if courseSubject has multiple timetables
+          if (courseJson['courseSubject'] is Map) {
+            final courseSubject = courseJson['courseSubject'];
+            final timetables = courseSubject['timetables'];
+            
+            if (timetables is List && timetables.isNotEmpty) {
+              // Create one StudentCourseSubject per timetable
+              for (var timetable in timetables) {
+                // Create a modified JSON with only this timetable
+                final modifiedJson = Map<String, dynamic>.from(courseJson);
+                final modifiedCourseSubject = Map<String, dynamic>.from(courseSubject);
+                modifiedCourseSubject['timetables'] = [timetable];
+                modifiedJson['courseSubject'] = modifiedCourseSubject;
+                
+                expandedCourses.add(StudentCourseSubject.fromJson(modifiedJson));
+              }
+            } else {
+              // No timetables, add as is
+              expandedCourses.add(StudentCourseSubject.fromJson(courseJson));
+            }
+          } else {
+            // No courseSubject, add as is
+            expandedCourses.add(StudentCourseSubject.fromJson(courseJson));
+          }
+        }
+        
+        return expandedCourses;
+      } else {
+        throw Exception('Không thể lấy dữ liệu học phần (${response.statusCode})');
+      }
+    } catch (e) {
+      if (e.toString().contains('CERTIFICATE_VERIFY_FAILED')) {
+        throw Exception('Lỗi chứng chỉ SSL. Vui lòng thử lại.');
+      }
+      throw Exception('Lỗi lấy dữ liệu học phần: $e');
+    }
+  }
 }

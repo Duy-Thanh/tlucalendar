@@ -3,13 +3,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tlucalendar/models/user.dart';
 import 'package:tlucalendar/models/api_response.dart';
 import 'package:tlucalendar/services/auth_service.dart';
+import 'package:tlucalendar/services/database_helper.dart';
 
 class UserProvider extends ChangeNotifier {
   late User _currentUser;
   late SharedPreferences _prefs;
   late AuthService _authService;
+  final _dbHelper = DatabaseHelper.instance;
   bool _isLoggedIn = false;
   String? _accessToken;
+  
+  // New fields for TLU API data
+  TluUser? _tluUser;
+  SchoolYearResponse? _schoolYears;
+  SemesterInfo? _currentSemesterInfo;
+  Semester? _selectedSemester;
+  Map<int, CourseHour> _courseHours = {};  // Map of CourseHour by ID
+  List<StudentCourseSubject> _studentCourses = [];
+  bool _isLoadingCourses = false;
+  String? _courseLoadError;
 
   static const String _studentCodeKey = 'userStudentCode';
   static const String _passwordKey = 'userPassword';
@@ -20,6 +32,31 @@ class UserProvider extends ChangeNotifier {
   User get currentUser => _currentUser;
   bool get isLoggedIn => _isLoggedIn;
   String? get accessToken => _accessToken;
+  TluUser? get tluUser => _tluUser;
+  SchoolYearResponse? get schoolYears => _schoolYears;
+  SemesterInfo? get currentSemesterInfo => _currentSemesterInfo;
+  Semester? get selectedSemester => _selectedSemester;
+  Map<int, CourseHour> get courseHours => _courseHours;
+  List<StudentCourseSubject> get studentCourses => _studentCourses;
+  bool get isLoadingCourses => _isLoadingCourses;
+  String? get courseLoadError => _courseLoadError;
+  
+  /// Get semester start date for week calculation
+  DateTime? get semesterStartDate {
+    if (_selectedSemester != null) {
+      return DateTime.fromMillisecondsSinceEpoch(_selectedSemester!.startDate);
+    }
+    return null;
+  }
+  
+  /// Get filtered courses that are active today
+  List<StudentCourseSubject> getActiveCourses(DateTime date) {
+    if (semesterStartDate == null) return _studentCourses;
+    
+    return _studentCourses.where((course) {
+      return course.isActiveOn(date, semesterStartDate!);
+    }).toList();
+  }
 
   UserProvider() {
     // Initialize with sample user
@@ -37,23 +74,90 @@ class UserProvider extends ChangeNotifier {
     _isLoggedIn = _prefs.getBool(_isLoggedInKey) ?? false;
     _accessToken = _prefs.getString(_accessTokenKey);
 
-    if (_isLoggedIn && _accessToken != null) {
-      // Try to load user from saved token
-      try {
-        final isValid = await _authService.isTokenValid(_accessToken!);
-        if (isValid) {
-          final tluUser = await _authService.getCurrentUser(_accessToken!);
-          _updateUserFromTluUser(tluUser);
-        } else {
-          // Token expired, need to re-login
-          _isLoggedIn = false;
+    if (_isLoggedIn) {
+      // Load cached data from database
+      await _loadCachedData();
+      
+      // Try to refresh from API if token is valid
+      if (_accessToken != null) {
+        try {
+          final isValid = await _authService.isTokenValid(_accessToken!);
+          if (isValid) {
+            // Token is valid, refresh data from API
+            await _refreshFromApi();
+          } else {
+            // Token expired, use cached data
+            _isLoggedIn = false;
+          }
+        } catch (e) {
+          // Network error, use cached data
+          print('Using cached data: $e');
         }
-      } catch (e) {
-        // Error fetching user, reset login state
-        _isLoggedIn = false;
       }
     }
     notifyListeners();
+  }
+
+  /// Load cached data from local database
+  Future<void> _loadCachedData() async {
+    try {
+      // Load user
+      _tluUser = await _dbHelper.getTluUser();
+      if (_tluUser != null) {
+        _updateUserFromTluUser(_tluUser!);
+      }
+
+      // Load course hours
+      _courseHours = await _dbHelper.getCourseHours();
+
+      // Load school years and semesters
+      final schoolYears = await _dbHelper.getSchoolYears();
+      final semesters = await _dbHelper.getSemesters();
+      
+      if (schoolYears.isNotEmpty && semesters.isNotEmpty) {
+        // Group semesters by school year
+        for (var year in schoolYears) {
+          year.semesters.clear();
+          year.semesters.addAll(
+            semesters.where((s) {
+              // Match semesters to school years by date range
+              return s.startDate >= year.startDate && s.endDate <= year.endDate;
+            }).toList(),
+          );
+        }
+        
+        _schoolYears = SchoolYearResponse(
+          content: schoolYears,
+          last: true,
+          totalElements: schoolYears.length,
+          totalPages: 1,
+        );
+
+        // Find active semester
+        _selectedSemester = semesters.firstWhere(
+          (s) => s.isActive(),
+          orElse: () => semesters.first,
+        );
+
+        // Load courses for selected semester
+        if (_selectedSemester != null) {
+          _studentCourses = await _dbHelper.getStudentCourses(_selectedSemester!.id);
+        }
+      }
+    } catch (e) {
+      print('Error loading cached data: $e');
+    }
+  }
+
+  /// Refresh data from API
+  Future<void> _refreshFromApi() async {
+    try {
+      final tluUser = await _authService.getCurrentUser(_accessToken!);
+      _updateUserFromTluUser(tluUser);
+      await _dbHelper.saveTluUser(tluUser);
+    } catch (e) {
+      print('Error refreshing from API: $e');
+    }
   }
 
   void updateUser(User user) {
@@ -78,10 +182,55 @@ class UserProvider extends ChangeNotifier {
       _accessToken = loginResponse.accessToken;
 
       // Step 2: Fetch user data
-      final tluUser = await _authService.getCurrentUser(_accessToken!);
+      _tluUser = await _authService.getCurrentUser(_accessToken!);
+      _updateUserFromTluUser(_tluUser!);
+      await _dbHelper.saveTluUser(_tluUser!); // 💾 Save to database
 
-      // Step 3: Update user and save credentials
-      _updateUserFromTluUser(tluUser);
+      // Step 3: Fetch school years and semesters
+      _schoolYears = await _authService.getSchoolYears(_accessToken!);
+      
+      // Step 4: Fetch current semester info
+      _currentSemesterInfo = await _authService.getSemesterInfo(_accessToken!);
+      
+      // Step 5: Fetch all course hours (time slots) - needed to display times
+      _courseHours = await _authService.getCourseHours(_accessToken!);
+      await _dbHelper.saveCourseHours(_courseHours); // 💾 Save to database
+      
+      // Step 6: Find and set selected semester (current semester based on actual dates)
+      if (_schoolYears != null) {
+        // Save school years to database
+        await _dbHelper.saveSchoolYears(_schoolYears!.content);
+        
+        // Save all semesters to database
+        final allSemesters = _schoolYears!.content
+            .expand((y) => y.semesters)
+            .toList();
+        await _dbHelper.saveSemesters(allSemesters);
+        
+        // First, try to find a semester that is currently active (today's date falls within it)
+        _selectedSemester = _schoolYears!.content
+            .expand((y) => y.semesters)
+            .firstWhere(
+              (s) => s.isActive(),
+              orElse: () {
+                // If no active semester found, use the one marked as isCurrent
+                try {
+                  return _schoolYears!.content
+                      .expand((y) => y.semesters)
+                      .firstWhere((s) => s.isCurrent);
+                } catch (e) {
+                  // Last resort: use first semester
+                  return _schoolYears!.content[0].semesters[0];
+                }
+              },
+            );
+      }
+      
+      // Step 7: Load courses for selected semester
+      if (_selectedSemester != null) {
+        await loadCoursesForSemester(_selectedSemester!.id);
+      }
+
       _isLoggedIn = true;
 
       // Save to device
@@ -95,8 +244,46 @@ class UserProvider extends ChangeNotifier {
     } catch (e) {
       _isLoggedIn = false;
       _accessToken = null;
+      _schoolYears = null;
+      _currentSemesterInfo = null;
+      _selectedSemester = null;
+      _courseHours = {};
+      _studentCourses = [];
       rethrow;
     }
+  }
+
+  /// Load courses for a specific semester
+  Future<void> loadCoursesForSemester(int semesterId) async {
+    if (_accessToken == null) return;
+    
+    try {
+      _isLoadingCourses = true;
+      _courseLoadError = null;
+      notifyListeners();
+      
+      _studentCourses = await _authService.getStudentCourseSubject(
+        _accessToken!,
+        semesterId,
+      );
+      
+      // 💾 Save courses to database
+      await _dbHelper.saveStudentCourses(semesterId, _studentCourses);
+      
+      _isLoadingCourses = false;
+      notifyListeners();
+    } catch (e) {
+      _courseLoadError = e.toString();
+      _isLoadingCourses = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  /// Change selected semester and load courses
+  Future<void> selectSemester(Semester semester) async {
+    _selectedSemester = semester;
+    await loadCoursesForSemester(semester.id);
   }
 
   /// Log out and clear saved credentials

@@ -258,6 +258,17 @@ class Semester {
         : [],
     );
   }
+
+  /// Check if today's date falls within this semester
+  bool isActive() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return startDate <= now && now <= endDate;
+  }
+
+  /// Get formatted semester display name
+  String getDisplayName() {
+    return semesterName;
+  }
 }
 
 class SemesterRegisterPeriod {
@@ -276,6 +287,432 @@ class SemesterRegisterPeriod {
       id: json['id'] ?? 0,
       name: json['name'] ?? '',
       displayOrder: json['displayOrder'] ?? 0,
+    );
+  }
+}
+
+// Detailed Semester Info Response
+class SemesterInfo {
+  final int id;
+  final String semesterCode;
+  final String semesterName;
+  final SchoolYearBasic? schoolYear;
+  final int startDate;
+  final int endDate;
+  final bool isCurrent;
+  final int ordinalNumbers;
+  final List<SemesterRegisterPeriodDetail> semesterRegisterPeriods;
+  final List<ExamRegisterPeriod> examRegisterPeriods;
+  final int typeMarkRecognition;
+
+  SemesterInfo({
+    required this.id,
+    required this.semesterCode,
+    required this.semesterName,
+    required this.schoolYear,
+    required this.startDate,
+    required this.endDate,
+    required this.isCurrent,
+    required this.ordinalNumbers,
+    required this.semesterRegisterPeriods,
+    required this.examRegisterPeriods,
+    required this.typeMarkRecognition,
+  });
+
+  factory SemesterInfo.fromJson(Map<String, dynamic> json) {
+    var periodsList = json['semesterRegisterPeriods'] as List?;
+    var examList = json['examRegisterPeriods'] as List?;
+    
+    return SemesterInfo(
+      id: json['id'] ?? 0,
+      semesterCode: json['semesterCode'] ?? '',
+      semesterName: json['semesterName'] ?? '',
+      schoolYear: json['schoolYear'] != null 
+        ? SchoolYearBasic.fromJson(json['schoolYear'])
+        : null,
+      startDate: json['startDate'] ?? 0,
+      endDate: json['endDate'] ?? 0,
+      isCurrent: json['isCurrent'] ?? false,
+      ordinalNumbers: json['ordinalNumbers'] ?? 0,
+      semesterRegisterPeriods: periodsList != null
+        ? periodsList.map((item) => SemesterRegisterPeriodDetail.fromJson(item)).toList()
+        : [],
+      examRegisterPeriods: examList != null
+        ? examList.map((item) => ExamRegisterPeriod.fromJson(item)).toList()
+        : [],
+      typeMarkRecognition: json['typeMarkRecognition'] ?? 0,
+    );
+  }
+}
+
+class SchoolYearBasic {
+  final int id;
+  final String name;
+  final String code;
+  final int year;
+  final int startDate;
+  final int endDate;
+
+  SchoolYearBasic({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.year,
+    required this.startDate,
+    required this.endDate,
+  });
+
+  factory SchoolYearBasic.fromJson(Map<String, dynamic> json) {
+    return SchoolYearBasic(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      code: json['code'] ?? '',
+      year: json['year'] ?? 0,
+      startDate: json['startDate'] ?? 0,
+      endDate: json['endDate'] ?? 0,
+    );
+  }
+}
+
+class SemesterRegisterPeriodDetail {
+  final int id;
+  final String name;
+  final int displayOrder;
+  final int? startRegisterTime;
+  final int? endRegisterTime;
+  final int? endUnRegisterTime;
+  final List<dynamic> examPeriods;
+
+  SemesterRegisterPeriodDetail({
+    required this.id,
+    required this.name,
+    required this.displayOrder,
+    required this.startRegisterTime,
+    required this.endRegisterTime,
+    required this.endUnRegisterTime,
+    required this.examPeriods,
+  });
+
+  factory SemesterRegisterPeriodDetail.fromJson(Map<String, dynamic> json) {
+    var examList = json['examPeriods'] as List?;
+    
+    return SemesterRegisterPeriodDetail(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      displayOrder: json['displayOrder'] ?? 0,
+      startRegisterTime: json['startRegisterTime'],
+      endRegisterTime: json['endRegisterTime'],
+      endUnRegisterTime: json['endUnRegisterTime'],
+      examPeriods: examList ?? [],
+    );
+  }
+}
+
+class ExamRegisterPeriod {
+  final int id;
+  final String name;
+  final String code;
+  final int startDate;
+  final int endDate;
+  final bool isPublished;
+
+  ExamRegisterPeriod({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.startDate,
+    required this.endDate,
+    required this.isPublished,
+  });
+
+  factory ExamRegisterPeriod.fromJson(Map<String, dynamic> json) {
+    return ExamRegisterPeriod(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      code: json['code'] ?? '',
+      startDate: json['start'] ?? json['fromDate'] ?? 0,
+      endDate: json['end'] ?? json['toDate'] ?? 0,
+      isPublished: json['isPublished'] ?? false,
+    );
+  }
+}
+
+// Course Hour (Class Time Slot)
+class CourseHour {
+  final int id;
+  final String name;          // "Tiết 1", "Tiết 2", etc.
+  final int start;            // Milliseconds (unused, for reference)
+  final String startString;   // "07:00"
+  final int end;              // Milliseconds (unused, for reference)
+  final String endString;     // "07:50"
+  final int indexNumber;      // Slot number 1-15
+  final int type;             // 1=Morning, 2=Afternoon, 3=Evening
+
+  CourseHour({
+    required this.id,
+    required this.name,
+    required this.start,
+    required this.startString,
+    required this.end,
+    required this.endString,
+    required this.indexNumber,
+    required this.type,
+  });
+
+  factory CourseHour.fromJson(Map<String, dynamic> json) {
+    // Helper to safely convert any value to string
+    String _toString(dynamic value, {String defaultValue = '00:00'}) {
+      if (value == null) return defaultValue;
+      if (value is String) return value;
+      return value.toString();
+    }
+
+    return CourseHour(
+      id: json['id'] ?? 0,
+      name: _toString(json['name'], defaultValue: ''),
+      start: json['start'] ?? 0,
+      startString: _toString(json['startString'], defaultValue: '00:00'),
+      end: json['end'] ?? 0,
+      endString: _toString(json['endString'], defaultValue: '00:00'),
+      indexNumber: json['indexNumber'] ?? 0,
+      type: json['type'] ?? 1,
+    );
+  }
+}
+
+// Student Course Subject (Schedule)
+class StudentCourseSubject {
+  final int id;
+  final String courseCode;
+  final String courseName;
+  final String classCode;
+  final String className;
+  final LecturerInfo? lecturer;
+  final int dayOfWeek;        // 0=Monday, 1=Tuesday, ..., 6=Sunday
+  final int startCourseHour;  // Course hour ID (reference to CourseHour)
+  final int endCourseHour;    // Course hour ID (reference to CourseHour)
+  final String room;
+  final String building;
+  final String campus;
+  final int credits;
+  final int startDate;        // Milliseconds (timetable start date)
+  final int endDate;          // Milliseconds (timetable end date)
+  final int fromWeek;         // Week number (1-based) when this schedule starts
+  final int toWeek;           // Week number (1-based) when this schedule ends
+  final String status;        // "registered", "completed", "pending"
+  final double? grade;
+
+  StudentCourseSubject({
+    required this.id,
+    required this.courseCode,
+    required this.courseName,
+    required this.classCode,
+    required this.className,
+    required this.lecturer,
+    required this.dayOfWeek,
+    required this.startCourseHour,
+    required this.endCourseHour,
+    required this.room,
+    required this.building,
+    required this.campus,
+    required this.credits,
+    required this.startDate,
+    required this.endDate,
+    required this.fromWeek,
+    required this.toWeek,
+    required this.status,
+    required this.grade,
+  });
+
+  /// Check if this course schedule is active for a given date
+  /// Takes into account the fromWeek-toWeek range and startDate-endDate
+  bool isActiveOn(DateTime date, DateTime semesterStartDate) {
+    final now = date.millisecondsSinceEpoch;
+    
+    // Check if date falls within the timetable's date range
+    if (now < startDate || now > endDate) {
+      return false;
+    }
+    
+    // Calculate which week number the given date falls into
+    final weekNumber = _calculateWeekNumber(date, semesterStartDate);
+    
+    // Check if the week number is within fromWeek-toWeek range
+    return weekNumber >= fromWeek && weekNumber <= toWeek;
+  }
+  
+  /// Calculate week number (1-based) from semester start date
+  int _calculateWeekNumber(DateTime currentDate, DateTime semesterStart) {
+    final daysDifference = currentDate.difference(semesterStart).inDays;
+    return (daysDifference / 7).floor() + 1;
+  }
+
+  factory StudentCourseSubject.fromJson(Map<String, dynamic> json) {
+    // Helper to safely parse int from various types
+    int parseInt(dynamic value, {int defaultValue = 0}) {
+      if (value == null) return defaultValue;
+      if (value is int) return value;
+      if (value is String) return int.tryParse(value) ?? defaultValue;
+      if (value is double) return value.toInt();
+      return defaultValue;
+    }
+
+    // Helper to safely convert any value to string
+    String _toString(dynamic value, {String defaultValue = ''}) {
+      if (value == null) return defaultValue;
+      if (value is String) return value;
+      return value.toString();
+    }
+
+    // Extract data from nested courseSubject if it exists
+    Map<String, dynamic> courseSubjectData = {};
+    if (json['courseSubject'] is Map) {
+      courseSubjectData = json['courseSubject'];
+    }
+
+    // Parse course hour info from courseSubject or timetables
+    int startHour = 0;
+    int endHour = 0;
+    int dayOfWeek = -1;
+    String room = '';
+    String building = '';
+    String campus = '';
+    int fromWeek = 1;
+    int toWeek = 1;
+    int timetableStartDate = 0;
+    int timetableEndDate = 0;
+    
+    // Try to get schedule from timetables array (first entry if exists)
+    if (courseSubjectData['timetables'] is List && (courseSubjectData['timetables'] as List).isNotEmpty) {
+      final timetable = courseSubjectData['timetables'][0];
+      
+      if (timetable is Map) {
+        // Parse course hours from timetable
+        // In the API, startHour and endHour are objects with id field
+        var startHourObj = timetable['startHour'];
+        var endHourObj = timetable['endHour'];
+        
+        if (startHourObj is Map) {
+          startHour = parseInt(startHourObj['id']);
+        } else if (timetable['startCourseHour'] is Map) {
+          startHour = parseInt(timetable['startCourseHour']['id']);
+        } else {
+          startHour = parseInt(startHourObj ?? timetable['startTime']);
+        }
+        
+        if (endHourObj is Map) {
+          endHour = parseInt(endHourObj['id']);
+        } else if (timetable['endCourseHour'] is Map) {
+          endHour = parseInt(timetable['endCourseHour']['id']);
+        } else {
+          endHour = parseInt(endHourObj ?? timetable['endTime']);
+        }
+        
+        // weekIndex is the day of week (0=Monday, 1=Tuesday, etc.)
+        dayOfWeek = parseInt(timetable['weekIndex']);
+        
+        // Week range (fromWeek - toWeek)
+        fromWeek = parseInt(timetable['fromWeek'], defaultValue: 1);
+        toWeek = parseInt(timetable['toWeek'], defaultValue: 1);
+        
+        // Date range for this specific timetable
+        timetableStartDate = parseInt(timetable['startDate']);
+        timetableEndDate = parseInt(timetable['endDate']);
+        
+        // Room information is in a nested object
+        if (timetable['room'] is Map) {
+          room = _toString(timetable['room']['name']);
+          building = _toString(timetable['room']['building']);
+        } else {
+          room = _toString(timetable['room']);
+          building = _toString(timetable['building']);
+        }
+        
+        campus = _toString(timetable['campus']);
+      }
+    }
+    
+    // Fallback to direct courseSubject fields if timetable didn't work
+    if (startHour == 0 && courseSubjectData['startCourseHour'] != null) {
+      var startHourObj = courseSubjectData['startCourseHour'];
+      if (startHourObj is Map) {
+        startHour = parseInt(startHourObj['id']);
+      } else {
+        startHour = parseInt(startHourObj);
+      }
+    }
+    
+    if (endHour == 0 && courseSubjectData['endCourseHour'] != null) {
+      var endHourObj = courseSubjectData['endCourseHour'];
+      if (endHourObj is Map) {
+        endHour = parseInt(endHourObj['id']);
+      } else {
+        endHour = parseInt(endHourObj);
+      }
+    }
+    
+    if (dayOfWeek == -1 && courseSubjectData['dayOfWeek'] != null) {
+      dayOfWeek = parseInt(courseSubjectData['dayOfWeek']);
+    }
+    
+    if (room.isEmpty && courseSubjectData['room'] != null) {
+      room = _toString(courseSubjectData['room']);
+    }
+    
+    if (building.isEmpty && courseSubjectData['building'] != null) {
+      building = _toString(courseSubjectData['building']);
+    }
+    
+    if (campus.isEmpty && courseSubjectData['campus'] != null) {
+      campus = _toString(courseSubjectData['campus']);
+    }
+
+    final credits = parseInt(json['numberOfCredit'] ?? json['credits'] ?? json['credit']);
+    final courseName = _toString(json['subjectName'] ?? json['courseName']);
+    final courseCode = _toString(json['subjectCode'] ?? json['courseCode']);
+
+    return StudentCourseSubject(
+      id: parseInt(json['id']),
+      courseCode: courseCode,
+      courseName: courseName,
+      classCode: _toString(courseSubjectData['classCode']),
+      className: _toString(courseSubjectData['className']),
+      lecturer: courseSubjectData['lecturer'] != null 
+        ? LecturerInfo.fromJson(courseSubjectData['lecturer'])
+        : null,
+      dayOfWeek: dayOfWeek,
+      startCourseHour: startHour,
+      endCourseHour: endHour,
+      room: room,
+      building: building,
+      campus: campus,
+      credits: credits,
+      startDate: timetableStartDate > 0 ? timetableStartDate : parseInt(courseSubjectData['startDate']),
+      endDate: timetableEndDate > 0 ? timetableEndDate : parseInt(courseSubjectData['endDate']),
+      fromWeek: fromWeek,
+      toWeek: toWeek,
+      status: _toString(json['status'] ?? courseSubjectData['status'], defaultValue: 'registered'),
+      grade: json['grade'] != null ? (json['grade'] as num).toDouble() : null,
+    );
+  }
+}
+
+class LecturerInfo {
+  final int id;
+  final String name;
+  final String email;
+
+  LecturerInfo({
+    required this.id,
+    required this.name,
+    required this.email,
+  });
+
+  factory LecturerInfo.fromJson(Map<String, dynamic> json) {
+    return LecturerInfo(
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      email: json['email'] ?? '',
     );
   }
 }
