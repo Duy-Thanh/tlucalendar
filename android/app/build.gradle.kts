@@ -49,6 +49,20 @@ android {
         buildConfig = true
     }
 
+    // Signing configuration for release builds
+    val keystoreFile = rootProject.file("rel.jks")
+
+    if (keystoreFile.exists()) {
+        signingConfigs {
+            create("release") {
+                storeFile = keystoreFile
+                storePassword = System.getenv("STORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("KEY_ALIAS") ?: ""
+                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            }
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
@@ -67,6 +81,10 @@ android {
                 "proguard-rules.pro"
             )
 
+            getByName("release") {
+                signingConfig = signingConfigs.getByName("release")
+            }
+
             // Enable R8 full mode
             //buildConfigField("boolean", "ENABLE_R8_FULL_MODE", "true")
 
@@ -74,29 +92,6 @@ android {
                 abiFilters += listOf("armeabi-v7a", "arm64-v8a")
             }
         }
-    }
-
-    // Signing configuration for release builds
-    val keystoreFile = rootProject.file("rel.jks")
-    
-    if (keystoreFile.exists()) {
-        signingConfigs {
-            create("release") {
-                storeFile = keystoreFile
-                storePassword = System.getenv("STORE_PASSWORD") ?: ""
-                keyAlias = System.getenv("KEY_ALIAS") ?: ""
-                keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-            }
-        }
-        
-        buildTypes {
-            getByName("release") {
-                signingConfig = signingConfigs.getByName("release")
-            }
-        }
-    } else {
-        println("WARNING: Keystore file not found at: ${keystoreFile.absolutePath}")
-        println("APK will NOT be signed!")
     }
 }
 
