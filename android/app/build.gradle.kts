@@ -74,19 +74,17 @@ android {
         }
 
         release {
+            // Assign signing config if keystore exists
+            if (keystoreFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+            
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android.txt"),
                 "proguard-rules.pro"
             )
-
-            getByName("release") {
-                signingConfig = signingConfigs.getByName("release")
-            }
-
-            // Enable R8 full mode
-            //buildConfigField("boolean", "ENABLE_R8_FULL_MODE", "true")
 
             ndk {
                 abiFilters += listOf("armeabi-v7a", "arm64-v8a")
