@@ -15,7 +15,12 @@ class SettingsScreen extends StatelessWidget {
           floating: true,
           snap: true,
           elevation: 0,
-          title: const Text('Cài đặt'),
+          title: Text(
+                'Cài đặt',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
         ),
         SliverToBoxAdapter(
           child: Consumer<UserProvider>(
@@ -241,7 +246,7 @@ class SettingsScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       Text(
-                        'Nguyen Duy Thanh (@nekkochan0x0007)',
+                        'Nguyen Duy Thanh',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),

@@ -86,7 +86,7 @@ class TodayScreen extends StatelessWidget {
                       ? EmptyStateWidget(
                           icon: Icons.school_outlined,
                           title: 'Không có lớp hôm nay',
-                          description: 'Hãy tận hưởng ngày của bạn!',
+                          description: 'Hãy tận hưởng ngày nghỉ của bạn!',
                         )
                       : ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -171,7 +171,7 @@ class TodayScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${course.courseName}-${course.credits} (${course.courseCode})',
+                    course.courseCode,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         ),
