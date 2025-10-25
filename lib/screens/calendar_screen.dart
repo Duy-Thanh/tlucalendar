@@ -39,6 +39,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     ),
               ),
             ),
+            // Semester selector
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+              child: _buildSemesterSelector(context),
+            ),
             // Month/Year selector
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -57,6 +62,60 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSemesterSelector(BuildContext context) {
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, _) {
+        if (userProvider.schoolYears == null) {
+          return const SizedBox.shrink();
+        }
+
+        // Get all semesters from all school years
+        final allSemesters = userProvider.schoolYears!.content
+            .expand((year) => year.semesters)
+            .toList();
+
+        if (allSemesters.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              value: userProvider.selectedSemester?.id,
+              isExpanded: true,
+              icon: const Icon(Icons.arrow_drop_down),
+              style: Theme.of(context).textTheme.titleSmall,
+              items: allSemesters.map((semester) {
+                return DropdownMenuItem<int>(
+                  value: semester.id,
+                  child: Text(
+                    semester.semesterName,
+                    style: TextStyle(
+                      fontWeight: semester.id == userProvider.selectedSemester?.id
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                    ),
+                  ),
+                );
+              }).toList(),
+              onChanged: (semesterId) async {
+                if (semesterId != null) {
+                  final semester = allSemesters.firstWhere((s) => s.id == semesterId);
+                  await userProvider.selectSemester(semester);
+                }
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -241,9 +300,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
           );
         }
 
+        // Show loading indicator while fetching courses
+        if (userProvider.isLoadingCourses) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  'Đang tải lịch học...',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                ),
+              ],
+            ),
+          );
+        }
+
         // Get courses for selected date
         final activeCourses = userProvider.getActiveCourses(_selectedDate);
+        
         final dayWeekIndex = _selectedDate.weekday + 1;
+        
         final dayCourses = activeCourses
             .where((c) => c.dayOfWeek == dayWeekIndex)
             .toList()

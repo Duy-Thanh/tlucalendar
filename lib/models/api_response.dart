@@ -530,21 +530,15 @@ class StudentCourseSubject {
     final now = date.millisecondsSinceEpoch;
     
     // Check if date falls within the timetable's date range
+    // The startDate and endDate already represent when this course runs
+    // Note: fromWeek/toWeek appear to be absolute week numbers (e.g., week 24 of year)
+    // not relative to semester start, so we only check the date range
     if (now < startDate || now > endDate) {
       return false;
     }
     
-    // Calculate which week number the given date falls into
-    final weekNumber = _calculateWeekNumber(date, semesterStartDate);
-    
-    // Check if the week number is within fromWeek-toWeek range
-    return weekNumber >= fromWeek && weekNumber <= toWeek;
-  }
-  
-  /// Calculate week number (1-based) from semester start date
-  int _calculateWeekNumber(DateTime currentDate, DateTime semesterStart) {
-    final daysDifference = currentDate.difference(semesterStart).inDays;
-    return (daysDifference / 7).floor() + 1;
+    // Date is within the course's active period
+    return true;
   }
 
   factory StudentCourseSubject.fromJson(Map<String, dynamic> json) {

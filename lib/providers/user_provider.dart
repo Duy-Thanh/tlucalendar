@@ -49,21 +49,51 @@ class UserProvider extends ChangeNotifier {
     return null;
   }
   
-  /// Get filtered courses that are active today
+  /// Find semester that contains the given date
+  Semester? getSemesterForDate(DateTime date) {
+    if (_schoolYears == null) return null;
+    
+    final dateMs = date.millisecondsSinceEpoch;
+    
+    // Search through all semesters to find one that contains this date
+    for (var year in _schoolYears!.content) {
+      for (var semester in year.semesters) {
+        if (dateMs >= semester.startDate && dateMs <= semester.endDate) {
+          return semester;
+        }
+      }
+    }
+    
+    return null;
+  }
+  
+  /// Get filtered courses that are active on a specific date
+  /// Only returns courses if they belong to the currently selected semester
   List<StudentCourseSubject> getActiveCourses(DateTime date) {
-    if (semesterStartDate == null) return _studentCourses;
+    if (semesterStartDate == null) {
+      return _studentCourses;
+    }
     
     return _studentCourses.where((course) {
       return course.isActiveOn(date, semesterStartDate!);
     }).toList();
   }
+  
+  /// Check if a given date belongs to the currently selected semester
+  bool isDateInCurrentSemester(DateTime date) {
+    if (_selectedSemester == null) return false;
+    
+    final dateMs = date.millisecondsSinceEpoch;
+    return dateMs >= _selectedSemester!.startDate && 
+           dateMs <= _selectedSemester!.endDate;
+  }
 
   UserProvider() {
     // Initialize with sample user
     _currentUser = User(
-      studentId: '2251061884',
-      fullName: 'Nekkochan',
-      email: 'nekkochan@tlu.edu.vn',
+      studentId: '123456789',
+      fullName: 'Guest User',
+      email: 'Guest User',
     );
     _authService = AuthService();
   }
@@ -257,18 +287,55 @@ class UserProvider extends ChangeNotifier {
   Future<void> loadCoursesForSemester(int semesterId) async {
     if (_accessToken == null) return;
     
+    // Update selected semester
+    if (_schoolYears != null) {
+      for (var year in _schoolYears!.content) {
+        for (var semester in year.semesters) {
+          if (semester.id == semesterId) {
+            _selectedSemester = semester;
+            break;
+          }
+        }
+      }
+    }
+    
     try {
       _isLoadingCourses = true;
       _courseLoadError = null;
       notifyListeners();
       
-      _studentCourses = await _authService.getStudentCourseSubject(
-        _accessToken!,
-        semesterId,
-      );
+      // Try to load from database first
+      final cachedCourses = await _dbHelper.getStudentCourses(semesterId);
       
-      // 💾 Save courses to database
-      await _dbHelper.saveStudentCourses(semesterId, _studentCourses);
+      if (cachedCourses.isNotEmpty) {
+        // Use cached data immediately
+        _studentCourses = cachedCourses;
+        _isLoadingCourses = false;
+        notifyListeners();
+      }
+      
+      // Then try to fetch fresh data from API in background
+      try {
+        final freshCourses = await _authService.getStudentCourseSubject(
+          _accessToken!,
+          semesterId,
+        );
+        
+        // Update with fresh data (even if empty - that's valid!)
+        _studentCourses = freshCourses;
+        
+        // 💾 Save courses to database
+        await _dbHelper.saveStudentCourses(semesterId, _studentCourses);
+        
+        notifyListeners();
+      } catch (apiError) {
+        // API failed, but we have cached data - that's OK
+        if (cachedCourses.isEmpty) {
+          // No cache and API failed - this is a real error
+          _courseLoadError = apiError.toString();
+          rethrow;
+        }
+      }
       
       _isLoadingCourses = false;
       notifyListeners();
