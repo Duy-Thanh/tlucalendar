@@ -1,8 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/screens/login_screen.dart';
+
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -230,7 +236,7 @@ class SettingsScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       Text(
-                        '2025.10.25',
+                        '2025.10.26',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -258,10 +264,96 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
         ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: ListTile(
+                leading: const Icon(Icons.bug_report_outlined),
+                title: const Text('Báo lỗi'),
+                subtitle: const Text('Gửi báo cáo lỗi kèm thông tin thiết bị'),
+                onTap: () async {
+                  await _sendBugReport(context);
+                },
+              ),
+            ),
+          ),
+        ),
         const SliverToBoxAdapter(
           child: SizedBox(height: 20),
         ),
       ],
     );
+  }
+
+  static Future<void> _sendBugReport(BuildContext context) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Gather app info
+    String appName = 'TLU Calendar';
+    String appVersion = '2025.10.26';
+    try {
+      final pkg = await PackageInfo.fromPlatform();
+      appName = pkg.appName;
+      appVersion = '${pkg.version}+${pkg.buildNumber}';
+    } catch (e) {
+      // ignore
+    }
+
+    // Gather device info
+    final deviceInfo = DeviceInfoPlugin();
+    String deviceDetails = '';
+    try {
+      if (Platform.isAndroid) {
+        final info = await deviceInfo.androidInfo;
+        deviceDetails = 'Android ${info.version.release} (SDK ${info.version.sdkInt}) - ${info.brand} ${info.model}';
+      } else if (Platform.isIOS) {
+        final info = await deviceInfo.iosInfo;
+        deviceDetails = 'iOS ${info.systemVersion} - ${info.name} ${info.model}';
+      } else {
+        deviceDetails = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+      }
+    } catch (e) {
+      deviceDetails = 'Unknown device info: $e';
+    }
+
+    // Collect user and app state
+    final userId = userProvider.isLoggedIn ? userProvider.currentUser.studentId : 'not_logged_in';
+    final userName = userProvider.isLoggedIn ? userProvider.currentUser.fullName : 'not_logged_in';
+    final selectedSemester = userProvider.selectedSemester?.semesterName ?? 'unknown';
+
+    // Current stack trace (point of report)
+    final stack = StackTrace.current.toString();
+
+    final subject = 'TLU Calendar Bug Report';
+
+    final body = StringBuffer();
+    body.writeln('App: $appName');
+    body.writeln('Version: $appVersion');
+    body.writeln('Device: $deviceDetails');
+    body.writeln('User: $userName ($userId)');
+    body.writeln('Selected semester: $selectedSemester');
+    body.writeln('\nStack trace:\n');
+    body.writeln(stack);
+    body.writeln('\nPlease describe the steps to reproduce, expected behavior and actual behavior:\n');
+
+    // Use percent-encoding for subject/body so spaces are encoded as %20
+    final encodedSubject = Uri.encodeComponent(subject);
+    final encodedBody = Uri.encodeComponent(body.toString());
+    final mailto = 'mailto:thanhdz167@gmail.com?subject=$encodedSubject&body=$encodedBody';
+    final uri = Uri.parse(mailto);
+
+    try {
+      if (!await launchUrl(uri)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể mở ứng dụng email trên thiết bị này.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi khi mở email: $e')),
+      );
+    }
   }
 }

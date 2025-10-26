@@ -10,8 +10,9 @@ class TodayScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
+    final dayName = _getDayOfWeek(today.weekday);
     final dateFormat =
-        'Thứ ${_getDayOfWeek(today.weekday)}, Ngày ${today.day}/${today.month}/${today.year}';
+        '$dayName, Ngày ${today.day}/${today.month}/${today.year}';
 
     return Consumer<UserProvider>(
       builder: (context, userProvider, _) {
@@ -209,7 +210,17 @@ class TodayScreen extends StatelessWidget {
   }
 
   String _getDayOfWeek(int weekday) {
-    const days = ['2', '3', '4', '5', '6', '7', 'Chủ nhật'];
+    // Monday = 1, Sunday = 7
+    // In Vietnamese: Monday-Saturday use "Thứ" prefix, Sunday is just "Chủ Nhật"
+    const days = [
+      'Thứ Hai',    // Monday (1)
+      'Thứ Ba',     // Tuesday (2)
+      'Thứ Tư',     // Wednesday (3)
+      'Thứ Năm',    // Thursday (4)
+      'Thứ Sáu',    // Friday (5)
+      'Thứ Bảy',    // Saturday (6)
+      'Chủ Nhật',   // Sunday (7)
+    ];
     if (weekday >= 1 && weekday <= 7) {
       return days[weekday - 1];
     }

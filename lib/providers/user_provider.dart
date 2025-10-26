@@ -105,23 +105,23 @@ class UserProvider extends ChangeNotifier {
     _accessToken = _prefs.getString(_accessTokenKey);
 
     if (_isLoggedIn) {
-      // Load cached data from database
+      // Load cached data from database first (works offline!)
       await _loadCachedData();
       
-      // Try to refresh from API if token is valid
+      // Try to refresh from API if we have network (optional)
       if (_accessToken != null) {
         try {
           final isValid = await _authService.isTokenValid(_accessToken!);
           if (isValid) {
-            // Token is valid, refresh data from API
+            // Token is valid, refresh data from API in background
             await _refreshFromApi();
-          } else {
-            // Token expired, use cached data
-            _isLoggedIn = false;
           }
+          // Note: If token is invalid, we still keep user logged in with cached data
+          // They can manually logout if needed
         } catch (e) {
-          // Network error, use cached data
-          print('Using cached data: $e');
+          // Network error - that's fine! We have cached data
+          print('Using cached data (offline mode): $e');
+          // Keep _isLoggedIn = true so user can access cached data
         }
       }
     }
@@ -256,9 +256,36 @@ class UserProvider extends ChangeNotifier {
             );
       }
       
-      // Step 7: Load courses for selected semester
-      if (_selectedSemester != null) {
-        await loadCoursesForSemester(_selectedSemester!.id);
+      // Step 7: Fetch and save courses for ALL semesters (for offline use!)
+      if (_schoolYears != null) {
+        final allSemesters = _schoolYears!.content
+            .expand((y) => y.semesters)
+            .toList();
+        
+        print('📥 Downloading courses for ALL ${allSemesters.length} semesters...');
+        
+        for (var semester in allSemesters) {
+          try {
+            final courses = await _authService.getStudentCourseSubject(
+              _accessToken!,
+              semester.id,
+            );
+            
+            // Save to database
+            await _dbHelper.saveStudentCourses(semester.id, courses);
+            print('✅ Saved ${courses.length} courses for semester ${semester.semesterName}');
+            
+            // If this is the selected semester, update current courses
+            if (semester.id == _selectedSemester?.id) {
+              _studentCourses = courses;
+            }
+          } catch (e) {
+            print('⚠️ Failed to fetch courses for semester ${semester.semesterName}: $e');
+            // Continue with other semesters even if one fails
+          }
+        }
+        
+        print('🎉 All semester data downloaded and cached!');
       }
 
       _isLoggedIn = true;
@@ -285,8 +312,6 @@ class UserProvider extends ChangeNotifier {
 
   /// Load courses for a specific semester
   Future<void> loadCoursesForSemester(int semesterId) async {
-    if (_accessToken == null) return;
-    
     // Update selected semester
     if (_schoolYears != null) {
       for (var year in _schoolYears!.content) {
@@ -304,46 +329,39 @@ class UserProvider extends ChangeNotifier {
       _courseLoadError = null;
       notifyListeners();
       
-      // Try to load from database first
+      // Load from database first (works offline!)
       final cachedCourses = await _dbHelper.getStudentCourses(semesterId);
       
-      if (cachedCourses.isNotEmpty) {
-        // Use cached data immediately
-        _studentCourses = cachedCourses;
-        _isLoadingCourses = false;
-        notifyListeners();
-      }
-      
-      // Then try to fetch fresh data from API in background
-      try {
-        final freshCourses = await _authService.getStudentCourseSubject(
-          _accessToken!,
-          semesterId,
-        );
-        
-        // Update with fresh data (even if empty - that's valid!)
-        _studentCourses = freshCourses;
-        
-        // 💾 Save courses to database
-        await _dbHelper.saveStudentCourses(semesterId, _studentCourses);
-        
-        notifyListeners();
-      } catch (apiError) {
-        // API failed, but we have cached data - that's OK
-        if (cachedCourses.isEmpty) {
-          // No cache and API failed - this is a real error
-          _courseLoadError = apiError.toString();
-          rethrow;
-        }
-      }
-      
+      // Always use cached data if available
+      _studentCourses = cachedCourses;
       _isLoadingCourses = false;
       notifyListeners();
+      
+      // Try to fetch fresh data from API in background (only if online)
+      if (_accessToken != null) {
+        try {
+          final freshCourses = await _authService.getStudentCourseSubject(
+            _accessToken!,
+            semesterId,
+          );
+          
+          // Update with fresh data (even if empty - that's valid!)
+          _studentCourses = freshCourses;
+          
+          // 💾 Save courses to database
+          await _dbHelper.saveStudentCourses(semesterId, _studentCourses);
+          
+          notifyListeners();
+        } catch (apiError) {
+          // API failed (offline or network error)
+          // We already loaded cached data above, so just log it
+          print('Using cached data for semester $semesterId (offline or API error): $apiError');
+        }
+      }
     } catch (e) {
       _courseLoadError = e.toString();
       _isLoadingCourses = false;
       notifyListeners();
-      rethrow;
     }
   }
 

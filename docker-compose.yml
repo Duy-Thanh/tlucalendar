@@ -6,7 +6,7 @@ services:
     image: dockurr/macos
     environment:
       VERSION: "14" # macOS version, we are using version 15 for better compatibility with Xcode
-      RAM_SIZE: "6G" # Recommended RAM size is at least 8GB
+      RAM_SIZE: "5G" # Recommended RAM size is at least 8GB
       CPU_CORES: "4"
     devices:
       - /dev/kvm
