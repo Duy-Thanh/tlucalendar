@@ -2,6 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/screens/login_screen.dart';
@@ -280,6 +283,22 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
         ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('Third-party notices'),
+                subtitle: const Text('Xem giấy phép mã nguồn mở'),
+                onTap: () async {
+                  await _viewThirdPartyNotices(context);
+                },
+              ),
+            ),
+          ),
+        ),
         const SliverToBoxAdapter(
           child: SizedBox(height: 20),
         ),
@@ -354,6 +373,32 @@ class SettingsScreen extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Lỗi khi mở email: $e')),
       );
+    }
+  }
+
+  static Future<void> _viewThirdPartyNotices(BuildContext context) async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        const intent = AndroidIntent(
+          action: 'android.intent.action.MAIN',
+          package: 'com.nekkochan.tlucalendar',
+          componentName: 'com.nekkochan.tlucalendar.LicenseActivity',
+          flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+        );
+        await intent.launch();
+      } catch (e) {
+        debugPrint("⚠️ Cannot launch native activity: $e");
+      }
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // iOS
+    } else if (defaultTargetPlatform == TargetPlatform.windows) {
+      // Windows
+    } else if (defaultTargetPlatform == TargetPlatform.macOS) {
+      // macOS
+    } else if (defaultTargetPlatform == TargetPlatform.linux) {
+      // Linux
     }
   }
 }

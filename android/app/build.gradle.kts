@@ -1,10 +1,14 @@
 // Copyright (C) 2025 Nguyen Duy Thanh (@Nekkochan0x0007). All right reserved
 
 plugins {
+    id("com.mikepenz.aboutlibraries.plugin")
+    id("com.mikepenz.aboutlibraries.plugin.android")
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Compose Compiler plugin (required for Kotlin 2.0+)
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -38,6 +42,7 @@ android {
 
     buildFeatures {
         buildConfig = true
+        compose = true
     }
 
     // Signing configuration for release builds
@@ -92,5 +97,21 @@ dependencies {
     // Play Core SDK (Flutter deferred components / SplitInstall)
     //implementation("com.google.android.play:core:1.10.3")
     //implementation("com.google.android.play:core-ktx:1.8.1")
-    // implementation("androidx.core:core-ktx:1.13.1")
+
+    implementation("androidx.activity:activity-compose:1.11.0")
+    implementation("androidx.compose.ui:ui:1.9.4")
+    implementation("androidx.compose.material3:material3:1.4.0")
+    implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.9.4")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.9.4")
+
+    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+
+    implementation("com.mikepenz:aboutlibraries-core:13.1.0")
+    implementation("com.mikepenz:aboutlibraries-compose-core:13.1.0")
+    implementation("com.mikepenz:aboutlibraries-compose:13.1.0")
+    implementation("com.mikepenz:aboutlibraries-compose-m3:13.1.0")
+    implementation("com.mikepenz:aboutlibraries:13.1.0")
+
 }
