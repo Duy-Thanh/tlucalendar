@@ -527,13 +527,17 @@ class StudentCourseSubject {
   /// Check if this course schedule is active for a given date
   /// Takes into account the fromWeek-toWeek range and startDate-endDate
   bool isActiveOn(DateTime date, DateTime semesterStartDate) {
-    final now = date.millisecondsSinceEpoch;
+    // Convert all dates to date-only (midnight) for comparison
+    // This is necessary because course dates may have time components (e.g., 07:00:00)
+    // but we want to check if a calendar date falls within the course period
+    final checkDate = DateTime(date.year, date.month, date.day);
+    final courseStart = DateTime.fromMillisecondsSinceEpoch(startDate);
+    final courseStartDate = DateTime(courseStart.year, courseStart.month, courseStart.day);
+    final courseEnd = DateTime.fromMillisecondsSinceEpoch(endDate);
+    final courseEndDate = DateTime(courseEnd.year, courseEnd.month, courseEnd.day);
     
-    // Check if date falls within the timetable's date range
-    // The startDate and endDate already represent when this course runs
-    // Note: fromWeek/toWeek appear to be absolute week numbers (e.g., week 24 of year)
-    // not relative to semester start, so we only check the date range
-    if (now < startDate || now > endDate) {
+    // Check if date falls within the course's date range (ignoring time-of-day)
+    if (checkDate.isBefore(courseStartDate) || checkDate.isAfter(courseEndDate)) {
       return false;
     }
     
