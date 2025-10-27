@@ -106,7 +106,7 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling:1.9.4")
 
     implementation("androidx.core:core-ktx:1.17.0")
-    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("androidx.appcompat:appcompat:1.7.1")
 
     implementation("com.mikepenz:aboutlibraries-core:13.1.0")
     implementation("com.mikepenz:aboutlibraries-compose-core:13.1.0")
