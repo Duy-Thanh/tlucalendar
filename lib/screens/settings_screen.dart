@@ -1,13 +1,13 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
-import 'package:android_intent_plus/android_intent.dart';
-import 'package:android_intent_plus/flag.dart';
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/screens/login_screen.dart';
+import 'package:tlucalendar/utils/error_logger.dart';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -239,7 +239,7 @@ class SettingsScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       Text(
-                        '2025.10.26',
+                        '2025.10.27',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -283,22 +283,24 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
         ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Card(
-              margin: EdgeInsets.zero,
-              child: ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: const Text('Third-party notices'),
-                subtitle: const Text('Xem giấy phép mã nguồn mở'),
-                onTap: () async {
-                  await _viewThirdPartyNotices(context);
-                },
+        // Only show Third-party notices on Android and iOS
+        if (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Card(
+                margin: EdgeInsets.zero,
+                child: ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('Thông báo bên thứ ba'),
+                  subtitle: const Text('Thông báo giấy phép của bên thứ ba'),
+                  onTap: () async {
+                    await _viewThirdPartyNotices(context);
+                  },
+                ),
               ),
             ),
           ),
-        ),
         const SliverToBoxAdapter(
           child: SizedBox(height: 20),
         ),
@@ -342,8 +344,10 @@ class SettingsScreen extends StatelessWidget {
     final userName = userProvider.isLoggedIn ? userProvider.currentUser.fullName : 'not_logged_in';
     final selectedSemester = userProvider.selectedSemester?.semesterName ?? 'unknown';
 
-    // Current stack trace (point of report)
-    final stack = StackTrace.current.toString();
+    // Get error logs from ErrorLogger
+    final errorLogger = ErrorLogger();
+    final errorLogs = errorLogger.getFormattedErrors();
+    final errorCount = errorLogger.getRecentErrors().length;
 
     final subject = 'TLU Calendar Bug Report';
 
@@ -353,9 +357,18 @@ class SettingsScreen extends StatelessWidget {
     body.writeln('Device: $deviceDetails');
     body.writeln('User: $userName ($userId)');
     body.writeln('Selected semester: $selectedSemester');
-    body.writeln('\nStack trace:\n');
-    body.writeln(stack);
-    body.writeln('\nPlease describe the steps to reproduce, expected behavior and actual behavior:\n');
+    body.writeln('Errors logged this session: $errorCount');
+    body.writeln('\n--- INSTRUCTIONS ---');
+    body.writeln('Please describe the issue below:');
+    body.writeln('1. What were you doing when the error occurred?');
+    body.writeln('2. What did you expect to happen?');
+    body.writeln('3. What actually happened?');
+    body.writeln('4. Can you reproduce this issue? If yes, describe the steps.');
+    body.writeln('\n--- YOUR DESCRIPTION HERE ---\n\n\n');
+    body.writeln('\n--- DEBUG INFO (do not edit below) ---');
+    body.writeln('\n=== ERROR HISTORY ===');
+    body.writeln(errorLogs);
+    body.writeln('\nReport generated at: ${DateTime.now()}');
 
     // Use percent-encoding for subject/body so spaces are encoded as %20
     final encodedSubject = Uri.encodeComponent(subject);
@@ -376,29 +389,38 @@ class SettingsScreen extends StatelessWidget {
     }
   }
 
-  static Future<void> _viewThirdPartyNotices(BuildContext context) async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+  static const MethodChannel _navigationChannel = 
+      MethodChannel('com.nekkochan.tlucalendar/navigation');
 
+  static Future<void> _viewThirdPartyNotices(BuildContext context) async {
     if (defaultTargetPlatform == TargetPlatform.android) {
       try {
-        const intent = AndroidIntent(
-          action: 'android.intent.action.MAIN',
-          package: 'com.nekkochan.tlucalendar',
-          componentName: 'com.nekkochan.tlucalendar.LicenseActivity',
-          flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
-        );
-        await intent.launch();
+        // Launch the activity securely via method channel
+        final result = await _navigationChannel.invokeMethod('openLicenseActivity');
+        if (result != true) {
+          throw Exception('Failed to open license activity');
+        }
       } catch (e) {
-        debugPrint("⚠️ Cannot launch native activity: $e");
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Không thể mở màn hình giấy phép: $e')),
+          );
+        }
+        debugPrint("⚠️ Cannot launch LicenseActivity: $e");
       }
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      // iOS
-    } else if (defaultTargetPlatform == TargetPlatform.windows) {
-      // Windows
-    } else if (defaultTargetPlatform == TargetPlatform.macOS) {
-      // macOS
-    } else if (defaultTargetPlatform == TargetPlatform.linux) {
-      // Linux
+      // Use Flutter's built-in LicensePage for iOS
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => Theme(
+            data: Theme.of(context),
+            child: const LicensePage(
+              applicationName: 'TLU Calendar',
+              applicationVersion: '2025.10.27',
+            ),
+          ),
+        ),
+      );
     }
   }
 }
