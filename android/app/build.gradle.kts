@@ -35,7 +35,7 @@ android {
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         // Version code with last is 20 is closed testing
-        versionCode = 2025102920
+        versionCode = 202510292010
         versionName = flutter.versionName
 
         ndk {
@@ -101,7 +101,7 @@ dependencies {
     //implementation("com.google.android.play:core:1.10.3")
     //implementation("com.google.android.play:core-ktx:1.8.1")
 
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     implementation("androidx.activity:activity-compose:1.11.0")
     implementation("androidx.compose.ui:ui:1.9.4")
