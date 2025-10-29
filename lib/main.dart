@@ -5,6 +5,7 @@ import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/providers/schedule_provider.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
+import 'package:tlucalendar/services/notification_service.dart';
 import 'package:tlucalendar/theme/app_theme.dart';
 import 'package:tlucalendar/screens/home_shell.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
@@ -44,6 +45,11 @@ void main() async {
   
   // Link providers so UserProvider can fetch exam data during login
   userProvider.setExamProvider(examProvider);
+
+  // Initialize notification service
+  final notificationService = NotificationService();
+  await notificationService.initialize();
+  debugPrint('✅ Notification service initialized');
 
   runApp(
     MultiProvider(

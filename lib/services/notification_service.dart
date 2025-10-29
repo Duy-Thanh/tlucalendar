@@ -1,0 +1,278 @@
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/timezone.dart' as tz;
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:tlucalendar/models/api_response.dart';
+
+class NotificationService {
+  static final NotificationService _instance = NotificationService._internal();
+  factory NotificationService() => _instance;
+  NotificationService._internal();
+
+  final FlutterLocalNotificationsPlugin _notificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+
+  bool _initialized = false;
+
+  /// Initialize the notification service
+  Future<void> initialize() async {
+    if (_initialized) return;
+
+    // Initialize timezone database
+    tz.initializeTimeZones();
+    tz.setLocalLocation(tz.getLocation('Asia/Bangkok')); // Vietnam timezone
+
+    // Android initialization settings
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    // iOS initialization settings
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    const initSettings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _notificationsPlugin.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: _onNotificationTapped,
+    );
+
+    // Request permissions for Android 13+
+    await _requestPermissions();
+
+    _initialized = true;
+  }
+
+  /// Request notification permissions (required for Android 13+)
+  Future<void> _requestPermissions() async {
+    final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (androidPlugin != null) {
+      await androidPlugin.requestNotificationsPermission();
+    }
+
+    final iosPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    
+    if (iosPlugin != null) {
+      await iosPlugin.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
+  }
+
+  /// Handle notification tap
+  void _onNotificationTapped(NotificationResponse response) {
+    // Handle notification tap - you can navigate to specific screen here
+    print('Notification tapped: ${response.payload}');
+  }
+
+  /// Schedule notifications for a class (1 hour, 30 min, 15 min before)
+  Future<void> scheduleClassNotifications(
+    StudentCourseSubject course,
+    DateTime classDateTime,
+    int weekDay,
+    String timeSlot,
+  ) async {
+    if (!_initialized) await initialize();
+
+    // Only schedule if the class is in the future
+    final now = DateTime.now();
+    if (classDateTime.isBefore(now)) return;
+
+    final subjectName = course.courseName;
+    final baseId = '${course.id}_${weekDay}_${classDateTime.millisecondsSinceEpoch}'.hashCode;
+
+    // 1 hour before
+    final oneHourBefore = classDateTime.subtract(const Duration(hours: 1));
+    if (oneHourBefore.isAfter(now)) {
+      await _scheduleNotification(
+        id: baseId + 1,
+        title: 'Sắp đến giờ học!',
+        body: 'Còn 1 giờ nữa là đến giờ học môn: $subjectName!',
+        scheduledDate: oneHourBefore,
+        payload: 'class_${course.id}_1h',
+      );
+    }
+
+    // 30 minutes before
+    final thirtyMinBefore = classDateTime.subtract(const Duration(minutes: 30));
+    if (thirtyMinBefore.isAfter(now)) {
+      await _scheduleNotification(
+        id: baseId + 2,
+        title: 'Sắp đến giờ học!',
+        body: 'Còn 30 phút nữa là đến giờ học môn: $subjectName!',
+        scheduledDate: thirtyMinBefore,
+        payload: 'class_${course.id}_30m',
+      );
+    }
+
+    // 15 minutes before
+    final fifteenMinBefore = classDateTime.subtract(const Duration(minutes: 15));
+    if (fifteenMinBefore.isAfter(now)) {
+      await _scheduleNotification(
+        id: baseId + 3,
+        title: 'Sắp đến giờ học!',
+        body: 'Còn 15 phút nữa là đến giờ học môn: $subjectName!',
+        scheduledDate: fifteenMinBefore,
+        payload: 'class_${course.id}_15m',
+      );
+    }
+  }
+
+  /// Schedule notifications for an exam (1 hour, 30 min, 15 min before)
+  Future<void> scheduleExamNotifications(
+    StudentExamRoom examRoom,
+    DateTime examDateTime,
+  ) async {
+    if (!_initialized) await initialize();
+
+    // Only schedule if the exam is in the future
+    final now = DateTime.now();
+    if (examDateTime.isBefore(now)) return;
+
+    final subjectName = examRoom.subjectName;
+    final examCode = examRoom.examCode ?? '';
+    final baseId = '${examRoom.id}_${examDateTime.millisecondsSinceEpoch}'.hashCode;
+
+    // 1 hour before
+    final oneHourBefore = examDateTime.subtract(const Duration(hours: 1));
+    if (oneHourBefore.isAfter(now)) {
+      await _scheduleNotification(
+        id: baseId + 1,
+        title: 'Sắp đến giờ thi!',
+        body: 'Còn 1 giờ nữa là đến giờ thi môn: $subjectName${examCode.isNotEmpty ? ' ($examCode)' : ''}!',
+        scheduledDate: oneHourBefore,
+        payload: 'exam_${examRoom.id}_1h',
+      );
+    }
+
+    // 30 minutes before
+    final thirtyMinBefore = examDateTime.subtract(const Duration(minutes: 30));
+    if (thirtyMinBefore.isAfter(now)) {
+      await _scheduleNotification(
+        id: baseId + 2,
+        title: 'Sắp đến giờ thi!',
+        body: 'Còn 30 phút nữa là đến giờ thi môn: $subjectName${examCode.isNotEmpty ? ' ($examCode)' : ''}!',
+        scheduledDate: thirtyMinBefore,
+        payload: 'exam_${examRoom.id}_30m',
+      );
+    }
+
+    // 15 minutes before
+    final fifteenMinBefore = examDateTime.subtract(const Duration(minutes: 15));
+    if (fifteenMinBefore.isAfter(now)) {
+      await _scheduleNotification(
+        id: baseId + 3,
+        title: 'Sắp đến giờ thi!',
+        body: 'Còn 15 phút nữa là đến giờ thi môn: $subjectName${examCode.isNotEmpty ? ' ($examCode)' : ''}!',
+        scheduledDate: fifteenMinBefore,
+        payload: 'exam_${examRoom.id}_15m',
+      );
+    }
+  }
+
+  /// Schedule a single notification
+  Future<void> _scheduleNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledDate,
+    String? payload,
+  }) async {
+    // Debug logging
+    print('📅 Scheduling notification:');
+    print('   ID: $id');
+    print('   Title: $title');
+    print('   Body: $body');
+    print('   Scheduled for: $scheduledDate');
+    print('   Current time: ${DateTime.now()}');
+    print('   Time until notification: ${scheduledDate.difference(DateTime.now())}');
+    
+    const androidDetails = AndroidNotificationDetails(
+      'class_exam_reminders',
+      'Nhắc nhở lịch học và lịch thi',
+      channelDescription: 'Thông báo nhắc nhở trước giờ học và giờ thi',
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: true,
+      enableVibration: true,
+      playSound: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
+    print('   TZ Scheduled date: $tzScheduledDate');
+    
+    await _notificationsPlugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tzScheduledDate,
+      details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      payload: payload,
+    );
+    
+    print('   ✅ Notification scheduled successfully');
+  }
+
+  /// Cancel a specific notification
+  Future<void> cancelNotification(int id) async {
+    await _notificationsPlugin.cancel(id);
+  }
+
+  /// Cancel all notifications
+  Future<void> cancelAllNotifications() async {
+    await _notificationsPlugin.cancelAll();
+  }
+
+  /// Get pending notifications
+  Future<List<PendingNotificationRequest>> getPendingNotifications() async {
+    return await _notificationsPlugin.pendingNotificationRequests();
+  }
+
+  /// Show immediate notification (for testing)
+  Future<void> showImmediateNotification({
+    required int id,
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    if (!_initialized) await initialize();
+
+    const androidDetails = AndroidNotificationDetails(
+      'class_exam_reminders',
+      'Nhắc nhở lịch học và lịch thi',
+      channelDescription: 'Thông báo nhắc nhở trước giờ học và giờ thi',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const iosDetails = DarwinNotificationDetails();
+
+    const details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notificationsPlugin.show(id, title, body, details, payload: payload);
+  }
+}

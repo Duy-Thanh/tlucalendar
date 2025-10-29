@@ -50,25 +50,18 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       return;
     }
 
-    // Set initial selected semester
-    if (examProvider.selectedSemesterId == null) {
-      // Check if we have cached data first
-      final hasCache = await examProvider.hasRegisterPeriodsCache(selectedSemester.id);
-      
-      if (hasCache) {
-        // Load from cache without API call
-        examProvider.selectSemesterFromCache(selectedSemester.id);
-      } else {
-        // No cache, fetch from API
-        examProvider.selectSemester(
-          userProvider.accessToken!,
-          selectedSemester.id,
-        );
-      }
-    } else {
-      await examProvider.fetchExamSchedule(
+    // Always try to load data, whether from cache or API
+    // Check if we have cached data first
+    final hasCache = await examProvider.hasRegisterPeriodsCache(selectedSemester.id);
+    
+    if (hasCache) {
+      // Load from cache without API call
+      await examProvider.selectSemesterFromCache(selectedSemester.id);
+    } else if (userProvider.accessToken != null) {
+      // No cache, fetch from API
+      await examProvider.selectSemester(
         userProvider.accessToken!,
-        examProvider.selectedSemesterId!,
+        selectedSemester.id,
       );
     }
   }
@@ -91,6 +84,11 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
 
         if (examProvider.errorMessage != null) {
           return _buildError(examProvider.errorMessage!, _loadExamSchedule);
+        }
+
+        // If no semester is selected yet in exam provider, show loading
+        if (examProvider.selectedSemesterId == null) {
+          return _buildLoading();
         }
 
         if (examProvider.registerPeriods.isEmpty) {

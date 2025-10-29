@@ -17,6 +17,8 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // Flag to enable support for the new language APIs
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -98,6 +100,8 @@ dependencies {
     // Play Core SDK (Flutter deferred components / SplitInstall)
     //implementation("com.google.android.play:core:1.10.3")
     //implementation("com.google.android.play:core-ktx:1.8.1")
+
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
     implementation("androidx.activity:activity-compose:1.11.0")
     implementation("androidx.compose.ui:ui:1.9.4")

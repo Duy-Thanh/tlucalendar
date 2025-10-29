@@ -4,7 +4,9 @@ import 'package:tlucalendar/models/user.dart';
 import 'package:tlucalendar/models/api_response.dart';
 import 'package:tlucalendar/services/auth_service.dart';
 import 'package:tlucalendar/services/database_helper.dart';
+import 'package:tlucalendar/services/notification_service.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
+import 'package:tlucalendar/utils/notification_helper.dart';
 
 class UserProvider extends ChangeNotifier {
   late User _currentUser;
@@ -189,6 +191,9 @@ class UserProvider extends ChangeNotifier {
           _studentCourses = await _dbHelper.getStudentCourses(
             _selectedSemester!.id,
           );
+          
+          // Schedule notifications for the current week's classes
+          await _scheduleNotificationsForCurrentWeek();
         }
       }
     } catch (e) {
@@ -471,6 +476,9 @@ class UserProvider extends ChangeNotifier {
       _isLoadingCourses = false;
       notifyListeners();
 
+      // Schedule notifications for this week's classes
+      await _scheduleNotificationsForCurrentWeek();
+
       // Try to fetch fresh data from API in background (only if online)
       if (_accessToken != null) {
         try {
@@ -486,6 +494,9 @@ class UserProvider extends ChangeNotifier {
           await _dbHelper.saveStudentCourses(semesterId, _studentCourses);
 
           notifyListeners();
+
+          // Re-schedule notifications with fresh data
+          await _scheduleNotificationsForCurrentWeek();
         } catch (apiError) {
           // API failed (offline or network error)
           // We already loaded cached data above, so just log it
@@ -499,6 +510,75 @@ class UserProvider extends ChangeNotifier {
       _isLoadingCourses = false;
       notifyListeners();
     }
+  }
+
+  /// Schedule notifications for all upcoming classes
+  /// 
+  /// Platform Limitations:
+  /// - iOS: Maximum 64 pending notifications (iOS 10+)
+  /// - Android: Samsung limits to 500 notifications, some OEMs may have lower limits
+  /// - Solution: Schedule only next 4 weeks, then reschedule when app reopens
+  Future<void> _scheduleNotificationsForCurrentWeek() async {
+    if (_studentCourses.isEmpty || _courseHours.isEmpty || semesterStartDate == null) {
+      return;
+    }
+
+    // Clear all existing notifications to prevent accumulation
+    // This ensures we stay under platform limits
+    // await NotificationService().cancelAllNotifications();
+    // print('🗑️ Cleared all existing notifications');
+
+    // Platform notification limits:
+    // - iOS: 64 notifications max
+    // - Android: 500 on Samsung, varies by OEM
+    // - Each class has 3 notifications (1h, 30m, 15m)
+    // Strategy: Schedule 4 weeks ahead to stay well under limits
+    // This gives ~12 classes × 3 notifications × 4 weeks = ~144 notifications
+    // Well under iOS 64 limit per week, and total stays reasonable
+    const maxWeeksToSchedule = 4;
+
+    // Get semester end date
+    final semesterEnd = _selectedSemester != null 
+        ? DateTime.fromMillisecondsSinceEpoch(_selectedSemester!.endDate)
+        : DateTime.now().add(const Duration(days: 120)); // Default 120 days if no semester
+
+    final now = DateTime.now();
+    final weekday = now.weekday; // 1=Monday, 7=Sunday
+    final currentWeekStart = now.subtract(Duration(days: weekday - 1));
+    
+    // Calculate how many weeks until semester ends
+    final weeksUntilEnd = semesterEnd.difference(currentWeekStart).inDays ~/ 7;
+    
+    // Limit to maxWeeksToSchedule to respect platform constraints
+    final weeksToSchedule = weeksUntilEnd > maxWeeksToSchedule 
+        ? maxWeeksToSchedule 
+        : (weeksUntilEnd > 0 ? weeksUntilEnd : 1);
+    
+    print('📅 Scheduling notifications for $weeksToSchedule weeks (respecting platform limits)');
+    if (weeksUntilEnd > maxWeeksToSchedule) {
+      print('   ℹ️ Note: Only scheduling next $maxWeeksToSchedule weeks due to platform limits');
+      print('   ℹ️ Notifications will be rescheduled when you reopen the app');
+    }
+    
+    // Schedule for the next few weeks
+    for (int weekOffset = 0; weekOffset < weeksToSchedule; weekOffset++) {
+      final weekStart = currentWeekStart.add(Duration(days: 7 * weekOffset));
+      final weekStartDate = DateTime(weekStart.year, weekStart.month, weekStart.day);
+
+      try {
+        await NotificationHelper.scheduleWeekClassNotifications(
+          courses: _studentCourses,
+          courseHours: _courseHours,
+          weekStartDate: weekStartDate,
+          semesterStartDate: semesterStartDate!,
+        );
+      } catch (e) {
+        print('⚠️ Failed to schedule notifications for week $weekOffset: $e');
+      }
+    }
+    
+    print('✅ Notifications scheduled for $weeksToSchedule weeks');
+    print('   💡 Tip: Reopen the app weekly to keep notifications up to date');
   }
 
   /// Change selected semester and load courses

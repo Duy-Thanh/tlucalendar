@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tlucalendar/models/api_response.dart';
 import 'package:tlucalendar/services/auth_service.dart';
 import 'package:tlucalendar/services/database_helper.dart';
+import 'package:tlucalendar/utils/notification_helper.dart';
 
 class ExamProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -95,6 +96,9 @@ class ExamProvider with ChangeNotifier {
             _registerPeriods.first.id,
             1,
           );
+          
+          // Schedule notifications for cached exam data
+          await _scheduleExamNotifications();
         }
       }
 
@@ -285,7 +289,10 @@ class ExamProvider with ChangeNotifier {
         _isLoadingRooms = false;
         notifyListeners();
 
-        // Fetch fresh data in background
+        // Schedule notifications for cached data
+        await _scheduleExamNotifications();
+
+        // Fetch fresh data in background (will re-schedule if data changed)
         _fetchExamRoomDetailsFromApi(
           accessToken,
           semesterId,
@@ -354,9 +361,18 @@ class ExamProvider with ChangeNotifier {
           return a.subjectName.compareTo(b.subjectName);
         });
         
+        // Check if data actually changed before updating
+        final dataChanged = _examRooms.length != rooms.length ||
+            !_areExamRoomsEqual(_examRooms, rooms);
+        
         _examRooms = rooms;
         _isLoadingRooms = false;
         notifyListeners();
+
+        // Only re-schedule notifications if data actually changed
+        if (dataChanged) {
+          await _scheduleExamNotifications();
+        }
       }
 
       // Always save to cache regardless of current selection
@@ -391,5 +407,40 @@ class ExamProvider with ChangeNotifier {
     _isLoading = false;
     _isLoadingRooms = false;
     notifyListeners();
+  }
+
+  /// Schedule notifications for upcoming exams
+  Future<void> _scheduleExamNotifications() async {
+    if (_examRooms.isEmpty) return;
+
+    try {
+      await NotificationHelper.scheduleExamNotifications(
+        examRooms: _examRooms,
+      );
+      print('✅ Notifications scheduled for ${_examRooms.length} exams');
+    } catch (e) {
+      print('⚠️ Failed to schedule exam notifications: $e');
+    }
+  }
+
+  /// Compare two lists of exam rooms for equality
+  bool _areExamRoomsEqual(List<StudentExamRoom> list1, List<StudentExamRoom> list2) {
+    if (list1.length != list2.length) return false;
+    
+    for (int i = 0; i < list1.length; i++) {
+      final room1 = list1[i];
+      final room2 = list2[i];
+      
+      // Compare key fields that would affect notifications
+      if (room1.id != room2.id ||
+          room1.subjectName != room2.subjectName ||
+          room1.examCode != room2.examCode ||
+          room1.examRoom?.examDate != room2.examRoom?.examDate ||
+          room1.examRoom?.examHour?.id != room2.examRoom?.examHour?.id) {
+        return false;
+      }
+    }
+    
+    return true;
   }
 }
