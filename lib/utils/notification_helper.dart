@@ -72,6 +72,12 @@ class NotificationHelper {
       print('      Class DateTime: $classDateTime');
       print('      Current time: $now');
       print('      Is in future: ${classDateTime.isAfter(now)}');
+      
+      // Validate year to prevent 32099 bug
+      if (classDateTime.year > now.year + 10 || classDateTime.year < 2020) {
+        print('      ⚠️ Invalid class date year: ${classDateTime.year} - SKIPPING');
+        continue;
+      }
 
       // Format time slot string
       final timeSlot = '${_formatTime(startCourseHour.start)} - ${_formatTime(endCourseHour.end)}';
@@ -147,6 +153,13 @@ class NotificationHelper {
       print('      📍 Exam DateTime: $examDateTime');
       print('      📍 Current time: ${DateTime.now()}');
       print('      📍 Is in future: ${examDateTime.isAfter(DateTime.now())}');
+      
+      // Validate year to prevent invalid dates
+      final now = DateTime.now();
+      if (examDateTime.year > now.year + 10 || examDateTime.year < 2020) {
+        print('      ⚠️ Invalid exam date year: ${examDateTime.year} - SKIPPING');
+        continue;
+      }
 
       // Schedule notifications
       await _notificationService.scheduleExamNotifications(

@@ -48,24 +48,49 @@ class NotificationService {
   }
 
   /// Request notification permissions (required for Android 13+)
-  Future<void> _requestPermissions() async {
+  Future<bool> _requestPermissions() async {
+    bool granted = false;
+    
     final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     
     if (androidPlugin != null) {
-      await androidPlugin.requestNotificationsPermission();
+      final result = await androidPlugin.requestNotificationsPermission();
+      granted = result ?? false;
     }
 
     final iosPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
     
     if (iosPlugin != null) {
-      await iosPlugin.requestPermissions(
+      final result = await iosPlugin.requestPermissions(
         alert: true,
         badge: true,
         sound: true,
       );
+      granted = result ?? false;
     }
+    
+    return granted;
+  }
+
+  /// Check if notification permissions are granted
+  Future<bool> areNotificationsEnabled() async {
+    final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    
+    if (androidPlugin != null) {
+      final result = await androidPlugin.areNotificationsEnabled();
+      return result ?? false;
+    }
+
+    // For iOS, we can't reliably check, assume true if initialized
+    return _initialized;
+  }
+
+  /// Request permissions again (for when user wants to enable after denying)
+  Future<bool> requestPermissions() async {
+    return await _requestPermissions();
   }
 
   /// Handle notification tap
@@ -187,14 +212,30 @@ class NotificationService {
     required DateTime scheduledDate,
     String? payload,
   }) async {
+    // Validate the scheduled date to prevent year 32099 bug
+    final now = DateTime.now();
+    final maxYear = now.year + 10; // Maximum 10 years in future
+    
+    if (scheduledDate.year > maxYear || scheduledDate.year < 2020) {
+      print('⚠️ Invalid scheduled date: $scheduledDate (year: ${scheduledDate.year})');
+      print('   Notification NOT scheduled - date out of valid range');
+      return;
+    }
+    
+    // Don't schedule if already passed
+    if (scheduledDate.isBefore(now)) {
+      print('⏭️ Scheduled date is in the past: $scheduledDate');
+      return;
+    }
+    
     // Debug logging
     print('📅 Scheduling notification:');
     print('   ID: $id');
     print('   Title: $title');
     print('   Body: $body');
     print('   Scheduled for: $scheduledDate');
-    print('   Current time: ${DateTime.now()}');
-    print('   Time until notification: ${scheduledDate.difference(DateTime.now())}');
+    print('   Current time: $now');
+    print('   Time until notification: ${scheduledDate.difference(now)}');
     
     const androidDetails = AndroidNotificationDetails(
       'class_exam_reminders',

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
+import 'package:url_launcher/url_launcher.dart';
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/screens/login_screen.dart';
@@ -12,7 +14,6 @@ import 'package:tlucalendar/utils/error_logger.dart';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -184,58 +185,174 @@ class SettingsScreen extends StatelessWidget {
                     horizontal: 16,
                     vertical: 8,
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(
-                                  userProvider.notificationsEnabled
-                                      ? Icons.notifications_active
-                                      : Icons.notifications_off,
+                                Row(
+                                  children: [
+                                    Icon(
+                                      userProvider.notificationsEnabled
+                                          ? Icons.notifications_active
+                                          : Icons.notifications_off,
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Text(
+                                      'Thông báo lịch học',
+                                      style: Theme.of(context).textTheme.titleSmall,
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 16),
-                                Text(
-                                  'Thông báo lịch học',
-                                  style: Theme.of(context).textTheme.titleSmall,
+                                const SizedBox(height: 4),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 40),
+                                  child: Text(
+                                    'Nhận thông báo trước giờ học và thi',
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Theme.of(context).colorScheme.outline,
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 40),
-                              child: Text(
-                                'Nhận thông báo trước giờ học và thi',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: Theme.of(context).colorScheme.outline,
-                                ),
-                              ),
+                          ),
+                          Switch(
+                            value: userProvider.notificationsEnabled,
+                            onChanged: (value) async {
+                              // Try to toggle
+                              bool success = await userProvider.toggleNotifications(value);
+                              
+                              if (context.mounted) {
+                                if (value && !success) {
+                                  // User tried to enable but permission denied
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        '⚠️ Không thể bật thông báo - cần cấp quyền',
+                                      ),
+                                      duration: const Duration(seconds: 3),
+                                      action: SnackBarAction(
+                                        label: 'Cài đặt',
+                                        onPressed: () async {
+                                          try {
+                                            if (Platform.isAndroid) {
+                                              final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+                                              final String packageName = packageInfo.packageName;
+                                              
+                                              final AndroidIntent intent = AndroidIntent(
+                                                action: 'android.settings.APP_NOTIFICATION_SETTINGS',
+                                                arguments: <String, dynamic>{
+                                                  'android.provider.extra.APP_PACKAGE': packageName,
+                                                },
+                                              );
+                                              
+                                              await intent.launch();
+                                            } else if (Platform.isIOS) {
+                                              final Uri settingsUri = Uri.parse('app-settings:');
+                                              await launchUrl(settingsUri);
+                                            }
+                                          } catch (e) {
+                                            print('Error opening settings: $e');
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                  );
+                                } else if (success) {
+                                  // Only show success message if toggle actually changed
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        value
+                                            ? '✅ Đã bật thông báo'
+                                            : 'Đã tắt thông báo',
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      // Show warning ONLY when toggle is OFF but permission is denied
+                      // (so user knows they need to grant permission before enabling)
+                      if (!userProvider.notificationsEnabled && 
+                          !userProvider.hasNotificationPermission) ...[
+                        const Divider(height: 16),
+                        ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(
+                            Icons.warning,
+                            color: Colors.orange,
+                          ),
+                          title: Text(
+                            'Cần cấp quyền thông báo',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
                             ),
-                          ],
+                          ),
+                          subtitle: Text(
+                            'Vui lòng cấp quyền thông báo trong cài đặt hệ thống để nhận thông báo',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
                         ),
-                      ),
-                      Switch(
-                        value: userProvider.notificationsEnabled,
-                        onChanged: (value) async {
-                          await userProvider.toggleNotifications(value);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  value
-                                      ? 'Đã bật thông báo'
-                                      : 'Đã tắt thông báo',
-                                ),
-                                duration: const Duration(seconds: 2),
-                              ),
-                            );
-                          }
-                        },
-                      ),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () async {
+                              try {
+                                if (Platform.isAndroid) {
+                                  // Android: Open app notification settings using AndroidIntent
+                                  final PackageInfo packageInfo = await PackageInfo.fromPlatform();
+                                  final String packageName = packageInfo.packageName;
+                                  
+                                  final AndroidIntent intent = AndroidIntent(
+                                    action: 'android.settings.APP_NOTIFICATION_SETTINGS',
+                                    arguments: <String, dynamic>{
+                                      'android.provider.extra.APP_PACKAGE': packageName,
+                                    },
+                                  );
+                                  
+                                  await intent.launch();
+                                } else if (Platform.isIOS) {
+                                  // iOS: Open app settings
+                                  final Uri settingsUri = Uri.parse('app-settings:');
+                                  await launchUrl(settingsUri);
+                                }
+                                
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Đã mở cài đặt - Vui lòng bật Thông báo'),
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Lỗi: $e'),
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            icon: Icon(Icons.settings),
+                            label: Text('Mở cài đặt hệ thống'),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

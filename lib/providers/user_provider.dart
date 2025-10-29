@@ -4,6 +4,7 @@ import 'package:tlucalendar/models/user.dart';
 import 'package:tlucalendar/models/api_response.dart';
 import 'package:tlucalendar/services/auth_service.dart';
 import 'package:tlucalendar/services/database_helper.dart';
+import 'package:tlucalendar/services/notification_service.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/utils/notification_helper.dart';
 
@@ -32,6 +33,7 @@ class UserProvider extends ChangeNotifier {
   
   // Notification settings
   bool _notificationsEnabled = true;
+  bool _hasNotificationPermission = false;
 
   static const String _studentCodeKey = 'userStudentCode';
   static const String _passwordKey = 'userPassword';
@@ -52,6 +54,7 @@ class UserProvider extends ChangeNotifier {
   bool get isLoadingCourses => _isLoadingCourses;
   String? get courseLoadError => _courseLoadError;
   bool get notificationsEnabled => _notificationsEnabled;
+  bool get hasNotificationPermission => _hasNotificationPermission;
   
   // Login progress getters
   String get loginProgress => _loginProgress;
@@ -125,6 +128,9 @@ class UserProvider extends ChangeNotifier {
     _isLoggedIn = _prefs.getBool(_isLoggedInKey) ?? false;
     _accessToken = _prefs.getString(_accessTokenKey);
     _notificationsEnabled = _prefs.getBool(_notificationsEnabledKey) ?? true;
+
+    // Check actual notification permission status
+    await checkNotificationPermission();
 
     if (_isLoggedIn) {
       // Load cached data from database first (works offline!)
@@ -530,6 +536,12 @@ class UserProvider extends ChangeNotifier {
       return;
     }
 
+    // Check if permission is granted
+    if (!_hasNotificationPermission) {
+      print('⚠️ Notification permission not granted');
+      return;
+    }
+
     if (_studentCourses.isEmpty || _courseHours.isEmpty || semesterStartDate == null) {
       return;
     }
@@ -631,14 +643,54 @@ class UserProvider extends ChangeNotifier {
   }
 
   /// Toggle notifications on/off
-  Future<void> toggleNotifications(bool enabled) async {
-    _notificationsEnabled = enabled;
-    await _prefs.setBool(_notificationsEnabledKey, enabled);
-    notifyListeners();
-
-    // If notifications are enabled, reschedule them
-    if (enabled && _isLoggedIn) {
-      await _scheduleNotificationsForCurrentWeek();
+  /// Returns true if toggle was successful, false if permission denied
+  Future<bool> toggleNotifications(bool enabled) async {
+    // If disabling, just turn off
+    if (!enabled) {
+      _notificationsEnabled = false;
+      await _prefs.setBool(_notificationsEnabledKey, false);
+      notifyListeners();
+      return true;
     }
+
+    // If enabling, check current permission status first
+    if (enabled && _isLoggedIn) {
+      // First, check if permission was granted in system settings
+      _hasNotificationPermission = 
+          await NotificationService().areNotificationsEnabled();
+      
+      if (!_hasNotificationPermission) {
+        // Permission not granted, try to request it
+        _hasNotificationPermission =
+            await NotificationService().requestPermissions();
+        notifyListeners();
+
+        // If permission still denied, DON'T turn on the toggle
+        if (!_hasNotificationPermission) {
+          print('⚠️ Notification permission denied by user');
+          _notificationsEnabled = false;
+          await _prefs.setBool(_notificationsEnabledKey, false);
+          notifyListeners();
+          return false; // Toggle was not enabled
+        }
+      }
+      
+      // Permission granted, enable notifications
+      _notificationsEnabled = true;
+      await _prefs.setBool(_notificationsEnabledKey, true);
+      await _scheduleNotificationsForCurrentWeek();
+      notifyListeners();
+      return true;
+    }
+
+    notifyListeners();
+    return true;
+  }
+
+  /// Check if notification permission is granted
+  Future<void> checkNotificationPermission() async {
+    _hasNotificationPermission =
+        await NotificationService().areNotificationsEnabled();
+    notifyListeners();
   }
 }
