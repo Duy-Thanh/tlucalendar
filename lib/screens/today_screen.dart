@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/widgets/empty_state_widget.dart';
@@ -30,10 +30,11 @@ class TodayScreen extends StatelessWidget {
         // Get today's courses
         final todayWeekIndex = today.weekday + 1;
         final activeCourses = userProvider.getActiveCourses(today);
-        final todaySchedules = activeCourses
-            .where((course) => course.dayOfWeek == todayWeekIndex)
-            .toList()
-          ..sort((a, b) => a.startCourseHour.compareTo(b.startCourseHour));
+        final todaySchedules =
+            activeCourses
+                .where((course) => course.dayOfWeek == todayWeekIndex)
+                .toList()
+              ..sort((a, b) => a.startCourseHour.compareTo(b.startCourseHour));
 
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
@@ -47,17 +48,25 @@ class TodayScreen extends StatelessWidget {
                   child: Text(
                     'Hôm nay',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 // Date chip
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 8,
+                  ),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.5),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Row(
@@ -66,13 +75,18 @@ class TodayScreen extends StatelessWidget {
                         Icon(
                           Icons.calendar_today,
                           size: 18,
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           dateFormat,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
                                 fontWeight: FontWeight.w500,
                               ),
                         ),
@@ -109,9 +123,13 @@ class TodayScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCourseCard(BuildContext context, UserProvider userProvider, StudentCourseSubject course) {
+  Widget _buildCourseCard(
+    BuildContext context,
+    UserProvider userProvider,
+    StudentCourseSubject course,
+  ) {
     final timeRange = _getTimeRange(userProvider, course);
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
@@ -135,22 +153,26 @@ class TodayScreen extends StatelessWidget {
                   Text(
                     timeRange.split('\n')[0], // Start time
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Container(
                     width: 2,
                     height: 8,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.3),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     timeRange.split('\n')[1], // End time
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.7),
+                    ),
                   ),
                 ],
               ),
@@ -164,9 +186,9 @@ class TodayScreen extends StatelessWidget {
                   Text(
                     course.courseName,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                        ),
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -174,8 +196,10 @@ class TodayScreen extends StatelessWidget {
                   Text(
                     course.courseCode,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.6),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
@@ -184,16 +208,21 @@ class TodayScreen extends StatelessWidget {
                       Icon(
                         Icons.location_on_outlined,
                         size: 14,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.6),
                       ),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
-                          course.building.isNotEmpty 
+                          course.building.isNotEmpty
                               ? '${course.room}-${course.building}'
                               : course.room,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.6),
                               ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -213,13 +242,13 @@ class TodayScreen extends StatelessWidget {
     // Monday = 1, Sunday = 7
     // In Vietnamese: Monday-Saturday use "Thứ" prefix, Sunday is just "Chủ Nhật"
     const days = [
-      'Thứ Hai',    // Monday (1)
-      'Thứ Ba',     // Tuesday (2)
-      'Thứ Tư',     // Wednesday (3)
-      'Thứ Năm',    // Thursday (4)
-      'Thứ Sáu',    // Friday (5)
-      'Thứ Bảy',    // Saturday (6)
-      'Chủ Nhật',   // Sunday (7)
+      'Thứ Hai', // Monday (1)
+      'Thứ Ba', // Tuesday (2)
+      'Thứ Tư', // Wednesday (3)
+      'Thứ Năm', // Thursday (4)
+      'Thứ Sáu', // Friday (5)
+      'Thứ Bảy', // Saturday (6)
+      'Chủ Nhật', // Sunday (7)
     ];
     if (weekday >= 1 && weekday <= 7) {
       return days[weekday - 1];
@@ -230,12 +259,11 @@ class TodayScreen extends StatelessWidget {
   String _getTimeRange(UserProvider userProvider, StudentCourseSubject course) {
     final startHour = userProvider.courseHours[course.startCourseHour];
     final endHour = userProvider.courseHours[course.endCourseHour];
-    
+
     if (startHour != null && endHour != null) {
       return '${startHour.startString}\n${endHour.endString}';
     }
-    
+
     return 'Tiết ${course.startCourseHour}\nTiết ${course.endCourseHour}';
   }
 }
-

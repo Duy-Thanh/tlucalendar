@@ -5,11 +5,7 @@ class ScheduleCard extends StatelessWidget {
   final Schedule schedule;
   final VoidCallback? onTap;
 
-  const ScheduleCard({
-    super.key,
-    required this.schedule,
-    this.onTap,
-  });
+  const ScheduleCard({super.key, required this.schedule, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -41,14 +37,21 @@ class ScheduleCard extends StatelessWidget {
                 // ⏰ TIME - Left Side (Compact & Highlighted)
                 Container(
                   decoration: BoxDecoration(
-                    color: colorScheme.onPrimaryContainer.withValues(alpha: 0.1),
+                    color: colorScheme.onPrimaryContainer.withValues(
+                      alpha: 0.1,
+                    ),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: colorScheme.onPrimaryContainer.withValues(alpha: 0.2),
+                      color: colorScheme.onPrimaryContainer.withValues(
+                        alpha: 0.2,
+                      ),
                       width: 1.5,
                     ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -57,28 +60,36 @@ class ScheduleCard extends StatelessWidget {
                         text: TextSpan(
                           children: [
                             TextSpan(
-                              text: schedule.startTime.hour.toString().padLeft(2, '0'),
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                color: colorScheme.onPrimaryContainer,
-                                fontSize: 22,
+                              text: schedule.startTime.hour.toString().padLeft(
+                                2,
+                                '0',
                               ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: colorScheme.onPrimaryContainer,
+                                    fontSize: 22,
+                                  ),
                             ),
                             TextSpan(
                               text: ':',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                color: colorScheme.onPrimaryContainer,
-                                fontSize: 22,
-                              ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: colorScheme.onPrimaryContainer,
+                                    fontSize: 22,
+                                  ),
                             ),
                             TextSpan(
-                              text: schedule.startTime.minute.toString().padLeft(2, '0'),
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                color: colorScheme.onPrimaryContainer,
-                                fontSize: 22,
-                              ),
+                              text: schedule.startTime.minute
+                                  .toString()
+                                  .padLeft(2, '0'),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: colorScheme.onPrimaryContainer,
+                                    fontSize: 22,
+                                  ),
                             ),
                           ],
                         ),
@@ -89,14 +100,18 @@ class ScheduleCard extends StatelessWidget {
                         child: Container(
                           height: 0.8,
                           width: 28,
-                          color: colorScheme.onPrimaryContainer.withValues(alpha: 0.2),
+                          color: colorScheme.onPrimaryContainer.withValues(
+                            alpha: 0.2,
+                          ),
                         ),
                       ),
                       // End time - compact
                       Text(
                         'đến ${schedule.endTime.hour.toString().padLeft(2, '0')}:${schedule.endTime.minute.toString().padLeft(2, '0')}',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onPrimaryContainer.withValues(alpha: 0.7),
+                          color: colorScheme.onPrimaryContainer.withValues(
+                            alpha: 0.7,
+                          ),
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -129,28 +144,34 @@ class ScheduleCard extends StatelessWidget {
                         children: [
                           Text(
                             schedule.course.code,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onPrimaryContainer.withValues(alpha: 0.65),
-                              fontWeight: FontWeight.w500,
-                              fontSize: 12,
-                            ),
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: colorScheme.onPrimaryContainer
+                                      .withValues(alpha: 0.65),
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
+                                ),
                           ),
                           const SizedBox(width: 8),
                           // Location - compact
                           Icon(
                             Icons.location_on,
                             size: 13,
-                            color: colorScheme.onPrimaryContainer.withValues(alpha: 0.6),
+                            color: colorScheme.onPrimaryContainer.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                           const SizedBox(width: 2),
                           Expanded(
                             child: Text(
                               schedule.course.classroom,
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onPrimaryContainer.withValues(alpha: 0.65),
-                                fontWeight: FontWeight.w500,
-                                fontSize: 12,
-                              ),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: colorScheme.onPrimaryContainer
+                                        .withValues(alpha: 0.65),
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
+                                  ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -168,4 +189,3 @@ class ScheduleCard extends StatelessWidget {
     );
   }
 }
-

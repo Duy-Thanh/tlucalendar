@@ -17,7 +17,7 @@ class ErrorLogger {
     );
 
     _errorLogs.insert(0, log);
-    
+
     // Keep only the most recent errors
     if (_errorLogs.length > maxLogs) {
       _errorLogs.removeRange(maxLogs, _errorLogs.length);

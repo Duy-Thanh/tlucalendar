@@ -27,16 +27,16 @@ class EmptyStateWidget extends StatelessWidget {
           Text(
             title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.outlineVariant,
-                ),
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
           ),
           if (description != null) ...[
             const SizedBox(height: 8),
             Text(
               description!,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
               textAlign: TextAlign.center,
             ),
           ],

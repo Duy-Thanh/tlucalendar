@@ -35,8 +35,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               child: Text(
                 'Lịch học',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             // Semester selector
@@ -56,9 +56,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
             const SizedBox(height: 16),
             // Courses for selected day
-            Expanded(
-              child: _buildDayCourses(context),
-            ),
+            Expanded(child: _buildDayCourses(context)),
           ],
         ),
       ),
@@ -84,7 +82,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
+            color: Theme.of(
+              context,
+            ).colorScheme.primaryContainer.withOpacity(0.3),
             borderRadius: BorderRadius.circular(12),
           ),
           child: DropdownButtonHideUnderline(
@@ -99,7 +99,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   child: Text(
                     semester.semesterName,
                     style: TextStyle(
-                      fontWeight: semester.id == userProvider.selectedSemester?.id
+                      fontWeight:
+                          semester.id == userProvider.selectedSemester?.id
                           ? FontWeight.bold
                           : FontWeight.normal,
                     ),
@@ -108,7 +109,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
               }).toList(),
               onChanged: (semesterId) async {
                 if (semesterId != null) {
-                  final semester = allSemesters.firstWhere((s) => s.id == semesterId);
+                  final semester = allSemesters.firstWhere(
+                    (s) => s.id == semesterId,
+                  );
                   await userProvider.selectSemester(semester);
                 }
               },
@@ -125,9 +128,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
       children: [
         Text(
           '${_focusedMonth.month}/${_focusedMonth.year}',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
         ),
         Row(
           children: [
@@ -162,8 +165,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _buildCalendarGrid(BuildContext context) {
     return Consumer<UserProvider>(
       builder: (context, userProvider, _) {
-        final firstDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 1);
-        final lastDayOfMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
+        final firstDayOfMonth = DateTime(
+          _focusedMonth.year,
+          _focusedMonth.month,
+          1,
+        );
+        final lastDayOfMonth = DateTime(
+          _focusedMonth.year,
+          _focusedMonth.month + 1,
+          0,
+        );
         final daysInMonth = lastDayOfMonth.day;
         final firstWeekday = firstDayOfMonth.weekday;
         final previousMonthDays = firstWeekday - 1;
@@ -176,13 +187,83 @@ class _CalendarScreenState extends State<CalendarScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: const [
-                  Expanded(child: Center(child: Text('T2', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12)))),
-                  Expanded(child: Center(child: Text('T3', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12)))),
-                  Expanded(child: Center(child: Text('T4', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12)))),
-                  Expanded(child: Center(child: Text('T5', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12)))),
-                  Expanded(child: Center(child: Text('T6', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12)))),
-                  Expanded(child: Center(child: Text('T7', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12)))),
-                  Expanded(child: Center(child: Text('CN', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12)))),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'T2',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'T3',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'T4',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'T5',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'T6',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'T7',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'CN',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -199,90 +280,113 @@ class _CalendarScreenState extends State<CalendarScreen> {
               itemCount: daysInMonth + previousMonthDays,
               itemBuilder: (context, index) {
                 if (index < previousMonthDays) {
-                  final prevMonth = DateTime(_focusedMonth.year, _focusedMonth.month, 0);
+                  final prevMonth = DateTime(
+                    _focusedMonth.year,
+                    _focusedMonth.month,
+                    0,
+                  );
                   final day = prevMonth.day - previousMonthDays + index + 1;
                   return Center(
                     child: Text(
                       '$day',
                       style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
-                  ),
-                ),
-              );
-            }
-
-            final day = index - previousMonthDays + 1;
-            final date = DateTime(_focusedMonth.year, _focusedMonth.month, day);
-            final isSelected = date.year == _selectedDate.year &&
-                date.month == _selectedDate.month &&
-                date.day == _selectedDate.day;
-            final isToday = date.year == DateTime.now().year &&
-                date.month == DateTime.now().month &&
-                date.day == DateTime.now().day;
-
-            // Check if this day has courses
-            final activeCourses = userProvider.getActiveCourses(date);
-            final dayWeekIndex = date.weekday + 1;
-            final hasCourses = activeCourses.any((c) => c.dayOfWeek == dayWeekIndex);
-
-            return GestureDetector(
-              onTap: () {
-                setState(() {
-                  _selectedDate = date;
-                });
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : isToday
-                          ? Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3)
-                          : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  border: isToday && !isSelected
-                      ? Border.all(
-                          color: Theme.of(context).colorScheme.primary,
-                          width: 2,
-                        )
-                      : null,
-                ),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Text(
-                        '$day',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.onPrimaryContainer
-                                  : Theme.of(context).colorScheme.onSurface,
-                            ),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.3),
                       ),
                     ),
-                    if (hasCourses)
-                      Positioned(
-                        bottom: 4,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            width: 4,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.onPrimaryContainer
-                                  : Theme.of(context).colorScheme.primary,
-                              shape: BoxShape.circle,
-                            ),
+                  );
+                }
+
+                final day = index - previousMonthDays + 1;
+                final date = DateTime(
+                  _focusedMonth.year,
+                  _focusedMonth.month,
+                  day,
+                );
+                final isSelected =
+                    date.year == _selectedDate.year &&
+                    date.month == _selectedDate.month &&
+                    date.day == _selectedDate.day;
+                final isToday =
+                    date.year == DateTime.now().year &&
+                    date.month == DateTime.now().month &&
+                    date.day == DateTime.now().day;
+
+                // Check if this day has courses
+                final activeCourses = userProvider.getActiveCourses(date);
+                final dayWeekIndex = date.weekday + 1;
+                final hasCourses = activeCourses.any(
+                  (c) => c.dayOfWeek == dayWeekIndex,
+                );
+
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedDate = date;
+                    });
+                  },
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : isToday
+                          ? Theme.of(
+                              context,
+                            ).colorScheme.primaryContainer.withOpacity(0.3)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: isToday && !isSelected
+                          ? Border.all(
+                              color: Theme.of(context).colorScheme.primary,
+                              width: 2,
+                            )
+                          : null,
+                    ),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: Text(
+                            '$day',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  fontWeight: isSelected || isToday
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: isSelected
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimaryContainer
+                                      : Theme.of(context).colorScheme.onSurface,
+                                ),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
+                        if (hasCourses)
+                          Positioned(
+                            bottom: 4,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: Container(
+                                width: 4,
+                                height: 4,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? Theme.of(
+                                          context,
+                                        ).colorScheme.onPrimaryContainer
+                                      : Theme.of(context).colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ],
         );
       },
@@ -311,8 +415,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 Text(
                   'Đang tải lịch học...',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                      ),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.6),
+                  ),
                 ),
               ],
             ),
@@ -321,13 +427,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
         // Get courses for selected date
         final activeCourses = userProvider.getActiveCourses(_selectedDate);
-        
+
         final dayWeekIndex = _selectedDate.weekday + 1;
-        
-        final dayCourses = activeCourses
-            .where((c) => c.dayOfWeek == dayWeekIndex)
-            .toList()
-          ..sort((a, b) => a.startCourseHour.compareTo(b.startCourseHour));
+
+        final dayCourses =
+            activeCourses.where((c) => c.dayOfWeek == dayWeekIndex).toList()
+              ..sort((a, b) => a.startCourseHour.compareTo(b.startCourseHour));
 
         if (dayCourses.isEmpty) {
           return EmptyStateWidget(
@@ -348,7 +453,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildCourseCard(BuildContext context, UserProvider userProvider, course) {
+  Widget _buildCourseCard(
+    BuildContext context,
+    UserProvider userProvider,
+    course,
+  ) {
     final timeRange = _getTimeRange(userProvider, course);
 
     return Container(
@@ -374,22 +483,26 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Text(
                     timeRange.split('\n')[0],
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.onSurface,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Container(
                     width: 2,
                     height: 8,
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.3),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     timeRange.split('\n')[1],
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.7),
+                    ),
                   ),
                 ],
               ),
@@ -403,9 +516,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Text(
                     course.courseName,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                        ),
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -413,8 +526,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   Text(
                     course.courseCode,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                        ),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.onSurface.withOpacity(0.6),
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),
@@ -423,7 +538,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       Icon(
                         Icons.location_on_outlined,
                         size: 14,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withOpacity(0.6),
                       ),
                       const SizedBox(width: 4),
                       Flexible(
@@ -431,8 +548,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           course.building.isNotEmpty
                               ? '${course.room}-${course.building}'
                               : course.room,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.6),
                               ),
                           overflow: TextOverflow.ellipsis,
                         ),

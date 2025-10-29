@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:tlucalendar/screens/today_screen.dart';
 import 'package:tlucalendar/screens/calendar_screen.dart';
+import 'package:tlucalendar/screens/exam_schedule_screen.dart';
 import 'package:tlucalendar/screens/settings_screen.dart';
 
 class HomeShell extends StatefulWidget {
@@ -16,13 +17,20 @@ class _HomeShellState extends State<HomeShell> {
   final List<Widget> _screens = [
     const TodayScreen(),
     const CalendarScreen(),
+    const ExamScheduleScreen(),
     const SettingsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_selectedIndex],
+      // Use IndexedStack to preserve state of each tab so screens aren't
+      // recreated when switching tabs. This prevents re-running initState
+      // (and thus avoids unnecessary API calls) when returning to a tab.
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (int index) {
@@ -31,18 +39,13 @@ class _HomeShellState extends State<HomeShell> {
           });
         },
         destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.today),
-            label: 'Hôm nay',
-          ),
+          NavigationDestination(icon: Icon(Icons.today), label: 'Hôm nay'),
           NavigationDestination(
             icon: Icon(Icons.calendar_month),
             label: 'Lịch học',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.settings),
-            label: 'Cài đặt',
-          ),
+          NavigationDestination(icon: Icon(Icons.quiz), label: 'Lịch thi'),
+          NavigationDestination(icon: Icon(Icons.settings), label: 'Cài đặt'),
         ],
       ),
     );

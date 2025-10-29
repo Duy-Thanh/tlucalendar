@@ -4,15 +4,16 @@ import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/providers/schedule_provider.dart';
+import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/theme/app_theme.dart';
 import 'package:tlucalendar/screens/home_shell.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   final errorLogger = ErrorLogger();
-  
+
   // Capture Flutter framework errors
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
@@ -27,21 +28,22 @@ void main() async {
 
   // Capture async errors
   PlatformDispatcher.instance.onError = (error, stack) {
-    errorLogger.logError(
-      error,
-      stack,
-      context: 'Async Error',
-    );
+    errorLogger.logError(error, stack, context: 'Async Error');
     debugPrint('🔴 Async Error: $error');
     debugPrint('Stack trace: $stack');
     return true;
   };
-  
+
   final themeProvider = ThemeProvider();
   await themeProvider.init();
-  
+
   final userProvider = UserProvider();
   await userProvider.init();
+
+  final examProvider = ExamProvider();
+  
+  // Link providers so UserProvider can fetch exam data during login
+  userProvider.setExamProvider(examProvider);
 
   runApp(
     MultiProvider(
@@ -49,6 +51,7 @@ void main() async {
         ChangeNotifierProvider.value(value: themeProvider),
         ChangeNotifierProvider.value(value: userProvider),
         ChangeNotifierProvider(create: (_) => ScheduleProvider()),
+        ChangeNotifierProvider.value(value: examProvider),
       ],
       child: const MyApp(),
     ),

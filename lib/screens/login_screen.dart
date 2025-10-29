@@ -80,7 +80,9 @@ class _LoginScreenState extends State<LoginScreen> {
       // Go back to settings screen
       Navigator.of(context).pop();
     } catch (e) {
-      setState(() => _errorMessage = e.toString().replaceAll('Exception: ', ''));
+      setState(
+        () => _errorMessage = e.toString().replaceAll('Exception: ', ''),
+      );
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -124,16 +126,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
                     Text(
                       'TLU Calendar',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Đăng nhập để tiếp tục',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.outline,
-                          ),
+                        color: colorScheme.outline,
+                      ),
                     ),
                   ],
                 ),
@@ -152,8 +153,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Text(
                     _errorMessage!,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onErrorContainer,
-                        ),
+                      color: colorScheme.onErrorContainer,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -180,10 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 16),
 
               // Password field
-              Text(
-                'Mật khẩu',
-                style: Theme.of(context).textTheme.labelLarge,
-              ),
+              Text('Mật khẩu', style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: 8),
               TextField(
                 controller: _passwordController,
@@ -231,6 +229,87 @@ class _LoginScreenState extends State<LoginScreen> {
                       : const Text('Đăng nhập'),
                 ),
               ),
+
+              // Progress indicator (shows when loading)
+              if (_isLoading) ...[
+                const SizedBox(height: 24),
+                Consumer<UserProvider>(
+                  builder: (context, userProvider, _) {
+                    return Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: colorScheme.outline.withOpacity(0.2),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Progress bar
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              value: userProvider.loginProgressPercent,
+                              minHeight: 8,
+                              backgroundColor:
+                                  colorScheme.surfaceContainerHigh,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          // Progress text and percentage
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  userProvider.loginProgress.isEmpty
+                                      ? 'Đang xử lý...'
+                                      : userProvider.loginProgress,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                        color: colorScheme.onSurface,
+                                      ),
+                                ),
+                              ),
+                              Text(
+                                '${(userProvider.loginProgressPercent * 100).toInt()}%',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.primary,
+                                    ),
+                              ),
+                            ],
+                          ),
+                          
+                          // Helpful message
+                          const SizedBox(height: 8),
+                          Text(
+                            'Đang tải dữ liệu để sử dụng offline. Vui lòng đợi...',
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+              
               const SizedBox(height: 16),
 
               // Demo credentials info
@@ -247,22 +326,22 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       'Thông tin đăng nhập demo:',
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: colorScheme.onSecondaryContainer,
-                          ),
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSecondaryContainer,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Mã sinh viên: 21512345678',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSecondaryContainer,
-                          ),
+                        color: colorScheme.onSecondaryContainer,
+                      ),
                     ),
                     Text(
                       'Password: password123',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSecondaryContainer,
-                          ),
+                        color: colorScheme.onSecondaryContainer,
+                      ),
                     ),
                   ],
                 ),

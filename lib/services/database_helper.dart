@@ -21,9 +21,54 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Add exam-related tables
+      await db.execute('''
+        CREATE TABLE register_periods (
+          id INTEGER PRIMARY KEY,
+          semesterId INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          displayOrder INTEGER NOT NULL,
+          lastUpdated INTEGER NOT NULL
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE exam_rooms (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          semesterId INTEGER NOT NULL,
+          registerPeriodId INTEGER NOT NULL,
+          examRound INTEGER NOT NULL,
+          examRoomId INTEGER NOT NULL,
+          status INTEGER NOT NULL,
+          examCode TEXT,
+          examCodeNumber INTEGER,
+          markingCode TEXT,
+          examPeriodCode TEXT NOT NULL,
+          subjectName TEXT NOT NULL,
+          studentCode TEXT,
+          roomCode TEXT NOT NULL,
+          duration INTEGER,
+          examDate INTEGER,
+          examDateString TEXT,
+          numberExpectedStudent INTEGER,
+          semesterName TEXT,
+          courseYearName TEXT,
+          registerPeriodName TEXT,
+          examHourJson TEXT,
+          roomJson TEXT,
+          lastUpdated INTEGER NOT NULL,
+          UNIQUE(examRoomId, semesterId, registerPeriodId, examRound)
+        )
+      ''');
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -109,24 +154,67 @@ class DatabaseHelper {
         lastUpdated INTEGER NOT NULL
       )
     ''');
+
+    // Register periods table (for exams)
+    await db.execute('''
+      CREATE TABLE register_periods (
+        id INTEGER PRIMARY KEY,
+        semesterId INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        displayOrder INTEGER NOT NULL,
+        lastUpdated INTEGER NOT NULL
+      )
+    ''');
+
+    // Exam rooms table
+    await db.execute('''
+      CREATE TABLE exam_rooms (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        semesterId INTEGER NOT NULL,
+        registerPeriodId INTEGER NOT NULL,
+        examRound INTEGER NOT NULL,
+        examRoomId INTEGER NOT NULL,
+        status INTEGER NOT NULL,
+        examCode TEXT,
+        examCodeNumber INTEGER,
+        markingCode TEXT,
+        examPeriodCode TEXT NOT NULL,
+        subjectName TEXT NOT NULL,
+        studentCode TEXT,
+        roomCode TEXT NOT NULL,
+        duration INTEGER,
+        examDate INTEGER,
+        examDateString TEXT,
+        numberExpectedStudent INTEGER,
+        semesterName TEXT,
+        courseYearName TEXT,
+        registerPeriodName TEXT,
+        examHourJson TEXT,
+        roomJson TEXT,
+        lastUpdated INTEGER NOT NULL,
+        UNIQUE(examRoomId, semesterId, registerPeriodId, examRound)
+      )
+    ''');
   }
 
   // Save TLU user
   Future<void> saveTluUser(TluUser user) async {
     final db = await database;
-    await db.insert(
-      'users',
-      {
-        'id': user.id,
-        'username': user.username,
-        'displayName': user.displayName,
-        'email': user.email,
-        'personJson': user.person != null ? jsonEncode(_personToMap(user.person!)) : null,
-        'rolesJson': jsonEncode(user.roles.map((r) => {'id': r.id, 'name': r.name, 'authority': r.authority}).toList()),
-        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
-      },
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('users', {
+      'id': user.id,
+      'username': user.username,
+      'displayName': user.displayName,
+      'email': user.email,
+      'personJson': user.person != null
+          ? jsonEncode(_personToMap(user.person!))
+          : null,
+      'rolesJson': jsonEncode(
+        user.roles
+            .map((r) => {'id': r.id, 'name': r.name, 'authority': r.authority})
+            .toList(),
+      ),
+      'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Map<String, dynamic> _personToMap(Person person) {
@@ -148,9 +236,9 @@ class DatabaseHelper {
   Future<TluUser?> getTluUser() async {
     final db = await database;
     final maps = await db.query('users', limit: 1);
-    
+
     if (maps.isEmpty) return null;
-    
+
     final map = maps.first;
     return TluUser(
       id: map['id'] as int,
@@ -158,9 +246,17 @@ class DatabaseHelper {
       displayName: map['displayName'] as String,
       email: map['email'] as String,
       active: true,
-      person: map['personJson'] != null ? _mapToPerson(jsonDecode(map['personJson'] as String)) : null,
+      person: map['personJson'] != null
+          ? _mapToPerson(jsonDecode(map['personJson'] as String))
+          : null,
       roles: (jsonDecode(map['rolesJson'] as String) as List)
-          .map((r) => UserRole(id: r['id'], name: r['name'], authority: r['authority']))
+          .map(
+            (r) => UserRole(
+              id: r['id'],
+              name: r['name'],
+              authority: r['authority'],
+            ),
+          )
           .toList(),
     );
   }
@@ -188,19 +284,15 @@ class DatabaseHelper {
     final now = DateTime.now().millisecondsSinceEpoch;
 
     for (var hour in courseHours.values) {
-      batch.insert(
-        'course_hours',
-        {
-          'id': hour.id,
-          'name': hour.name,
-          'startString': hour.startString,
-          'endString': hour.endString,
-          'indexNumber': hour.indexNumber,
-          'type': hour.type,
-          'lastUpdated': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('course_hours', {
+        'id': hour.id,
+        'name': hour.name,
+        'startString': hour.startString,
+        'endString': hour.endString,
+        'indexNumber': hour.indexNumber,
+        'type': hour.type,
+        'lastUpdated': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     await batch.commit(noResult: true);
@@ -210,7 +302,7 @@ class DatabaseHelper {
   Future<Map<int, CourseHour>> getCourseHours() async {
     final db = await database;
     final maps = await db.query('course_hours');
-    
+
     final courseHours = <int, CourseHour>{};
     for (var map in maps) {
       final hour = CourseHour(
@@ -225,7 +317,7 @@ class DatabaseHelper {
       );
       courseHours[hour.id] = hour;
     }
-    
+
     return courseHours;
   }
 
@@ -236,19 +328,15 @@ class DatabaseHelper {
     final now = DateTime.now().millisecondsSinceEpoch;
 
     for (var semester in semesters) {
-      batch.insert(
-        'semesters',
-        {
-          'id': semester.id,
-          'semesterCode': semester.semesterCode,
-          'semesterName': semester.semesterName,
-          'startDate': semester.startDate,
-          'endDate': semester.endDate,
-          'isCurrent': semester.isCurrent ? 1 : 0,
-          'lastUpdated': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('semesters', {
+        'id': semester.id,
+        'semesterCode': semester.semesterCode,
+        'semesterName': semester.semesterName,
+        'startDate': semester.startDate,
+        'endDate': semester.endDate,
+        'isCurrent': semester.isCurrent ? 1 : 0,
+        'lastUpdated': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     await batch.commit(noResult: true);
@@ -258,63 +346,70 @@ class DatabaseHelper {
   Future<List<Semester>> getSemesters() async {
     final db = await database;
     final maps = await db.query('semesters', orderBy: 'startDate DESC');
-    
-    return maps.map((map) => Semester(
-      id: map['id'] as int,
-      semesterCode: map['semesterCode'] as String,
-      semesterName: map['semesterName'] as String,
-      startDate: map['startDate'] as int,
-      endDate: map['endDate'] as int,
-      isCurrent: (map['isCurrent'] as int) == 1,
-      semesterRegisterPeriods: [],
-    )).toList();
+
+    return maps
+        .map(
+          (map) => Semester(
+            id: map['id'] as int,
+            semesterCode: map['semesterCode'] as String,
+            semesterName: map['semesterName'] as String,
+            startDate: map['startDate'] as int,
+            endDate: map['endDate'] as int,
+            isCurrent: (map['isCurrent'] as int) == 1,
+            semesterRegisterPeriods: [],
+          ),
+        )
+        .toList();
   }
 
   // Save student courses
-  Future<void> saveStudentCourses(int semesterId, List<StudentCourseSubject> courses) async {
+  Future<void> saveStudentCourses(
+    int semesterId,
+    List<StudentCourseSubject> courses,
+  ) async {
     final db = await database;
-    
+
     // Delete old courses for this semester
-    await db.delete('student_courses', where: 'semesterId = ?', whereArgs: [semesterId]);
-    
+    await db.delete(
+      'student_courses',
+      where: 'semesterId = ?',
+      whereArgs: [semesterId],
+    );
+
     // Insert new courses
     final batch = db.batch();
     final now = DateTime.now().millisecondsSinceEpoch;
 
     for (var course in courses) {
-      batch.insert(
-        'student_courses',
-        {
-          'courseId': course.id,
-          'semesterId': semesterId,
-          'courseCode': course.courseCode,
-          'courseName': course.courseName,
-          'classCode': course.classCode,
-          'className': course.className,
-          'lecturerJson': course.lecturer != null 
-              ? jsonEncode({
-                  'id': course.lecturer!.id,
-                  'name': course.lecturer!.name,
-                  'email': course.lecturer!.email,
-                })
-              : null,
-          'dayOfWeek': course.dayOfWeek,
-          'startCourseHour': course.startCourseHour,
-          'endCourseHour': course.endCourseHour,
-          'room': course.room,
-          'building': course.building,
-          'campus': course.campus,
-          'credits': course.credits,
-          'startDate': course.startDate,
-          'endDate': course.endDate,
-          'fromWeek': course.fromWeek,
-          'toWeek': course.toWeek,
-          'status': course.status,
-          'grade': course.grade,
-          'lastUpdated': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('student_courses', {
+        'courseId': course.id,
+        'semesterId': semesterId,
+        'courseCode': course.courseCode,
+        'courseName': course.courseName,
+        'classCode': course.classCode,
+        'className': course.className,
+        'lecturerJson': course.lecturer != null
+            ? jsonEncode({
+                'id': course.lecturer!.id,
+                'name': course.lecturer!.name,
+                'email': course.lecturer!.email,
+              })
+            : null,
+        'dayOfWeek': course.dayOfWeek,
+        'startCourseHour': course.startCourseHour,
+        'endCourseHour': course.endCourseHour,
+        'room': course.room,
+        'building': course.building,
+        'campus': course.campus,
+        'credits': course.credits,
+        'startDate': course.startDate,
+        'endDate': course.endDate,
+        'fromWeek': course.fromWeek,
+        'toWeek': course.toWeek,
+        'status': course.status,
+        'grade': course.grade,
+        'lastUpdated': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     await batch.commit(noResult: true);
@@ -329,7 +424,7 @@ class DatabaseHelper {
       whereArgs: [semesterId],
       orderBy: 'dayOfWeek, startCourseHour',
     );
-    
+
     return maps.map((map) {
       LecturerInfo? lecturer;
       if (map['lecturerJson'] != null) {
@@ -340,7 +435,7 @@ class DatabaseHelper {
           email: lecturerMap['email'],
         );
       }
-      
+
       return StudentCourseSubject(
         id: map['courseId'] as int,
         courseCode: map['courseCode'] as String,
@@ -372,21 +467,17 @@ class DatabaseHelper {
     final now = DateTime.now().millisecondsSinceEpoch;
 
     for (var year in schoolYears) {
-      batch.insert(
-        'school_years',
-        {
-          'id': year.id,
-          'name': year.name,
-          'code': year.code,
-          'year': year.year,
-          'current': year.current ? 1 : 0,
-          'startDate': year.startDate,
-          'endDate': year.endDate,
-          'displayName': year.displayName,
-          'lastUpdated': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      batch.insert('school_years', {
+        'id': year.id,
+        'name': year.name,
+        'code': year.code,
+        'year': year.year,
+        'current': year.current ? 1 : 0,
+        'startDate': year.startDate,
+        'endDate': year.endDate,
+        'displayName': year.displayName,
+        'lastUpdated': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
 
     await batch.commit(noResult: true);
@@ -396,18 +487,22 @@ class DatabaseHelper {
   Future<List<SchoolYear>> getSchoolYears() async {
     final db = await database;
     final maps = await db.query('school_years', orderBy: 'year DESC');
-    
-    return maps.map((map) => SchoolYear(
-      id: map['id'] as int,
-      name: map['name'] as String,
-      code: map['code'] as String,
-      year: map['year'] as int,
-      current: (map['current'] as int) == 1,
-      startDate: map['startDate'] as int,
-      endDate: map['endDate'] as int,
-      displayName: map['displayName'] as String,
-      semesters: [],
-    )).toList();
+
+    return maps
+        .map(
+          (map) => SchoolYear(
+            id: map['id'] as int,
+            name: map['name'] as String,
+            code: map['code'] as String,
+            year: map['year'] as int,
+            current: (map['current'] as int) == 1,
+            startDate: map['startDate'] as int,
+            endDate: map['endDate'] as int,
+            displayName: map['displayName'] as String,
+            semesters: [],
+          ),
+        )
+        .toList();
   }
 
   // Clear all data
@@ -418,6 +513,257 @@ class DatabaseHelper {
     await db.delete('semesters');
     await db.delete('student_courses');
     await db.delete('school_years');
+    await db.delete('register_periods');
+    await db.delete('exam_rooms');
+  }
+
+  // Save register periods for a semester
+  Future<void> saveRegisterPeriods(
+    int semesterId,
+    List<RegisterPeriod> periods,
+  ) async {
+    final db = await database;
+
+    // Delete old periods for this semester
+    await db.delete(
+      'register_periods',
+      where: 'semesterId = ?',
+      whereArgs: [semesterId],
+    );
+
+    // Insert new periods
+    final batch = db.batch();
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    for (var period in periods) {
+      batch.insert('register_periods', {
+        'id': period.id,
+        'semesterId': semesterId,
+        'name': period.name,
+        'displayOrder': period.displayOrder,
+        'lastUpdated': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    await batch.commit(noResult: true);
+  }
+
+  // Get register periods for a semester
+  Future<List<RegisterPeriod>> getRegisterPeriods(int semesterId) async {
+    final db = await database;
+    final maps = await db.query(
+      'register_periods',
+      where: 'semesterId = ?',
+      whereArgs: [semesterId],
+      orderBy: 'displayOrder',
+    );
+
+    // Get the semester for the register periods
+    final semesterMaps = await db.query(
+      'semesters',
+      where: 'id = ?',
+      whereArgs: [semesterId],
+      limit: 1,
+    );
+
+    Semester semester;
+    if (semesterMaps.isNotEmpty) {
+      final semMap = semesterMaps.first;
+      semester = Semester(
+        id: semMap['id'] as int,
+        semesterCode: semMap['semesterCode'] as String,
+        semesterName: semMap['semesterName'] as String,
+        startDate: semMap['startDate'] as int,
+        endDate: semMap['endDate'] as int,
+        isCurrent: (semMap['isCurrent'] as int) == 1,
+        semesterRegisterPeriods: [],
+      );
+    } else {
+      // Fallback semester if not found
+      semester = Semester(
+        id: semesterId,
+        semesterCode: '',
+        semesterName: '',
+        startDate: 0,
+        endDate: 0,
+        isCurrent: false,
+        semesterRegisterPeriods: [],
+      );
+    }
+
+    return maps
+        .map(
+          (map) => RegisterPeriod(
+            id: map['id'] as int,
+            voided: false,
+            semester: semester,
+            name: map['name'] as String,
+            displayOrder: map['displayOrder'] as int,
+            examPeriods: [],
+          ),
+        )
+        .toList();
+  }
+
+  // Save exam rooms
+  Future<void> saveExamRooms(
+    int semesterId,
+    int registerPeriodId,
+    int examRound,
+    List<StudentExamRoom> examRooms,
+  ) async {
+    final db = await database;
+
+    // Delete old exam rooms for this combination
+    await db.delete(
+      'exam_rooms',
+      where: 'semesterId = ? AND registerPeriodId = ? AND examRound = ?',
+      whereArgs: [semesterId, registerPeriodId, examRound],
+    );
+
+    // Insert new exam rooms
+    final batch = db.batch();
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    for (var examRoom in examRooms) {
+      batch.insert('exam_rooms', {
+        'examRoomId': examRoom.id,
+        'semesterId': semesterId,
+        'registerPeriodId': registerPeriodId,
+        'examRound': examRound,
+        'status': examRoom.status,
+        'examCode': examRoom.examCode,
+        'examCodeNumber': examRoom.examCodeNumber,
+        'markingCode': examRoom.markingCode,
+        'examPeriodCode': examRoom.examPeriodCode,
+        'subjectName': examRoom.subjectName,
+        'studentCode': examRoom.studentCode,
+        'roomCode': examRoom.examRoom?.roomCode ?? '',
+        'duration': examRoom.examRoom?.duration,
+        'examDate': examRoom.examRoom?.examDate,
+        'examDateString': examRoom.examRoom?.examDateString,
+        'numberExpectedStudent': examRoom.examRoom?.numberExpectedStudent,
+        'semesterName': examRoom.examRoom?.semesterName,
+        'courseYearName': examRoom.examRoom?.courseYearName,
+        'registerPeriodName': examRoom.examRoom?.registerPeriodName,
+        'examHourJson': examRoom.examRoom?.examHour != null
+            ? jsonEncode({
+                'id': examRoom.examRoom!.examHour!.id,
+                'startString': examRoom.examRoom!.examHour!.startString,
+                'endString': examRoom.examRoom!.examHour!.endString,
+                'name': examRoom.examRoom!.examHour!.name,
+                'code': examRoom.examRoom!.examHour!.code,
+              })
+            : null,
+        'roomJson': examRoom.examRoom?.room != null
+            ? jsonEncode({
+                'id': examRoom.examRoom!.room!.id,
+                'name': examRoom.examRoom!.room!.name,
+                'code': examRoom.examRoom!.room!.code,
+              })
+            : null,
+        'lastUpdated': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+
+    await batch.commit(noResult: true);
+  }
+
+  // Get exam rooms
+  Future<List<StudentExamRoom>> getExamRooms(
+    int semesterId,
+    int registerPeriodId,
+    int examRound,
+  ) async {
+    final db = await database;
+    final maps = await db.query(
+      'exam_rooms',
+      where: 'semesterId = ? AND registerPeriodId = ? AND examRound = ?',
+      whereArgs: [semesterId, registerPeriodId, examRound],
+      orderBy: 'examDate, examDateString',
+    );
+
+    return maps.map((map) {
+      ExamHour? examHour;
+      if (map['examHourJson'] != null) {
+        final hourMap = jsonDecode(map['examHourJson'] as String);
+        examHour = ExamHour(
+          id: hourMap['id'],
+          startString: hourMap['startString'],
+          endString: hourMap['endString'],
+          name: hourMap['name'],
+          code: hourMap['code'],
+        );
+      }
+
+      Room? room;
+      if (map['roomJson'] != null) {
+        final roomMap = jsonDecode(map['roomJson'] as String);
+        room = Room(
+          id: roomMap['id'],
+          name: roomMap['name'],
+          code: roomMap['code'],
+        );
+      }
+
+      ExamRoomDetail? examRoomDetail;
+      if (map['roomCode'] != null && (map['roomCode'] as String).isNotEmpty) {
+        examRoomDetail = ExamRoomDetail(
+          id: 0,
+          roomCode: map['roomCode'] as String,
+          duration: map['duration'] as int?,
+          examDate: map['examDate'] as int?,
+          examDateString: map['examDateString'] as String?,
+          numberExpectedStudent: map['numberExpectedStudent'] as int?,
+          semesterName: map['semesterName'] as String?,
+          courseYearName: map['courseYearName'] as String?,
+          registerPeriodName: map['registerPeriodName'] as String?,
+          examHour: examHour,
+          room: room,
+        );
+      }
+
+      return StudentExamRoom(
+        id: map['examRoomId'] as int,
+        status: map['status'] as int,
+        examCode: map['examCode'] as String?,
+        examCodeNumber: map['examCodeNumber'] as int?,
+        markingCode: map['markingCode'] as String?,
+        examPeriodCode: map['examPeriodCode'] as String,
+        subjectName: map['subjectName'] as String,
+        studentCode: map['studentCode'] as String?,
+        examRound: examRound,
+        examRoom: examRoomDetail,
+      );
+    }).toList();
+  }
+
+  // Check if cached exam data exists
+  Future<bool> hasExamRoomCache(
+    int semesterId,
+    int registerPeriodId,
+    int examRound,
+  ) async {
+    final db = await database;
+    final result = await db.query(
+      'exam_rooms',
+      where: 'semesterId = ? AND registerPeriodId = ? AND examRound = ?',
+      whereArgs: [semesterId, registerPeriodId, examRound],
+      limit: 1,
+    );
+    return result.isNotEmpty;
+  }
+
+  // Check if cached register periods exist
+  Future<bool> hasRegisterPeriodsCache(int semesterId) async {
+    final db = await database;
+    final result = await db.query(
+      'register_periods',
+      where: 'semesterId = ?',
+      whereArgs: [semesterId],
+      limit: 1,
+    );
+    return result.isNotEmpty;
   }
 
   // Close database

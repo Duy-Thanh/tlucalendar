@@ -3,7 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/screens/login_screen.dart';
@@ -25,11 +26,11 @@ class SettingsScreen extends StatelessWidget {
           snap: true,
           elevation: 0,
           title: Text(
-                'Cài đặt',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
+            'Cài đặt',
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
         ),
         SliverToBoxAdapter(
           child: Consumer<UserProvider>(
@@ -45,19 +46,19 @@ class SettingsScreen extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 40,
-                      backgroundColor:
-                          Theme.of(context).colorScheme.primaryContainer,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer,
                       child: Text(
                         user.fullName.isNotEmpty
                             ? user.fullName[0].toUpperCase()
                             : '?',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
+                        style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
                               fontWeight: FontWeight.bold,
-                              color:
-                                  Theme.of(context).colorScheme.onPrimaryContainer,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onPrimaryContainer,
                             ),
                       ),
                     ),
@@ -65,22 +66,22 @@ class SettingsScreen extends StatelessWidget {
                     Text(
                       user.fullName,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       user.studentId,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       user.email,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.outline,
-                          ),
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
                     ),
                   ],
                 ),
@@ -93,9 +94,9 @@ class SettingsScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Text(
               'Tài khoản',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -167,9 +168,9 @@ class SettingsScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Text(
               'Hiển thị',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -179,7 +180,10 @@ class SettingsScreen extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -217,9 +221,9 @@ class SettingsScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Text(
               'Thông tin',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -239,10 +243,10 @@ class SettingsScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       Text(
-                        '2025.10.27',
+                        '2025.10.29',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -257,8 +261,8 @@ class SettingsScreen extends StatelessWidget {
                       Text(
                         'Nguyen Duy Thanh',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -284,7 +288,8 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
         // Only show Third-party notices on Android and iOS
-        if (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)
+        if (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -301,9 +306,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ),
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 20),
-        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 20)),
       ],
     );
   }
@@ -313,7 +316,7 @@ class SettingsScreen extends StatelessWidget {
 
     // Gather app info
     String appName = 'TLU Calendar';
-    String appVersion = '2025.10.26';
+    String appVersion = '2025.10.29';
     try {
       final pkg = await PackageInfo.fromPlatform();
       appName = pkg.appName;
@@ -328,21 +331,29 @@ class SettingsScreen extends StatelessWidget {
     try {
       if (Platform.isAndroid) {
         final info = await deviceInfo.androidInfo;
-        deviceDetails = 'Android ${info.version.release} (SDK ${info.version.sdkInt}) - ${info.brand} ${info.model}';
+        deviceDetails =
+            'Android ${info.version.release} (SDK ${info.version.sdkInt}) - ${info.brand} ${info.model}';
       } else if (Platform.isIOS) {
         final info = await deviceInfo.iosInfo;
-        deviceDetails = 'iOS ${info.systemVersion} - ${info.name} ${info.model}';
+        deviceDetails =
+            'iOS ${info.systemVersion} - ${info.name} ${info.model}';
       } else {
-        deviceDetails = '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+        deviceDetails =
+            '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
       }
     } catch (e) {
       deviceDetails = 'Unknown device info: $e';
     }
 
     // Collect user and app state
-    final userId = userProvider.isLoggedIn ? userProvider.currentUser.studentId : 'not_logged_in';
-    final userName = userProvider.isLoggedIn ? userProvider.currentUser.fullName : 'not_logged_in';
-    final selectedSemester = userProvider.selectedSemester?.semesterName ?? 'unknown';
+    final userId = userProvider.isLoggedIn
+        ? userProvider.currentUser.studentId
+        : 'not_logged_in';
+    final userName = userProvider.isLoggedIn
+        ? userProvider.currentUser.fullName
+        : 'not_logged_in';
+    final selectedSemester =
+        userProvider.selectedSemester?.semesterName ?? 'unknown';
 
     // Get error logs from ErrorLogger
     final errorLogger = ErrorLogger();
@@ -363,7 +374,9 @@ class SettingsScreen extends StatelessWidget {
     body.writeln('1. What were you doing when the error occurred?');
     body.writeln('2. What did you expect to happen?');
     body.writeln('3. What actually happened?');
-    body.writeln('4. Can you reproduce this issue? If yes, describe the steps.');
+    body.writeln(
+      '4. Can you reproduce this issue? If yes, describe the steps.',
+    );
     body.writeln('\n--- YOUR DESCRIPTION HERE ---\n\n\n');
     body.writeln('\n--- DEBUG INFO (do not edit below) ---');
     body.writeln('\n=== ERROR HISTORY ===');
@@ -373,30 +386,36 @@ class SettingsScreen extends StatelessWidget {
     // Use percent-encoding for subject/body so spaces are encoded as %20
     final encodedSubject = Uri.encodeComponent(subject);
     final encodedBody = Uri.encodeComponent(body.toString());
-    final mailto = 'mailto:thanhdz167@gmail.com?subject=$encodedSubject&body=$encodedBody';
+    final mailto =
+        'mailto:thanhdz167@gmail.com?subject=$encodedSubject&body=$encodedBody';
     final uri = Uri.parse(mailto);
 
     try {
       if (!await launchUrl(uri)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không thể mở ứng dụng email trên thiết bị này.')),
+          const SnackBar(
+            content: Text('Không thể mở ứng dụng email trên thiết bị này.'),
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi khi mở email: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Lỗi khi mở email: $e')));
     }
   }
 
-  static const MethodChannel _navigationChannel = 
-      MethodChannel('com.nekkochan.tlucalendar/navigation');
+  static const MethodChannel _navigationChannel = MethodChannel(
+    'com.nekkochan.tlucalendar/navigation',
+  );
 
   static Future<void> _viewThirdPartyNotices(BuildContext context) async {
     if (defaultTargetPlatform == TargetPlatform.android) {
       try {
         // Launch the activity securely via method channel
-        final result = await _navigationChannel.invokeMethod('openLicenseActivity');
+        final result = await _navigationChannel.invokeMethod(
+          'openLicenseActivity',
+        );
         if (result != true) {
           throw Exception('Failed to open license activity');
         }
@@ -416,7 +435,7 @@ class SettingsScreen extends StatelessWidget {
             data: Theme.of(context),
             child: const LicensePage(
               applicationName: 'TLU Calendar',
-              applicationVersion: '2025.10.27',
+              applicationVersion: '2025.10.29',
             ),
           ),
         ),

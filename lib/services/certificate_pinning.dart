@@ -3,10 +3,10 @@ import 'package:dio/io.dart';
 import 'dart:io';
 
 /// Certificate Pinning Configuration
-/// 
+///
 /// This class manages SSL/TLS certificate pinning for production deployments.
 /// It ensures that the app only trusts specific certificates from the TLU API.
-/// 
+///
 /// ## How to use:
 /// 1. Extract the TLU certificate SHA-256 pin (see instructions below)
 /// 2. Add the pin to the certificatePins list
@@ -17,13 +17,13 @@ class CertificatePinningConfig {
   static const String tluDomain = 'sinhvien1.tlu.edu.vn';
 
   /// List of SHA-256 certificate pins for TLU
-  /// 
+  ///
   /// These are the actual SHA-256 public key pins extracted from:
   /// https://sinhvien1.tlu.edu.vn/education/
-  /// 
+  ///
   /// Extraction date: 2025-10-24
   /// Method: openssl x509 → openssl pkey → openssl dgst -sha256 -binary → base64
-  /// 
+  ///
   /// To update or add backup pins, use the get_certificate_pin.ps1 script:
   /// ```powershell
   /// powershell -ExecutionPolicy Bypass -File .\get_certificate_pin.ps1
@@ -34,7 +34,7 @@ class CertificatePinningConfig {
   ];
 
   /// Create a Dio instance with certificate pinning enabled
-  /// 
+  ///
   /// [enablePinning]: Enable or disable certificate pinning
   /// [connectTimeout]: Connection timeout in seconds
   /// [developmentMode]: If true, accepts all certificates (for testing)
@@ -113,10 +113,10 @@ class CertificatePinningConfig {
   }
 
   /// Get certificate pins configuration for Android network security XML
-  /// 
+  ///
   /// This XML snippet should be added to:
   /// android/app/src/main/res/xml/network_security_config.xml
-  /// 
+  ///
   /// Returns the `<domain-config>` section with pins.
   static String getAndroidPinningXml() {
     if (certificatePins.isEmpty) {
@@ -161,7 +161,9 @@ $pins
       buffer.writeln('⚠️  No pins configured - using system certificates');
     } else {
       for (int i = 0; i < certificatePins.length; i++) {
-        buffer.writeln('  Pin ${i + 1}: ${certificatePins[i].substring(0, 20)}...');
+        buffer.writeln(
+          '  Pin ${i + 1}: ${certificatePins[i].substring(0, 20)}...',
+        );
       }
     }
     buffer.writeln('Android Config Generated:');

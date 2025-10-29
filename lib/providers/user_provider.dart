@@ -4,6 +4,7 @@ import 'package:tlucalendar/models/user.dart';
 import 'package:tlucalendar/models/api_response.dart';
 import 'package:tlucalendar/services/auth_service.dart';
 import 'package:tlucalendar/services/database_helper.dart';
+import 'package:tlucalendar/providers/exam_provider.dart';
 
 class UserProvider extends ChangeNotifier {
   late User _currentUser;
@@ -12,16 +13,21 @@ class UserProvider extends ChangeNotifier {
   final _dbHelper = DatabaseHelper.instance;
   bool _isLoggedIn = false;
   String? _accessToken;
-  
+  ExamProvider? _examProvider; // Optional reference to ExamProvider
+
   // New fields for TLU API data
   TluUser? _tluUser;
   SchoolYearResponse? _schoolYears;
   SemesterInfo? _currentSemesterInfo;
   Semester? _selectedSemester;
-  Map<int, CourseHour> _courseHours = {};  // Map of CourseHour by ID
+  Map<int, CourseHour> _courseHours = {}; // Map of CourseHour by ID
   List<StudentCourseSubject> _studentCourses = [];
   bool _isLoadingCourses = false;
   String? _courseLoadError;
+  
+  // Login progress tracking
+  String _loginProgress = '';
+  double _loginProgressPercent = 0.0;
 
   static const String _studentCodeKey = 'userStudentCode';
   static const String _passwordKey = 'userPassword';
@@ -41,6 +47,10 @@ class UserProvider extends ChangeNotifier {
   bool get isLoadingCourses => _isLoadingCourses;
   String? get courseLoadError => _courseLoadError;
   
+  // Login progress getters
+  String get loginProgress => _loginProgress;
+  double get loginProgressPercent => _loginProgressPercent;
+
   /// Get semester start date for week calculation
   DateTime? get semesterStartDate {
     if (_selectedSemester != null) {
@@ -48,13 +58,13 @@ class UserProvider extends ChangeNotifier {
     }
     return null;
   }
-  
+
   /// Find semester that contains the given date
   Semester? getSemesterForDate(DateTime date) {
     if (_schoolYears == null) return null;
-    
+
     final dateMs = date.millisecondsSinceEpoch;
-    
+
     // Search through all semesters to find one that contains this date
     for (var year in _schoolYears!.content) {
       for (var semester in year.semesters) {
@@ -63,29 +73,29 @@ class UserProvider extends ChangeNotifier {
         }
       }
     }
-    
+
     return null;
   }
-  
+
   /// Get filtered courses that are active on a specific date
   /// Only returns courses if they belong to the currently selected semester
   List<StudentCourseSubject> getActiveCourses(DateTime date) {
     if (semesterStartDate == null) {
       return _studentCourses;
     }
-    
+
     return _studentCourses.where((course) {
       return course.isActiveOn(date, semesterStartDate!);
     }).toList();
   }
-  
+
   /// Check if a given date belongs to the currently selected semester
   bool isDateInCurrentSemester(DateTime date) {
     if (_selectedSemester == null) return false;
-    
+
     final dateMs = date.millisecondsSinceEpoch;
-    return dateMs >= _selectedSemester!.startDate && 
-           dateMs <= _selectedSemester!.endDate;
+    return dateMs >= _selectedSemester!.startDate &&
+        dateMs <= _selectedSemester!.endDate;
   }
 
   UserProvider() {
@@ -98,6 +108,11 @@ class UserProvider extends ChangeNotifier {
     _authService = AuthService();
   }
 
+  /// Set exam provider reference for fetching exam data during login
+  void setExamProvider(ExamProvider examProvider) {
+    _examProvider = examProvider;
+  }
+
   /// Initialize SharedPreferences and load saved login credentials
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -107,7 +122,7 @@ class UserProvider extends ChangeNotifier {
     if (_isLoggedIn) {
       // Load cached data from database first (works offline!)
       await _loadCachedData();
-      
+
       // Try to refresh from API if we have network (optional)
       if (_accessToken != null) {
         try {
@@ -143,7 +158,7 @@ class UserProvider extends ChangeNotifier {
       // Load school years and semesters
       final schoolYears = await _dbHelper.getSchoolYears();
       final semesters = await _dbHelper.getSemesters();
-      
+
       if (schoolYears.isNotEmpty && semesters.isNotEmpty) {
         // Group semesters by school year
         for (var year in schoolYears) {
@@ -155,7 +170,7 @@ class UserProvider extends ChangeNotifier {
             }).toList(),
           );
         }
-        
+
         _schoolYears = SchoolYearResponse(
           content: schoolYears,
           last: true,
@@ -171,7 +186,9 @@ class UserProvider extends ChangeNotifier {
 
         // Load courses for selected semester
         if (_selectedSemester != null) {
-          _studentCourses = await _dbHelper.getStudentCourses(_selectedSemester!.id);
+          _studentCourses = await _dbHelper.getStudentCourses(
+            _selectedSemester!.id,
+          );
         }
       }
     } catch (e) {
@@ -207,36 +224,57 @@ class UserProvider extends ChangeNotifier {
   /// Login with real TLU API
   Future<void> loginWithApi(String studentCode, String password) async {
     try {
+      // Reset progress
+      _loginProgress = 'Đang xác thực...';
+      _loginProgressPercent = 0.0;
+      notifyListeners();
+      
       // Step 1: Get access token
       final loginResponse = await _authService.login(studentCode, password);
       _accessToken = loginResponse.accessToken;
 
       // Step 2: Fetch user data
+      _loginProgress = 'Đang tải thông tin người dùng...';
+      _loginProgressPercent = 0.125; // 1/8
+      notifyListeners();
+      
       _tluUser = await _authService.getCurrentUser(_accessToken!);
       _updateUserFromTluUser(_tluUser!);
       await _dbHelper.saveTluUser(_tluUser!); // 💾 Save to database
 
       // Step 3: Fetch school years and semesters
+      _loginProgress = 'Đang tải danh sách học kỳ...';
+      _loginProgressPercent = 0.25; // 2/8
+      notifyListeners();
+      
       _schoolYears = await _authService.getSchoolYears(_accessToken!);
-      
+
       // Step 4: Fetch current semester info
-      _currentSemesterInfo = await _authService.getSemesterInfo(_accessToken!);
+      _loginProgress = 'Đang tải thông tin học kỳ hiện tại...';
+      _loginProgressPercent = 0.375; // 3/8
+      notifyListeners();
       
+      _currentSemesterInfo = await _authService.getSemesterInfo(_accessToken!);
+
       // Step 5: Fetch all course hours (time slots) - needed to display times
+      _loginProgress = 'Đang tải thông tin tiết học...';
+      _loginProgressPercent = 0.5; // 4/8
+      notifyListeners();
+      
       _courseHours = await _authService.getCourseHours(_accessToken!);
       await _dbHelper.saveCourseHours(_courseHours); // 💾 Save to database
-      
+
       // Step 6: Find and set selected semester (current semester based on actual dates)
       if (_schoolYears != null) {
         // Save school years to database
         await _dbHelper.saveSchoolYears(_schoolYears!.content);
-        
+
         // Save all semesters to database
         final allSemesters = _schoolYears!.content
             .expand((y) => y.semesters)
             .toList();
         await _dbHelper.saveSemesters(allSemesters);
-        
+
         // First, try to find a semester that is currently active (today's date falls within it)
         _selectedSemester = _schoolYears!.content
             .expand((y) => y.semesters)
@@ -255,38 +293,127 @@ class UserProvider extends ChangeNotifier {
               },
             );
       }
-      
+
       // Step 7: Fetch and save courses for ALL semesters (for offline use!)
       if (_schoolYears != null) {
         final allSemesters = _schoolYears!.content
             .expand((y) => y.semesters)
             .toList();
-        
-        print('📥 Downloading courses for ALL ${allSemesters.length} semesters...');
-        
-        for (var semester in allSemesters) {
+
+        _loginProgress = 'Đang tải lịch học (0/${allSemesters.length})...';
+        _loginProgressPercent = 0.625; // 5/8
+        notifyListeners();
+
+        print(
+          '📥 Downloading courses for ALL ${allSemesters.length} semesters...',
+        );
+
+        for (var i = 0; i < allSemesters.length; i++) {
+          final semester = allSemesters[i];
           try {
+            _loginProgress = 'Đang tải lịch học (${i + 1}/${allSemesters.length})...';
+            notifyListeners();
+            
             final courses = await _authService.getStudentCourseSubject(
               _accessToken!,
               semester.id,
             );
-            
+
             // Save to database
             await _dbHelper.saveStudentCourses(semester.id, courses);
-            print('✅ Saved ${courses.length} courses for semester ${semester.semesterName}');
-            
+            print(
+              '✅ Saved ${courses.length} courses for semester ${semester.semesterName}',
+            );
+
             // If this is the selected semester, update current courses
             if (semester.id == _selectedSemester?.id) {
               _studentCourses = courses;
             }
           } catch (e) {
-            print('⚠️ Failed to fetch courses for semester ${semester.semesterName}: $e');
+            print(
+              '⚠️ Failed to fetch courses for semester ${semester.semesterName}: $e',
+            );
             // Continue with other semesters even if one fails
           }
         }
-        
+
         print('🎉 All semester data downloaded and cached!');
       }
+
+      // Step 8: Fetch and save exam data for ALL semesters (for offline use!)
+      if (_schoolYears != null && _examProvider != null && _accessToken != null) {
+        final allSemesters = _schoolYears!.content
+            .expand((y) => y.semesters)
+            .toList();
+
+        _loginProgress = 'Đang tải lịch thi (0/${allSemesters.length})...';
+        _loginProgressPercent = 0.75; // 6/8
+        notifyListeners();
+
+        print(
+          '📥 Downloading exam schedules for ALL ${allSemesters.length} semesters...',
+        );
+
+        for (var i = 0; i < allSemesters.length; i++) {
+          final semester = allSemesters[i];
+          try {
+            _loginProgress = 'Đang tải lịch thi (${i + 1}/${allSemesters.length})...';
+            notifyListeners();
+            
+            // Fetch register periods for this semester
+            final periods = await _authService.getRegisterPeriods(
+              _accessToken!,
+              semester.id,
+            );
+
+            // Save register periods to database
+            await _dbHelper.saveRegisterPeriods(semester.id, periods);
+            print(
+              '✅ Saved ${periods.length} register periods for semester ${semester.semesterName}',
+            );
+
+            // For each register period, fetch exam rooms for round 1
+            for (var period in periods) {
+              try {
+                final examRooms = await _authService.getStudentExamRooms(
+                  _accessToken!,
+                  semester.id,
+                  period.id,
+                  1, // Default to exam round 1
+                );
+
+                // Save exam rooms to database
+                await _dbHelper.saveExamRooms(
+                  semester.id,
+                  period.id,
+                  1,
+                  examRooms,
+                );
+                print(
+                  '✅ Saved ${examRooms.length} exam rooms for ${semester.semesterName} - ${period.name} - Round 1',
+                );
+              } catch (e) {
+                print(
+                  '⚠️ Failed to fetch exam rooms for ${semester.semesterName} - ${period.name}: $e',
+                );
+                // Continue with other periods
+              }
+            }
+          } catch (e) {
+            print(
+              '⚠️ Failed to fetch exam data for semester ${semester.semesterName}: $e',
+            );
+            // Continue with other semesters even if one fails
+          }
+        }
+
+        print('🎉 All exam data downloaded and cached!');
+      }
+
+      // Final step: Save credentials
+      _loginProgress = 'Đang hoàn tất...';
+      _loginProgressPercent = 0.95; // Almost done
+      notifyListeners();
 
       _isLoggedIn = true;
 
@@ -297,8 +424,15 @@ class UserProvider extends ChangeNotifier {
       await _prefs.setString(_refreshTokenKey, loginResponse.refreshToken);
       await _prefs.setBool(_isLoggedInKey, true);
 
+      // Complete!
+      _loginProgress = 'Hoàn tất!';
+      _loginProgressPercent = 1.0;
       notifyListeners();
     } catch (e) {
+      // Reset progress on error
+      _loginProgress = '';
+      _loginProgressPercent = 0.0;
+      
       _isLoggedIn = false;
       _accessToken = null;
       _schoolYears = null;
@@ -323,20 +457,20 @@ class UserProvider extends ChangeNotifier {
         }
       }
     }
-    
+
     try {
       _isLoadingCourses = true;
       _courseLoadError = null;
       notifyListeners();
-      
+
       // Load from database first (works offline!)
       final cachedCourses = await _dbHelper.getStudentCourses(semesterId);
-      
+
       // Always use cached data if available
       _studentCourses = cachedCourses;
       _isLoadingCourses = false;
       notifyListeners();
-      
+
       // Try to fetch fresh data from API in background (only if online)
       if (_accessToken != null) {
         try {
@@ -344,18 +478,20 @@ class UserProvider extends ChangeNotifier {
             _accessToken!,
             semesterId,
           );
-          
+
           // Update with fresh data (even if empty - that's valid!)
           _studentCourses = freshCourses;
-          
+
           // 💾 Save courses to database
           await _dbHelper.saveStudentCourses(semesterId, _studentCourses);
-          
+
           notifyListeners();
         } catch (apiError) {
           // API failed (offline or network error)
           // We already loaded cached data above, so just log it
-          print('Using cached data for semester $semesterId (offline or API error): $apiError');
+          print(
+            'Using cached data for semester $semesterId (offline or API error): $apiError',
+          );
         }
       }
     } catch (e) {
@@ -389,7 +525,6 @@ class UserProvider extends ChangeNotifier {
     );
     notifyListeners();
   }
-
 
   /// Get saved student code (if exists)
   String? getSavedStudentCode() {

@@ -10,18 +10,18 @@ class ScheduleProvider extends ChangeNotifier {
   List<Schedule> get todaySchedules {
     final today = DateTime.now();
     return _schedules
-        .where((s) =>
-            s.startTime.year == today.year &&
-            s.startTime.month == today.month &&
-            s.startTime.day == today.day)
+        .where(
+          (s) =>
+              s.startTime.year == today.year &&
+              s.startTime.month == today.month &&
+              s.startTime.day == today.day,
+        )
         .toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
   }
 
   List<Schedule> get upcomingSchedules {
-    return _schedules
-        .where((s) => s.isUpcoming)
-        .toList()
+    return _schedules.where((s) => s.isUpcoming).toList()
       ..sort((a, b) => a.startTime.compareTo(b.startTime));
   }
 
@@ -56,8 +56,12 @@ class ScheduleProvider extends ChangeNotifier {
           instructor: 'Dr. Nguyen',
           credits: '3',
         ),
-        startTime: DateTime.now().add(const Duration(days: 2)).copyWith(hour: 9, minute: 45),
-        endTime: DateTime.now().add(const Duration(days: 2)).copyWith(hour: 11, minute: 45),
+        startTime: DateTime.now()
+            .add(const Duration(days: 2))
+            .copyWith(hour: 9, minute: 45),
+        endTime: DateTime.now()
+            .add(const Duration(days: 2))
+            .copyWith(hour: 11, minute: 45),
         dayOfWeek: 'Wednesday',
         weeks: [1, 2, 3, 4, 5],
       ),
@@ -71,8 +75,12 @@ class ScheduleProvider extends ChangeNotifier {
           instructor: 'Dr. Hoang',
           credits: '3',
         ),
-        startTime: DateTime.now().add(const Duration(days: 3)).copyWith(hour: 7, minute: 0),
-        endTime: DateTime.now().add(const Duration(days: 3)).copyWith(hour: 9, minute: 0),
+        startTime: DateTime.now()
+            .add(const Duration(days: 3))
+            .copyWith(hour: 7, minute: 0),
+        endTime: DateTime.now()
+            .add(const Duration(days: 3))
+            .copyWith(hour: 9, minute: 0),
         dayOfWeek: 'Thursday',
         weeks: [1, 2, 3, 4, 5],
       ),
