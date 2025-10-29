@@ -29,12 +29,16 @@ class UserProvider extends ChangeNotifier {
   // Login progress tracking
   String _loginProgress = '';
   double _loginProgressPercent = 0.0;
+  
+  // Notification settings
+  bool _notificationsEnabled = true;
 
   static const String _studentCodeKey = 'userStudentCode';
   static const String _passwordKey = 'userPassword';
   static const String _accessTokenKey = 'accessToken';
   static const String _refreshTokenKey = 'refreshToken';
   static const String _isLoggedInKey = 'isLoggedIn';
+  static const String _notificationsEnabledKey = 'notificationsEnabled';
 
   User get currentUser => _currentUser;
   bool get isLoggedIn => _isLoggedIn;
@@ -47,6 +51,7 @@ class UserProvider extends ChangeNotifier {
   List<StudentCourseSubject> get studentCourses => _studentCourses;
   bool get isLoadingCourses => _isLoadingCourses;
   String? get courseLoadError => _courseLoadError;
+  bool get notificationsEnabled => _notificationsEnabled;
   
   // Login progress getters
   String get loginProgress => _loginProgress;
@@ -119,6 +124,7 @@ class UserProvider extends ChangeNotifier {
     _prefs = await SharedPreferences.getInstance();
     _isLoggedIn = _prefs.getBool(_isLoggedInKey) ?? false;
     _accessToken = _prefs.getString(_accessTokenKey);
+    _notificationsEnabled = _prefs.getBool(_notificationsEnabledKey) ?? true;
 
     if (_isLoggedIn) {
       // Load cached data from database first (works offline!)
@@ -518,6 +524,12 @@ class UserProvider extends ChangeNotifier {
   /// - Android: Samsung limits to 500 notifications, some OEMs may have lower limits
   /// - Solution: Schedule only next 4 weeks, then reschedule when app reopens
   Future<void> _scheduleNotificationsForCurrentWeek() async {
+    // Check if notifications are enabled
+    if (!_notificationsEnabled) {
+      print('⏸️ Notifications are disabled by user');
+      return;
+    }
+
     if (_studentCourses.isEmpty || _courseHours.isEmpty || semesterStartDate == null) {
       return;
     }
@@ -616,5 +628,17 @@ class UserProvider extends ChangeNotifier {
   /// Get saved password (if exists)
   String? getSavedPassword() {
     return _prefs.getString(_passwordKey);
+  }
+
+  /// Toggle notifications on/off
+  Future<void> toggleNotifications(bool enabled) async {
+    _notificationsEnabled = enabled;
+    await _prefs.setBool(_notificationsEnabledKey, enabled);
+    notifyListeners();
+
+    // If notifications are enabled, reschedule them
+    if (enabled && _isLoggedIn) {
+      await _scheduleNotificationsForCurrentWeek();
+    }
   }
 }
