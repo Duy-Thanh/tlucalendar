@@ -13,15 +13,20 @@ class ExamScheduleScreen extends StatefulWidget {
 
 class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   bool _hasInitialized = false;
+  bool? _lastLoginState; // Track login state changes
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_hasInitialized) {
-        _loadExamSchedule();
-        _loadAvailableSemesters();
-        _hasInitialized = true;
+      if (mounted && !_hasInitialized) {
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        if (userProvider.isLoggedIn) {
+          _loadExamSchedule();
+          _loadAvailableSemesters();
+          _hasInitialized = true;
+          _lastLoginState = userProvider.isLoggedIn;
+        }
       }
     });
   }
@@ -70,6 +75,23 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   Widget build(BuildContext context) {
     return Consumer2<UserProvider, ExamProvider>(
       builder: (context, userProvider, examProvider, _) {
+        // Check if login state changed and schedule reinitialize after build
+        if (_lastLoginState != userProvider.isLoggedIn) {
+          _lastLoginState = userProvider.isLoggedIn;
+          _hasInitialized = false;
+          
+          // Schedule initialization for after the build completes
+          if (userProvider.isLoggedIn && !_hasInitialized) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && !_hasInitialized) {
+                _loadExamSchedule();
+                _loadAvailableSemesters();
+                _hasInitialized = true;
+              }
+            });
+          }
+        }
+        
         if (!userProvider.isLoggedIn) {
           return _buildNotLoggedIn();
         }

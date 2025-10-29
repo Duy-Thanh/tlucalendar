@@ -4,7 +4,6 @@ import 'package:tlucalendar/models/user.dart';
 import 'package:tlucalendar/models/api_response.dart';
 import 'package:tlucalendar/services/auth_service.dart';
 import 'package:tlucalendar/services/database_helper.dart';
-import 'package:tlucalendar/services/notification_service.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/utils/notification_helper.dart';
 
@@ -596,6 +595,9 @@ class UserProvider extends ChangeNotifier {
     await _prefs.setBool(_isLoggedInKey, false);
     _isLoggedIn = false;
     _accessToken = null;
+
+    // Clear exam provider state to prevent endless loading after re-login
+    _examProvider?.clear();
 
     // Reset to sample user
     _currentUser = User(
