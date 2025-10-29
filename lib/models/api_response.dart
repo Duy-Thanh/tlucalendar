@@ -493,7 +493,7 @@ class StudentCourseSubject {
   final String classCode;
   final String className;
   final LecturerInfo? lecturer;
-  final int dayOfWeek; // 0=Monday, 1=Tuesday, ..., 6=Sunday
+  final int dayOfWeek; // API returns 2=Monday, 3=Tuesday, ..., 8=Sunday
   final int startCourseHour; // Course hour ID (reference to CourseHour)
   final int endCourseHour; // Course hour ID (reference to CourseHour)
   final String room;

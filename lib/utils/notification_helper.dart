@@ -27,13 +27,19 @@ class NotificationHelper {
 
       print('   ✅ Course ${course.courseName} is active');
       
-      // Get day of week (0=Monday, 1=Tuesday, ..., 6=Sunday)
-      final dayOfWeek = course.dayOfWeek;
-      print('      Day of week: $dayOfWeek (0=Mon, 6=Sun)');
+      // Get day of week from API (2=Monday, 3=Tuesday, ..., 8=Sunday)
+      // Convert to 0-based (0=Monday, 1=Tuesday, ..., 6=Sunday)
+      final apiDayOfWeek = course.dayOfWeek;
+      final dayOfWeek = apiDayOfWeek - 2; // Convert from 2-based to 0-based
+      print('      Day of week from API: $apiDayOfWeek (2=Mon, 3=Tue, ..., 8=Sun)');
+      print('      Converted to 0-based: $dayOfWeek (0=Mon, 1=Tue, ..., 6=Sun)');
 
       // Calculate the actual date for this class in the week
       final classDate = weekStartDate.add(Duration(days: dayOfWeek));
-      print('      Class date: $classDate');
+      print('      Week start date: $weekStartDate');
+      print('      Adding $dayOfWeek days');
+      print('      Calculated class date: $classDate');
+      print('      Class date day of week: ${classDate.weekday} (1=Mon, 7=Sun in Dart)');
 
       // Skip if class date is in the past
       if (classDate.isBefore(now) && !_isSameDay(classDate, now)) {
@@ -55,9 +61,20 @@ class NotificationHelper {
         continue;
       }
 
-      // Parse start time
-      final hour = startCourseHour.start ~/ 100; // 700 -> 7
-      final minute = startCourseHour.start % 100; // 700 -> 0
+      // Parse start time from startString (e.g., "07:00")
+      final startParts = startCourseHour.startString.split(':');
+      if (startParts.length != 2) {
+        print('      ⚠️ Invalid start time format: ${startCourseHour.startString}');
+        continue;
+      }
+
+      final hour = int.tryParse(startParts[0]);
+      final minute = int.tryParse(startParts[1]);
+      if (hour == null || minute == null) {
+        print('      ⚠️ Could not parse hour/minute from: ${startCourseHour.startString}');
+        continue;
+      }
+
       print('      Start time: ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}');
 
       // Create the full datetime for the class
@@ -79,8 +96,8 @@ class NotificationHelper {
         continue;
       }
 
-      // Format time slot string
-      final timeSlot = '${_formatTime(startCourseHour.start)} - ${_formatTime(endCourseHour.end)}';
+      // Format time slot string using the string fields
+      final timeSlot = '${startCourseHour.startString} - ${endCourseHour.endString}';
 
       // Schedule notifications
       await _notificationService.scheduleClassNotifications(
@@ -167,13 +184,6 @@ class NotificationHelper {
         examDateTime,
       );
     }
-  }
-
-  /// Format time from int (700) to string ("07:00")
-  static String _formatTime(int time) {
-    final hour = time ~/ 100;
-    final minute = time % 100;
-    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
   /// Check if two dates are the same day
