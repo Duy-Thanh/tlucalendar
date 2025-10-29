@@ -50,6 +50,8 @@ key.properties
 *.json
 *.html
 output.txt
+
+# .md files
 ARCHITECTURE.md
 DEVELOPMENT_GUIDE.md
 PROJECT_SUMMARY.md
