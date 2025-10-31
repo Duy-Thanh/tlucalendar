@@ -112,9 +112,16 @@ class ExamProvider with ChangeNotifier {
   }
 
   /// Fetch all available semesters
-  Future<void> fetchAvailableSemesters(String accessToken) async {
+  Future<void> fetchAvailableSemesters(String? accessToken) async {
     _isLoadingSemesters = true;
     notifyListeners();
+
+    // Skip if no access token (offline mode)
+    if (accessToken == null || accessToken.isEmpty) {
+      _isLoadingSemesters = false;
+      notifyListeners();
+      return;
+    }
 
     try {
       final response = await _authService.getAllSemesters(accessToken);
@@ -128,13 +135,15 @@ class ExamProvider with ChangeNotifier {
       _isLoadingSemesters = false;
       notifyListeners();
     } catch (e) {
+      // Silently fail - not critical if we can't load all semesters
+      print('Failed to load available semesters: $e');
       _isLoadingSemesters = false;
       notifyListeners();
     }
   }
 
   /// Select a semester and fetch its exam schedule
-  Future<void> selectSemester(String accessToken, int semesterId) async {
+  Future<void> selectSemester(String? accessToken, int semesterId) async {
     _selectedSemesterId = semesterId;
     _selectedRegisterPeriodId = null; // Reset register period selection
     _examRooms = []; // Clear exam rooms when semester changes
@@ -157,7 +166,7 @@ class ExamProvider with ChangeNotifier {
   }
 
   /// Fetch exam schedule (register periods) for a semester
-  Future<void> fetchExamSchedule(String accessToken, int semesterId) async {
+  Future<void> fetchExamSchedule(String? accessToken, int semesterId) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -179,13 +188,22 @@ class ExamProvider with ChangeNotifier {
         _isLoading = false;
         notifyListeners();
 
-        // Fetch fresh data in background
-        _fetchExamScheduleFromApi(accessToken, semesterId);
+        // Fetch fresh data in background ONLY if we have valid access token
+        if (accessToken != null && accessToken.isNotEmpty) {
+          _fetchExamScheduleFromApi(accessToken, semesterId);
+        }
         return;
       }
 
-      // No cache, fetch from API
-      await _fetchExamScheduleFromApi(accessToken, semesterId);
+      // No cache, try to fetch from API if we have access token
+      if (accessToken != null && accessToken.isNotEmpty) {
+        await _fetchExamScheduleFromApi(accessToken, semesterId);
+      } else {
+        // No cache and no token - show error
+        _errorMessage = 'Không có dữ liệu. Vui lòng kết nối internet.';
+        _isLoading = false;
+        notifyListeners();
+      }
     } catch (e) {
       _errorMessage = e.toString();
       _isLoading = false;
@@ -220,18 +238,20 @@ class ExamProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
-      // Only show error if we don't have cached data
-      if (_registerPeriods.isEmpty) {
-        _errorMessage = e.toString();
-        _isLoading = false;
-        notifyListeners();
+      // Check if this is a 401 error (token expired) - completely silent
+      final is401Error = e.toString().contains('401');
+      
+      if (!is401Error) {
+        // Only log non-auth errors
+        print('Background exam schedule refresh failed: $e');
       }
+      // If it's 401, completely silent (expected offline behavior)
     }
   }
 
   /// Select a register period by ID and fetch exam rooms
   Future<void> selectRegisterPeriod(
-    String accessToken,
+    String? accessToken,
     int semesterId,
     int periodId,
     int examRound,
@@ -260,7 +280,7 @@ class ExamProvider with ChangeNotifier {
 
   /// Fetch exam room details for selected semester, register period, and exam round
   Future<void> fetchExamRoomDetails(
-    String accessToken,
+    String? accessToken,
     int semesterId,
     int registerPeriodId,
     int examRound,
@@ -292,23 +312,32 @@ class ExamProvider with ChangeNotifier {
         // Schedule notifications for cached data
         await _scheduleExamNotifications();
 
-        // Fetch fresh data in background (will re-schedule if data changed)
-        _fetchExamRoomDetailsFromApi(
+        // Fetch fresh data in background ONLY if we have a valid access token
+        if (accessToken != null && accessToken.isNotEmpty) {
+          _fetchExamRoomDetailsFromApi(
+            accessToken,
+            semesterId,
+            registerPeriodId,
+            examRound,
+          );
+        }
+        return;
+      }
+
+      // No cache, try to fetch from API if we have access token
+      if (accessToken != null && accessToken.isNotEmpty) {
+        await _fetchExamRoomDetailsFromApi(
           accessToken,
           semesterId,
           registerPeriodId,
           examRound,
         );
-        return;
+      } else {
+        // No cache and no token - show error
+        _roomErrorMessage = 'Không có dữ liệu. Vui lòng kết nối internet.';
+        _isLoadingRooms = false;
+        notifyListeners();
       }
-
-      // No cache, fetch from API
-      await _fetchExamRoomDetailsFromApi(
-        accessToken,
-        semesterId,
-        registerPeriodId,
-        examRound,
-      );
     } catch (e) {
       _roomErrorMessage = e.toString();
       _isLoadingRooms = false;
@@ -383,15 +412,23 @@ class ExamProvider with ChangeNotifier {
         rooms, // Save the fetched data, not _examRooms
       );
     } catch (e) {
-      // Only show error if we don't have cached data AND parameters still match
+      // Check if this is a 401 error (token expired) - completely silent
+      final is401Error = e.toString().contains('401');
+      
+      // Silently fail background refresh if we already have cached data
       if (_examRooms.isEmpty &&
           _selectedSemesterId == semesterId &&
           _selectedRegisterPeriodId == registerPeriodId &&
           _selectedExamRound == examRound) {
+        // Only show error if this was the initial fetch (not background)
         _roomErrorMessage = e.toString();
         _isLoadingRooms = false;
         notifyListeners();
+      } else if (!is401Error) {
+        // Background refresh failed for non-auth reasons - log it
+        print('Background exam room refresh failed: $e');
       }
+      // If it's 401 and we have cached data, completely silent (expected offline behavior)
     }
   }
 

@@ -62,10 +62,10 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     if (hasCache) {
       // Load from cache without API call
       await examProvider.selectSemesterFromCache(selectedSemester.id);
-    } else if (userProvider.accessToken != null) {
-      // No cache, fetch from API
+    } else {
+      // No cache, fetch from API (will handle null token gracefully)
       await examProvider.selectSemester(
-        userProvider.accessToken!,
+        userProvider.accessToken,
         selectedSemester.id,
       );
     }
@@ -212,7 +212,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                         onChanged: (value) async {
                           if (value != null) {
                             await examProvider.selectSemester(
-                              userProvider.accessToken!,
+                              userProvider.accessToken,
                               value,
                             );
                           }
@@ -269,7 +269,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                             examProvider.selectedSemesterId != null) {
                           // selectRegisterPeriod now handles fetching internally
                           examProvider.selectRegisterPeriod(
-                            userProvider.accessToken!,
+                            userProvider.accessToken,
                             examProvider.selectedSemesterId!,
                             value,
                             examProvider.selectedExamRound,
@@ -324,7 +324,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                           examProvider.selectExamRound(value);
                           // Fetch exam room details when round changes
                           examProvider.fetchExamRoomDetails(
-                            userProvider.accessToken!,
+                            userProvider.accessToken,
                             examProvider.selectedSemesterId!,
                             examProvider.selectedRegisterPeriodId!,
                             value,
