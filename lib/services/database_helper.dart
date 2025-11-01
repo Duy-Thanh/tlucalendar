@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3, // Increment version for cache_progress table
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -68,6 +68,30 @@ class DatabaseHelper {
           UNIQUE(examRoomId, semesterId, registerPeriodId, examRound)
         )
       ''');
+    }
+    
+    if (oldVersion < 3) {
+      // Add cache progress tracking table
+      await db.execute('''
+        CREATE TABLE cache_progress (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          isComplete INTEGER NOT NULL DEFAULT 0,
+          totalSemesters INTEGER NOT NULL DEFAULT 0,
+          cachedSemesters INTEGER NOT NULL DEFAULT 0,
+          currentSemesterId INTEGER,
+          currentSemesterName TEXT,
+          lastUpdated INTEGER NOT NULL
+        )
+      ''');
+      
+      // Insert initial row
+      await db.insert('cache_progress', {
+        'id': 1,
+        'isComplete': 0,
+        'totalSemesters': 0,
+        'cachedSemesters': 0,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      });
     }
   }
 
@@ -195,6 +219,28 @@ class DatabaseHelper {
         UNIQUE(examRoomId, semesterId, registerPeriodId, examRound)
       )
     ''');
+
+    // Cache progress tracking table
+    await db.execute('''
+      CREATE TABLE cache_progress (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        isComplete INTEGER NOT NULL DEFAULT 0,
+        totalSemesters INTEGER NOT NULL DEFAULT 0,
+        cachedSemesters INTEGER NOT NULL DEFAULT 0,
+        currentSemesterId INTEGER,
+        currentSemesterName TEXT,
+        lastUpdated INTEGER NOT NULL
+      )
+    ''');
+    
+    // Insert initial row
+    await db.insert('cache_progress', {
+      'id': 1,
+      'isComplete': 0,
+      'totalSemesters': 0,
+      'cachedSemesters': 0,
+      'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+    });
   }
 
   // Save TLU user
@@ -764,6 +810,92 @@ class DatabaseHelper {
       limit: 1,
     );
     return result.isNotEmpty;
+  }
+
+  // ==================== CACHE PROGRESS TRACKING ====================
+  
+  /// Get current cache progress status
+  Future<Map<String, dynamic>> getCacheProgress() async {
+    final db = await database;
+    final result = await db.query('cache_progress', where: 'id = 1');
+    
+    if (result.isEmpty) {
+      // Initialize if not exists
+      await db.insert('cache_progress', {
+        'id': 1,
+        'isComplete': 0,
+        'totalSemesters': 0,
+        'cachedSemesters': 0,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      });
+      return {
+        'isComplete': 0,
+        'totalSemesters': 0,
+        'cachedSemesters': 0,
+        'currentSemesterId': null,
+        'currentSemesterName': null,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      };
+    }
+    
+    return result.first;
+  }
+  
+  /// Update cache progress
+  Future<void> updateCacheProgress({
+    required int totalSemesters,
+    required int cachedSemesters,
+    required bool isComplete,
+    int? currentSemesterId,
+    String? currentSemesterName,
+  }) async {
+    final db = await database;
+    await db.update(
+      'cache_progress',
+      {
+        'isComplete': isComplete ? 1 : 0,
+        'totalSemesters': totalSemesters,
+        'cachedSemesters': cachedSemesters,
+        'currentSemesterId': currentSemesterId,
+        'currentSemesterName': currentSemesterName,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = 1',
+    );
+  }
+  
+  /// Reset cache progress (for resuming after app closure)
+  Future<void> resetCacheProgress() async {
+    final db = await database;
+    await db.update(
+      'cache_progress',
+      {
+        'isComplete': 0,
+        'totalSemesters': 0,
+        'cachedSemesters': 0,
+        'currentSemesterId': null,
+        'currentSemesterName': null,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = 1',
+    );
+  }
+  
+  /// Check if caching is complete
+  Future<bool> isCacheComplete() async {
+    final progress = await getCacheProgress();
+    return progress['isComplete'] == 1;
+  }
+  
+  /// Get list of semesters that have been cached
+  Future<List<int>> getCachedSemesterIds() async {
+    final db = await database;
+    final result = await db.rawQuery('''
+      SELECT DISTINCT semesterId 
+      FROM register_periods 
+      ORDER BY semesterId DESC
+    ''');
+    return result.map((row) => row['semesterId'] as int).toList();
   }
 
   // Close database

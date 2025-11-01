@@ -17,6 +17,15 @@ class ExamProvider with ChangeNotifier {
   String? _errorMessage;
   String? _roomErrorMessage;
 
+  // Pre-caching progress tracking
+  bool _isPreCaching = false;
+  int _preCacheProgress = 0; // 0-100 percentage
+  String _preCacheStatus = '';
+  int _preCacheTotalSemesters = 0;
+  int _preCacheCurrentSemester = 0;
+  int _preCacheTotalPeriods = 0;
+  int _preCacheCurrentPeriod = 0;
+
   // Selected filters
   int? _selectedRegisterPeriodId;
   int? _selectedSemesterId;
@@ -33,6 +42,15 @@ class ExamProvider with ChangeNotifier {
   int? get selectedRegisterPeriodId => _selectedRegisterPeriodId;
   int? get selectedSemesterId => _selectedSemesterId;
   int get selectedExamRound => _selectedExamRound;
+
+  // Pre-caching progress getters
+  bool get isPreCaching => _isPreCaching;
+  int get preCacheProgress => _preCacheProgress;
+  String get preCacheStatus => _preCacheStatus;
+  int get preCacheTotalSemesters => _preCacheTotalSemesters;
+  int get preCacheCurrentSemester => _preCacheCurrentSemester;
+  int get preCacheTotalPeriods => _preCacheTotalPeriods;
+  int get preCacheCurrentPeriod => _preCacheCurrentPeriod;
 
   /// Get the currently selected register period
   RegisterPeriod? get selectedRegisterPeriod {
@@ -176,31 +194,104 @@ class ExamProvider with ChangeNotifier {
     // Note: _isLoading is set to false in fetchExamSchedule
   }
 
+  /// Check if there's incomplete cache (for showing resume button)
+  Future<bool> checkIncompletCache() async {
+    try {
+      final isComplete = await _dbHelper.isCacheComplete();
+      final cachedSemesters = await _dbHelper.getCachedSemesterIds();
+      // Incomplete if not marked complete AND has some cached data
+      return !isComplete && cachedSemesters.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
   /// Pre-cache ALL exam data on login for full offline mode
   /// EXHAUSTIVE CACHING: Cache every single semester, period, and round
-  /// so app works 100% offline even after token expires or no internet
+  /// Supports resuming from where it left off if app closes mid-cache
   Future<void> preCacheAllExamData(String accessToken, int currentSemesterId) async {
+    _isPreCaching = true;
+    _preCacheProgress = 0;
+    _preCacheStatus = 'Bắt đầu tải dữ liệu offline...';
+    notifyListeners();
+    
     print('[PRE-CACHE] 🚀 EXHAUSTIVE CACHING MODE - Caching ALL data...');
     print('[PRE-CACHE] Current semester ID: $currentSemesterId');
     
     try {
+      // Check if caching was already complete
+      final isComplete = await _dbHelper.isCacheComplete();
+      if (isComplete) {
+        print('[PRE-CACHE] ✅ Cache already complete! No need to re-cache.');
+        _isPreCaching = false;
+        _preCacheProgress = 100;
+        _preCacheStatus = 'Dữ liệu đã được tải đầy đủ';
+        notifyListeners();
+        return;
+      }
+      
+      // Get list of already cached semesters (for resume capability)
+      final cachedSemesterIds = await _dbHelper.getCachedSemesterIds();
+      print('[PRE-CACHE] 📂 Already cached ${cachedSemesterIds.length} semesters');
+      
       // Step 1: Fetch ALL available semesters
       print('[PRE-CACHE] ═══════════════════════════════════════════');
       print('[PRE-CACHE] Step 1: Fetching ALL semesters...');
+      _preCacheStatus = 'Đang lấy danh sách học kỳ...';
+      notifyListeners();
+      
       final allSemesters = await _authService.getAllSemesters(accessToken);
-      print('[PRE-CACHE] ✅ Found ${allSemesters.content.length} semesters total');
+      _preCacheTotalSemesters = allSemesters.content.length;
+      print('[PRE-CACHE] ✅ Found $_preCacheTotalSemesters semesters total');
       print('[PRE-CACHE] 📦 Will cache EVERY semester for 100% offline mode!');
+      
+      // Filter out already cached semesters (for resume)
+      final semestersToCache = allSemesters.content
+          .where((sem) => !cachedSemesterIds.contains(sem.id))
+          .toList();
+      
+      if (semestersToCache.isEmpty) {
+        print('[PRE-CACHE] ✅ All semesters already cached!');
+        await _dbHelper.updateCacheProgress(
+          totalSemesters: _preCacheTotalSemesters,
+          cachedSemesters: _preCacheTotalSemesters,
+          isComplete: true,
+        );
+        
+        _isPreCaching = false;
+        _preCacheProgress = 100;
+        _preCacheStatus = 'Hoàn tất! Tất cả dữ liệu đã sẵn sàng';
+        notifyListeners();
+        return;
+      }
+      
+      print('[PRE-CACHE] 📝 Need to cache ${semestersToCache.length} remaining semesters');
       
       int totalPeriods = 0;
       int totalRounds = 0;
       int totalRooms = 0;
       
-      // Step 2: Cache EVERY SINGLE SEMESTER
-      for (int i = 0; i < allSemesters.content.length; i++) {
-        final sem = allSemesters.content[i];
+      // Step 2: Cache EVERY REMAINING SEMESTER
+      for (int i = 0; i < semestersToCache.length; i++) {
+        final sem = semestersToCache[i];
+        _preCacheCurrentSemester = cachedSemesterIds.length + i + 1;
+        
         print('[PRE-CACHE] ═══════════════════════════════════════════');
-        print('[PRE-CACHE] Caching semester ${i + 1}/${allSemesters.content.length}');
+        print('[PRE-CACHE] Caching semester $_preCacheCurrentSemester/$_preCacheTotalSemesters');
         print('[PRE-CACHE] Semester: ${sem.semesterName} (ID: ${sem.id})');
+        
+        _preCacheStatus = 'Đang tải học kỳ ${sem.semesterName} ($_preCacheCurrentSemester/$_preCacheTotalSemesters)';
+        _preCacheProgress = ((_preCacheCurrentSemester - 1) * 100 / _preCacheTotalSemesters).round();
+        notifyListeners();
+        
+        // Update database progress
+        await _dbHelper.updateCacheProgress(
+          totalSemesters: _preCacheTotalSemesters,
+          cachedSemesters: _preCacheCurrentSemester - 1,
+          isComplete: false,
+          currentSemesterId: sem.id,
+          currentSemesterName: sem.semesterName,
+        );
         
         try {
           // Fetch and cache register periods for this semester
@@ -211,12 +302,17 @@ class ExamProvider with ChangeNotifier {
           );
           await _dbHelper.saveRegisterPeriods(sem.id, periods);
           totalPeriods += periods.length;
+          _preCacheTotalPeriods = periods.length;
           print('[PRE-CACHE]   ✅ Cached ${periods.length} register periods');
           
           // For EVERY register period, cache ALL 5 exam rounds
           for (int j = 0; j < periods.length; j++) {
             final period = periods[j];
-            print('[PRE-CACHE]   → Period ${j + 1}/${periods.length}: ${period.name}');
+            _preCacheCurrentPeriod = j + 1;
+            
+            print('[PRE-CACHE]   → Period $_preCacheCurrentPeriod/$_preCacheTotalPeriods: ${period.name}');
+            _preCacheStatus = '${sem.semesterName}: Đợt ${period.name} ($_preCacheCurrentPeriod/$_preCacheTotalPeriods)';
+            notifyListeners();
             
             for (int round = 1; round <= 5; round++) {
               try {
@@ -249,11 +345,28 @@ class ExamProvider with ChangeNotifier {
           }
           
           print('[PRE-CACHE]   ✅ Semester ${sem.semesterName} complete!');
+          
+          // Update progress after completing this semester
+          await _dbHelper.updateCacheProgress(
+            totalSemesters: _preCacheTotalSemesters,
+            cachedSemesters: _preCacheCurrentSemester,
+            isComplete: false,
+            currentSemesterId: sem.id,
+            currentSemesterName: sem.semesterName,
+          );
+          
         } catch (e) {
           print('[PRE-CACHE]   ❌ Failed to cache semester ${sem.semesterName}: $e');
           // Continue with next semester even if this one fails
         }
       }
+      
+      // Mark caching as complete
+      await _dbHelper.updateCacheProgress(
+        totalSemesters: _preCacheTotalSemesters,
+        cachedSemesters: _preCacheTotalSemesters,
+        isComplete: true,
+      );
       
       print('[PRE-CACHE] ═══════════════════════════════════════════');
       print('[PRE-CACHE] 🎉 EXHAUSTIVE CACHING COMPLETE!');
@@ -264,8 +377,17 @@ class ExamProvider with ChangeNotifier {
       print('[PRE-CACHE]   • Total exam rooms: $totalRooms');
       print('[PRE-CACHE] 💪 App now works 100% offline - even for 100 years!');
       print('[PRE-CACHE] ═══════════════════════════════════════════');
+      
+      _isPreCaching = false;
+      _preCacheProgress = 100;
+      _preCacheStatus = 'Hoàn tất! Ứng dụng có thể hoạt động offline';
+      notifyListeners();
+      
     } catch (e) {
       print('[PRE-CACHE] ❌ Pre-caching failed: $e');
+      _isPreCaching = false;
+      _preCacheStatus = 'Lỗi: $e';
+      notifyListeners();
       // Don't throw - app should still work even if pre-caching fails
     }
   }
