@@ -388,31 +388,41 @@ class UserProvider extends ChangeNotifier {
               '✅ Saved ${periods.length} register periods for semester ${semester.semesterName}',
             );
 
-            // For each register period, fetch exam rooms for round 1
+            // For each register period, fetch exam rooms for ALL 5 ROUNDS
             for (var period in periods) {
-              try {
-                final examRooms = await _authService.getStudentExamRooms(
-                  _accessToken!,
-                  semester.id,
-                  period.id,
-                  1, // Default to exam round 1
-                );
+              // ✅ CACHE ALL 5 ROUNDS, not just round 1!
+              for (int round = 1; round <= 5; round++) {
+                try {
+                  final examRooms = await _authService.getStudentExamRooms(
+                    _accessToken!,
+                    semester.id,
+                    period.id,
+                    round,
+                  );
 
-                // Save exam rooms to database
-                await _dbHelper.saveExamRooms(
-                  semester.id,
-                  period.id,
-                  1,
-                  examRooms,
-                );
-                print(
-                  '✅ Saved ${examRooms.length} exam rooms for ${semester.semesterName} - ${period.name} - Round 1',
-                );
-              } catch (e) {
-                print(
-                  '⚠️ Failed to fetch exam rooms for ${semester.semesterName} - ${period.name}: $e',
-                );
-                // Continue with other periods
+                  // Save exam rooms to database
+                  await _dbHelper.saveExamRooms(
+                    semester.id,
+                    period.id,
+                    round,
+                    examRooms,
+                  );
+                  
+                  if (examRooms.isNotEmpty) {
+                    print(
+                      '✅ Saved ${examRooms.length} exam rooms for ${semester.semesterName} - ${period.name} - Round $round',
+                    );
+                  } else {
+                    print(
+                      '○ Round $round empty for ${semester.semesterName} - ${period.name} (cached)',
+                    );
+                  }
+                } catch (e) {
+                  print(
+                    '⚠️ Failed round $round for ${semester.semesterName} - ${period.name}: $e',
+                  );
+                  // Continue with other rounds
+                }
               }
             }
           } catch (e) {

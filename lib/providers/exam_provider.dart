@@ -134,13 +134,49 @@ class ExamProvider with ChangeNotifier {
     _isLoadingSemesters = true;
     notifyListeners();
 
-    // Skip if no access token (offline mode)
-    if (accessToken == null || accessToken.isEmpty) {
+    try {
+      // Try to load from cache first
+      final cachedSemesters = await _dbHelper.getSemesters();
+      
+      if (cachedSemesters.isNotEmpty) {
+        _availableSemesters = cachedSemesters;
+        
+        // Sort by ordinalNumbers descending (newest first)
+        _availableSemesters.sort(
+          (a, b) => (b.ordinalNumbers ?? 0).compareTo(a.ordinalNumbers ?? 0),
+        );
+        
+        _isLoadingSemesters = false;
+        notifyListeners();
+        
+        print('[DEBUG] fetchAvailableSemesters: Loaded ${_availableSemesters.length} semesters from cache');
+        
+        // Fetch fresh data in background ONLY if we have valid access token
+        if (accessToken != null && accessToken.isNotEmpty) {
+          print('[DEBUG] fetchAvailableSemesters: Starting background refresh');
+          _fetchAvailableSemestersFromApi(accessToken);
+        }
+        return;
+      }
+      
+      // No cache, try to fetch from API if we have access token
+      print('[DEBUG] fetchAvailableSemesters: No cache, trying API');
+      if (accessToken != null && accessToken.isNotEmpty) {
+        await _fetchAvailableSemestersFromApi(accessToken);
+      } else {
+        // No cache and no token - can't do anything
+        _isLoadingSemesters = false;
+        notifyListeners();
+      }
+    } catch (e) {
+      print('[DEBUG] fetchAvailableSemesters ERROR: $e');
       _isLoadingSemesters = false;
       notifyListeners();
-      return;
     }
-
+  }
+  
+  /// Fetch semesters from API (internal method)
+  Future<void> _fetchAvailableSemestersFromApi(String accessToken) async {
     try {
       final response = await _authService.getAllSemesters(accessToken);
       _availableSemesters = response.content;
@@ -149,14 +185,30 @@ class ExamProvider with ChangeNotifier {
       _availableSemesters.sort(
         (a, b) => (b.ordinalNumbers ?? 0).compareTo(a.ordinalNumbers ?? 0),
       );
+      
+      // Save to cache
+      await _dbHelper.saveSemesters(_availableSemesters);
 
-      _isLoadingSemesters = false;
-      notifyListeners();
+      // Only notify if this is not a background refresh
+      if (_isLoadingSemesters) {
+        _isLoadingSemesters = false;
+        notifyListeners();
+      }
+      
+      print('[DEBUG] _fetchAvailableSemestersFromApi: Saved ${_availableSemesters.length} semesters to cache');
     } catch (e) {
-      // Silently fail - not critical if we can't load all semesters
-      print('Failed to load available semesters: $e');
-      _isLoadingSemesters = false;
-      notifyListeners();
+      // Check if this is a 401 error (token expired) - completely silent
+      final is401Error = e.toString().contains('401');
+      
+      // Check if we have cached data
+      if (_availableSemesters.isEmpty) {
+        // Initial fetch failed, show error
+        print('Failed to load available semesters: $e');
+      } else if (!is401Error) {
+        // Only log non-auth errors for background refresh
+        print('Background semesters refresh failed: $e');
+      }
+      // If it's 401 and we have cached data, completely silent (expected offline behavior)
     }
   }
 
@@ -244,6 +296,10 @@ class ExamProvider with ChangeNotifier {
       _preCacheTotalSemesters = allSemesters.content.length;
       print('[PRE-CACHE] ✅ Found $_preCacheTotalSemesters semesters total');
       print('[PRE-CACHE] 📦 Will cache EVERY semester for 100% offline mode!');
+      
+      // Save all semesters to cache immediately
+      await _dbHelper.saveSemesters(allSemesters.content);
+      print('[PRE-CACHE] ✅ Saved all semesters to cache');
       
       // Filter out already cached semesters (for resume)
       final semestersToCache = allSemesters.content

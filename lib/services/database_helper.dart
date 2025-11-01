@@ -21,7 +21,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3, // Increment version for cache_progress table
+      version: 4, // Version 4: Add exam_round_cache_metadata table
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -92,6 +92,23 @@ class DatabaseHelper {
         'cachedSemesters': 0,
         'lastUpdated': DateTime.now().millisecondsSinceEpoch,
       });
+    }
+    
+    if (oldVersion < 4) {
+      // Add exam round cache metadata table
+      // This tracks which semester+period+round combinations have been cached,
+      // even if they returned empty results
+      await db.execute('''
+        CREATE TABLE exam_round_cache_metadata (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          semesterId INTEGER NOT NULL,
+          registerPeriodId INTEGER NOT NULL,
+          examRound INTEGER NOT NULL,
+          roomCount INTEGER NOT NULL DEFAULT 0,
+          lastCached INTEGER NOT NULL,
+          UNIQUE(semesterId, registerPeriodId, examRound)
+        )
+      ''');
     }
   }
 
@@ -241,6 +258,21 @@ class DatabaseHelper {
       'cachedSemesters': 0,
       'lastUpdated': DateTime.now().millisecondsSinceEpoch,
     });
+    
+    // Exam round cache metadata table
+    // Tracks which semester+period+round combinations have been cached,
+    // even if they returned empty results
+    await db.execute('''
+      CREATE TABLE exam_round_cache_metadata (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        semesterId INTEGER NOT NULL,
+        registerPeriodId INTEGER NOT NULL,
+        examRound INTEGER NOT NULL,
+        roomCount INTEGER NOT NULL DEFAULT 0,
+        lastCached INTEGER NOT NULL,
+        UNIQUE(semesterId, registerPeriodId, examRound)
+      )
+    ''');
   }
 
   // Save TLU user
@@ -713,6 +745,20 @@ class DatabaseHelper {
     }
 
     await batch.commit(noResult: true);
+    
+    // ✅ CRITICAL: Save metadata to track that this round has been cached,
+    // even if it returned zero rooms
+    await db.insert(
+      'exam_round_cache_metadata',
+      {
+        'semesterId': semesterId,
+        'registerPeriodId': registerPeriodId,
+        'examRound': examRound,
+        'roomCount': examRooms.length,
+        'lastCached': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   // Get exam rooms
@@ -785,6 +831,7 @@ class DatabaseHelper {
   }
 
   // Check if cached exam data exists
+  // ✅ NOW CHECKS METADATA TABLE - returns true even for empty rounds
   Future<bool> hasExamRoomCache(
     int semesterId,
     int registerPeriodId,
@@ -792,7 +839,7 @@ class DatabaseHelper {
   ) async {
     final db = await database;
     final result = await db.query(
-      'exam_rooms',
+      'exam_round_cache_metadata',
       where: 'semesterId = ? AND registerPeriodId = ? AND examRound = ?',
       whereArgs: [semesterId, registerPeriodId, examRound],
       limit: 1,
