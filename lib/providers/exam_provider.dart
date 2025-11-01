@@ -153,9 +153,20 @@ class ExamProvider with ChangeNotifier {
 
     await fetchExamSchedule(accessToken, semesterId);
     
-    // After fetching register periods, auto-fetch exam rooms for first period
-    if (_selectedRegisterPeriodId != null && _selectedSemesterId != null) {
+    // After fetching register periods, pre-cache all exam rounds for offline use
+    if (_selectedRegisterPeriodId != null && _selectedSemesterId != null && accessToken != null) {
+      print('[DEBUG] selectSemester: Pre-caching all exam rounds for offline use');
+      
+      // Fetch exam rooms for the selected round (will be displayed)
       await fetchExamRoomDetails(
+        accessToken,
+        _selectedSemesterId!,
+        _selectedRegisterPeriodId!,
+        _selectedExamRound,
+      );
+      
+      // Pre-cache other rounds in background (silently, don't block UI)
+      _preCacheExamRounds(
         accessToken,
         _selectedSemesterId!,
         _selectedRegisterPeriodId!,
@@ -165,6 +176,138 @@ class ExamProvider with ChangeNotifier {
     // Note: _isLoading is set to false in fetchExamSchedule
   }
 
+  /// Pre-cache ALL exam data on login for full offline mode
+  /// EXHAUSTIVE CACHING: Cache every single semester, period, and round
+  /// so app works 100% offline even after token expires or no internet
+  Future<void> preCacheAllExamData(String accessToken, int currentSemesterId) async {
+    print('[PRE-CACHE] 🚀 EXHAUSTIVE CACHING MODE - Caching ALL data...');
+    print('[PRE-CACHE] Current semester ID: $currentSemesterId');
+    
+    try {
+      // Step 1: Fetch ALL available semesters
+      print('[PRE-CACHE] ═══════════════════════════════════════════');
+      print('[PRE-CACHE] Step 1: Fetching ALL semesters...');
+      final allSemesters = await _authService.getAllSemesters(accessToken);
+      print('[PRE-CACHE] ✅ Found ${allSemesters.content.length} semesters total');
+      print('[PRE-CACHE] 📦 Will cache EVERY semester for 100% offline mode!');
+      
+      int totalPeriods = 0;
+      int totalRounds = 0;
+      int totalRooms = 0;
+      
+      // Step 2: Cache EVERY SINGLE SEMESTER
+      for (int i = 0; i < allSemesters.content.length; i++) {
+        final sem = allSemesters.content[i];
+        print('[PRE-CACHE] ═══════════════════════════════════════════');
+        print('[PRE-CACHE] Caching semester ${i + 1}/${allSemesters.content.length}');
+        print('[PRE-CACHE] Semester: ${sem.semesterName} (ID: ${sem.id})');
+        
+        try {
+          // Fetch and cache register periods for this semester
+          print('[PRE-CACHE]   → Fetching register periods...');
+          final periods = await _authService.getRegisterPeriods(
+            accessToken,
+            sem.id,
+          );
+          await _dbHelper.saveRegisterPeriods(sem.id, periods);
+          totalPeriods += periods.length;
+          print('[PRE-CACHE]   ✅ Cached ${periods.length} register periods');
+          
+          // For EVERY register period, cache ALL 5 exam rounds
+          for (int j = 0; j < periods.length; j++) {
+            final period = periods[j];
+            print('[PRE-CACHE]   → Period ${j + 1}/${periods.length}: ${period.name}');
+            
+            for (int round = 1; round <= 5; round++) {
+              try {
+                final rooms = await _authService.getStudentExamRooms(
+                  accessToken,
+                  sem.id,
+                  period.id,
+                  round,
+                );
+                
+                await _dbHelper.saveExamRooms(
+                  sem.id,
+                  period.id,
+                  round,
+                  rooms,
+                );
+                totalRounds++;
+                totalRooms += rooms.length;
+                
+                if (rooms.isNotEmpty) {
+                  print('[PRE-CACHE]     ✅ Round $round: ${rooms.length} room(s)');
+                } else {
+                  print('[PRE-CACHE]     ○ Round $round: empty (cached)');
+                }
+              } catch (e) {
+                print('[PRE-CACHE]     ⚠️ Round $round: ${e.toString().substring(0, 50)}...');
+                // Continue even if one round fails
+              }
+            }
+          }
+          
+          print('[PRE-CACHE]   ✅ Semester ${sem.semesterName} complete!');
+        } catch (e) {
+          print('[PRE-CACHE]   ❌ Failed to cache semester ${sem.semesterName}: $e');
+          // Continue with next semester even if this one fails
+        }
+      }
+      
+      print('[PRE-CACHE] ═══════════════════════════════════════════');
+      print('[PRE-CACHE] 🎉 EXHAUSTIVE CACHING COMPLETE!');
+      print('[PRE-CACHE] 📊 Summary:');
+      print('[PRE-CACHE]   • Semesters cached: ${allSemesters.content.length}');
+      print('[PRE-CACHE]   • Register periods cached: $totalPeriods');
+      print('[PRE-CACHE]   • Exam rounds cached: $totalRounds');
+      print('[PRE-CACHE]   • Total exam rooms: $totalRooms');
+      print('[PRE-CACHE] 💪 App now works 100% offline - even for 100 years!');
+      print('[PRE-CACHE] ═══════════════════════════════════════════');
+    } catch (e) {
+      print('[PRE-CACHE] ❌ Pre-caching failed: $e');
+      // Don't throw - app should still work even if pre-caching fails
+    }
+  }
+  
+  /// Pre-cache all exam rounds in background for offline use
+  Future<void> _preCacheExamRounds(
+    String accessToken,
+    int semesterId,
+    int registerPeriodId,
+    int currentRound,
+  ) async {
+    print('[DEBUG] _preCacheExamRounds: Caching rounds 1-5 for offline use');
+    
+    // Cache all 5 rounds (skip the current one since it's already cached)
+    for (int round = 1; round <= 5; round++) {
+      if (round == currentRound) continue; // Skip current round
+      
+      try {
+        print('[DEBUG] _preCacheExamRounds: Caching round $round...');
+        final rooms = await _authService.getStudentExamRooms(
+          accessToken,
+          semesterId,
+          registerPeriodId,
+          round,
+        );
+        
+        // Save to cache
+        await _dbHelper.saveExamRooms(
+          semesterId,
+          registerPeriodId,
+          round,
+          rooms,
+        );
+        print('[DEBUG] _preCacheExamRounds: Round $round cached (${rooms.length} rooms)');
+      } catch (e) {
+        // Silently fail - not critical if pre-caching fails
+        print('[DEBUG] _preCacheExamRounds: Failed to cache round $round: $e');
+      }
+    }
+    print('[DEBUG] _preCacheExamRounds: Pre-caching complete!');
+  }
+  
   /// Fetch exam schedule (register periods) for a semester
   Future<void> fetchExamSchedule(String? accessToken, int semesterId) async {
     _isLoading = true;
@@ -274,14 +417,20 @@ class ExamProvider with ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     } catch (e) {
+      print('[DEBUG] _fetchExamScheduleFromApi ERROR: $e');
       // Check if this is a 401 error (token expired) - completely silent
       final is401Error = e.toString().contains('401');
       
-      if (!is401Error) {
-        // Only log non-auth errors
+      // Check if this is an initial fetch (no existing periods) or background refresh
+      if (_registerPeriods.isEmpty && _selectedSemesterId == semesterId) {
+        // Initial fetch failed, rethrow so outer catch can handle with fallback
+        print('[DEBUG] _fetchExamScheduleFromApi: Initial fetch failed, rethrowing');
+        rethrow;
+      } else if (!is401Error) {
+        // Only log non-auth errors for background refresh
         print('Background exam schedule refresh failed: $e');
       }
-      // If it's 401, completely silent (expected offline behavior)
+      // If it's 401 and we have cached data, completely silent (expected offline behavior)
     }
   }
 
@@ -297,13 +446,18 @@ class ExamProvider with ChangeNotifier {
     _isLoadingRooms = true; // Show loading state immediately
     notifyListeners();
     
-    // Fetch exam rooms for the selected register period
+    // Fetch exam rooms for the selected register period and exam round
     await fetchExamRoomDetails(
       accessToken,
       semesterId,
       periodId,
       examRound,
     );
+    
+    // Pre-cache other exam rounds for this period in background
+    if (accessToken != null) {
+      _preCacheExamRounds(accessToken, semesterId, periodId, examRound);
+    }
   }
 
   /// Select exam round (1, 2, etc.)
@@ -322,6 +476,7 @@ class ExamProvider with ChangeNotifier {
     int examRound,
   ) async {
     print('[DEBUG] fetchExamRoomDetails: semesterId=$semesterId, periodId=$registerPeriodId, round=$examRound');
+    print('[DEBUG] fetchExamRoomDetails: accessToken=${accessToken?.substring(0, 20)}...');
     // Clear exam rooms when starting to fetch new data
     _examRooms = [];
     _isLoadingRooms = true;
@@ -490,6 +645,7 @@ class ExamProvider with ChangeNotifier {
         rooms, // Save the fetched data, not _examRooms
       );
     } catch (e) {
+      print('[DEBUG] _fetchExamRoomDetailsFromApi ERROR: $e');
       // Check if this is a 401 error (token expired) - completely silent
       final is401Error = e.toString().contains('401');
       
@@ -498,10 +654,9 @@ class ExamProvider with ChangeNotifier {
           _selectedSemesterId == semesterId &&
           _selectedRegisterPeriodId == registerPeriodId &&
           _selectedExamRound == examRound) {
-        // Only show error if this was the initial fetch (not background)
-        _roomErrorMessage = e.toString();
-        _isLoadingRooms = false;
-        notifyListeners();
+        // This is initial fetch (not background), rethrow so outer catch can handle with fallback
+        print('[DEBUG] _fetchExamRoomDetailsFromApi: Initial fetch failed, rethrowing');
+        rethrow; // Let outer catch handle it with cache fallback!
       } else if (!is401Error) {
         // Background refresh failed for non-auth reasons - log it
         print('Background exam room refresh failed: $e');

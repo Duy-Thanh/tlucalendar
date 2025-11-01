@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
+import 'package:tlucalendar/providers/exam_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -67,6 +68,18 @@ class _LoginScreenState extends State<LoginScreen> {
       await context.read<UserProvider>().loginWithApi(studentCode, password);
 
       if (!mounted) return;
+      
+      // Pre-cache all exam data for offline mode
+      final userProvider = context.read<UserProvider>();
+      final examProvider = context.read<ExamProvider>();
+      if (userProvider.selectedSemester != null && userProvider.accessToken != null) {
+        // Run in background, don't block login
+        examProvider.preCacheAllExamData(
+          userProvider.accessToken!,
+          userProvider.selectedSemester!.id,
+        );
+        print('🚀 Started pre-caching exam data for offline mode');
+      }
 
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
