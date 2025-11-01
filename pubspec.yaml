@@ -20,7 +20,7 @@ dependencies:
   package_info_plus: ^9.0.0
   android_intent_plus: ^6.0.0
   flutter_local_notifications: ^19.5.0
-  timezone: ^0.10.0
+  timezone: ^0.10.1
 
 dev_dependencies:
   flutter_test:
