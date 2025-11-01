@@ -224,6 +224,10 @@ class SettingsScreen extends StatelessWidget {
                           Switch(
                             value: userProvider.notificationsEnabled,
                             onChanged: (value) async {
+                              // ✅ ALWAYS check current permission status before toggling
+                              // This handles the case where user granted permission in settings
+                              await userProvider.checkNotificationPermission();
+                              
                               // Try to toggle
                               bool success = await userProvider.toggleNotifications(value);
                               

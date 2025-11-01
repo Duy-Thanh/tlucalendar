@@ -664,7 +664,8 @@ class UserProvider extends ChangeNotifier {
     }
 
     // If enabling, check current permission status first
-    if (enabled && _isLoggedIn) {
+    // ✅ REMOVED _isLoggedIn check - notifications should work even when not logged in!
+    if (enabled) {
       // First, check if permission was granted in system settings
       _hasNotificationPermission = 
           await NotificationService().areNotificationsEnabled();
@@ -673,22 +674,27 @@ class UserProvider extends ChangeNotifier {
         // Permission not granted, try to request it
         _hasNotificationPermission =
             await NotificationService().requestPermissions();
-        notifyListeners();
 
-        // If permission still denied, DON'T turn on the toggle
+        // If permission still denied, DON'T change the saved state
+        // This allows user to grant permission in settings and try again
         if (!_hasNotificationPermission) {
           print('⚠️ Notification permission denied by user');
-          _notificationsEnabled = false;
-          await _prefs.setBool(_notificationsEnabledKey, false);
+          // ✅ DON'T save false to SharedPreferences!
+          // Keep the toggle state as it was, so user can try again after granting permission
           notifyListeners();
-          return false; // Toggle was not enabled
+          return false; // Toggle failed, but state not saved
         }
       }
       
       // Permission granted, enable notifications
       _notificationsEnabled = true;
       await _prefs.setBool(_notificationsEnabledKey, true);
-      await _scheduleNotificationsForCurrentWeek();
+      
+      // Only schedule notifications if logged in
+      if (_isLoggedIn) {
+        await _scheduleNotificationsForCurrentWeek();
+      }
+      
       notifyListeners();
       return true;
     }
