@@ -174,8 +174,11 @@ class ExamProvider with ChangeNotifier {
     try {
       // Try to load from cache first
       final hasCache = await _dbHelper.hasRegisterPeriodsCache(semesterId);
+      print('[DEBUG] fetchExamSchedule: hasCache=$hasCache, semesterId=$semesterId');
+      
       if (hasCache) {
         _registerPeriods = await _dbHelper.getRegisterPeriods(semesterId);
+        print('[DEBUG] fetchExamSchedule: Loaded ${_registerPeriods.length} periods from cache');
         
         // Sort by display order
         _registerPeriods.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
@@ -190,12 +193,14 @@ class ExamProvider with ChangeNotifier {
 
         // Fetch fresh data in background ONLY if we have valid access token
         if (accessToken != null && accessToken.isNotEmpty) {
+          print('[DEBUG] fetchExamSchedule: Starting background refresh');
           _fetchExamScheduleFromApi(accessToken, semesterId);
         }
         return;
       }
 
       // No cache, try to fetch from API if we have access token
+      print('[DEBUG] fetchExamSchedule: No cache, trying API');
       if (accessToken != null && accessToken.isNotEmpty) {
         await _fetchExamScheduleFromApi(accessToken, semesterId);
       } else {
@@ -205,7 +210,38 @@ class ExamProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      _errorMessage = e.toString();
+      // Check if this is a 401 error (token expired)
+      final is401Error = e.toString().contains('401');
+      print('[DEBUG] fetchExamSchedule ERROR: is401=$is401Error, error=$e');
+      
+      if (is401Error) {
+        print('[DEBUG] fetchExamSchedule: 401 error, checking cache fallback');
+        // Token expired - try to use cache as fallback
+        final hasCache = await _dbHelper.hasRegisterPeriodsCache(semesterId);
+        print('[DEBUG] fetchExamSchedule: Cache fallback hasCache=$hasCache');
+        
+        if (hasCache) {
+          // Load from cache instead of showing error
+          _registerPeriods = await _dbHelper.getRegisterPeriods(semesterId);
+          _registerPeriods.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+          
+          if (_registerPeriods.isNotEmpty && _selectedRegisterPeriodId == null) {
+            _selectedRegisterPeriodId = _registerPeriods.first.id;
+          }
+          
+          _isLoading = false;
+          _errorMessage = null; // No error - we have cached data!
+          notifyListeners();
+          print('[DEBUG] fetchExamSchedule: SUCCESS using cache fallback');
+          return; // Success! Using cached data
+        }
+        // No cache available - show friendly message
+        print('[DEBUG] fetchExamSchedule: No cache available, showing error');
+        _errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+      } else {
+        // Other error - show actual error
+        _errorMessage = e.toString();
+      }
       _isLoading = false;
       notifyListeners();
     }
@@ -285,6 +321,7 @@ class ExamProvider with ChangeNotifier {
     int registerPeriodId,
     int examRound,
   ) async {
+    print('[DEBUG] fetchExamRoomDetails: semesterId=$semesterId, periodId=$registerPeriodId, round=$examRound');
     // Clear exam rooms when starting to fetch new data
     _examRooms = [];
     _isLoadingRooms = true;
@@ -298,6 +335,7 @@ class ExamProvider with ChangeNotifier {
         registerPeriodId,
         examRound,
       );
+      print('[DEBUG] fetchExamRoomDetails: hasCache=$hasCache');
 
       if (hasCache) {
         _examRooms = await _dbHelper.getExamRooms(
@@ -308,12 +346,14 @@ class ExamProvider with ChangeNotifier {
 
         _isLoadingRooms = false;
         notifyListeners();
+        print('[DEBUG] fetchExamRoomDetails: Loaded ${_examRooms.length} rooms from cache');
 
         // Schedule notifications for cached data
         await _scheduleExamNotifications();
 
         // Fetch fresh data in background ONLY if we have a valid access token
         if (accessToken != null && accessToken.isNotEmpty) {
+          print('[DEBUG] fetchExamRoomDetails: Starting background refresh');
           _fetchExamRoomDetailsFromApi(
             accessToken,
             semesterId,
@@ -325,6 +365,7 @@ class ExamProvider with ChangeNotifier {
       }
 
       // No cache, try to fetch from API if we have access token
+      print('[DEBUG] fetchExamRoomDetails: No cache, trying API');
       if (accessToken != null && accessToken.isNotEmpty) {
         await _fetchExamRoomDetailsFromApi(
           accessToken,
@@ -339,7 +380,44 @@ class ExamProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      _roomErrorMessage = e.toString();
+      // Check if this is a 401 error (token expired)
+      final is401Error = e.toString().contains('401');
+      print('[DEBUG] fetchExamRoomDetails ERROR: is401=$is401Error, error=$e');
+      
+      if (is401Error) {
+        print('[DEBUG] fetchExamRoomDetails: 401 error, checking cache fallback');
+        // Token expired - try to use cache as fallback
+        final hasCache = await _dbHelper.hasExamRoomCache(
+          semesterId,
+          registerPeriodId,
+          examRound,
+        );
+        print('[DEBUG] fetchExamRoomDetails: Cache fallback hasCache=$hasCache');
+        
+        if (hasCache) {
+          // Load from cache instead of showing error
+          _examRooms = await _dbHelper.getExamRooms(
+            semesterId,
+            registerPeriodId,
+            examRound,
+          );
+          
+          _isLoadingRooms = false;
+          _roomErrorMessage = null; // No error - we have cached data!
+          notifyListeners();
+          
+          // Schedule notifications for cached data
+          await _scheduleExamNotifications();
+          print('[DEBUG] fetchExamRoomDetails: SUCCESS using cache fallback');
+          return; // Success! Using cached data
+        }
+        // No cache available - show friendly message
+        print('[DEBUG] fetchExamRoomDetails: No cache available, showing error');
+        _roomErrorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+      } else {
+        // Other error - show actual error
+        _roomErrorMessage = e.toString();
+      }
       _isLoadingRooms = false;
       notifyListeners();
     }
