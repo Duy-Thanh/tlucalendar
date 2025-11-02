@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/data/latest.dart' as tz;
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/providers/schedule_provider.dart';
@@ -13,6 +14,9 @@ import 'package:tlucalendar/utils/error_logger.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize timezone database for iOS scheduled notifications
+  tz.initializeTimeZones();
 
   final errorLogger = ErrorLogger();
 

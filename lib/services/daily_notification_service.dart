@@ -1,18 +1,28 @@
+import 'dart:io' show Platform;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'package:tlucalendar/services/log_service.dart';
 
 /// Service for sending daily reminders about classes and exams
-/// Works even when app is closed using AlarmManager!
+/// Platform-specific implementation:
+/// - Android: Uses AlarmManager for exact timing (even when app is closed)
+/// - iOS: Uses scheduled notifications (native iOS scheduling)
 class DailyNotificationService {
-  static const int _alarmId = 0; // Unique ID for the daily alarm
+  static const int _alarmId = 0; // Unique ID for the daily alarm (Android)
+  static const int _iosNotificationId = 999; // ID for iOS daily notification
   static final _log = LogService();
 
-  /// Initialize the alarm manager service
+  /// Initialize the service (platform-specific)
   static Future<void> initialize() async {
-    await AndroidAlarmManager.initialize();
+    if (Platform.isAndroid) {
+      await AndroidAlarmManager.initialize();
+      _log.log('[Platform] Initialized Android AlarmManager', level: LogLevel.debug);
+    } else if (Platform.isIOS) {
+      _log.log('[Platform] iOS uses native scheduled notifications', level: LogLevel.debug);
+    }
   }
 
   /// Schedule daily check at specific time (e.g., 7 AM every day)
@@ -21,38 +31,107 @@ class DailyNotificationService {
     var scheduledDate = DateTime(now.year, now.month, now.day, hour, minute);
     
     if (scheduledDate.isBefore(now)) {
-      // If 7 AM already passed today, schedule for tomorrow
+      // If time already passed today, schedule for tomorrow
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    _log.log('[AlarmManager] Scheduling daily notification...', level: LogLevel.info);
+    _log.log('[${Platform.isAndroid ? 'Android' : 'iOS'}] Scheduling daily notification...', level: LogLevel.info);
     _log.log('Current time: $now', level: LogLevel.debug);
     _log.log('Next scheduled: $scheduledDate', level: LogLevel.debug);
     
-    // Schedule exact alarm that repeats daily
-    await AndroidAlarmManager.periodic(
-      const Duration(days: 1), // Repeat every day
-      _alarmId,
-      _performDailyCheck,
-      startAt: scheduledDate,
-      exact: true, // Use exact alarm for precise timing
-      wakeup: true, // Wake up device if sleeping
-      rescheduleOnReboot: true, // Reschedule after device reboot
-    );
+    if (Platform.isAndroid) {
+      // Android: Use AlarmManager for exact timing
+      await AndroidAlarmManager.periodic(
+        const Duration(days: 1), // Repeat every day
+        _alarmId,
+        _performDailyCheck,
+        startAt: scheduledDate,
+        exact: true, // Use exact alarm for precise timing
+        wakeup: true, // Wake up device if sleeping
+        rescheduleOnReboot: true, // Reschedule after device reboot
+      );
+      _log.log('Android: Daily check scheduled using AlarmManager', level: LogLevel.success);
+    } else if (Platform.isIOS) {
+      // iOS: Use scheduled notifications with daily repeat
+      await _scheduleIOSDailyNotification(hour: hour, minute: minute);
+      _log.log('iOS: Daily check scheduled using native notifications', level: LogLevel.success);
+    }
 
     _log.log('Daily notification check scheduled for ${hour}:${minute.toString().padLeft(2, '0')} every day', level: LogLevel.success);
   }
 
   /// Cancel daily check
   static Future<void> cancelDailyCheck() async {
-    await AndroidAlarmManager.cancel(_alarmId);
-    _log.log('Daily notification check cancelled', level: LogLevel.warning);
+    if (Platform.isAndroid) {
+      await AndroidAlarmManager.cancel(_alarmId);
+      _log.log('Android: Daily notification check cancelled', level: LogLevel.warning);
+    } else if (Platform.isIOS) {
+      final notificationsPlugin = FlutterLocalNotificationsPlugin();
+      await notificationsPlugin.cancel(_iosNotificationId);
+      _log.log('iOS: Daily notification check cancelled', level: LogLevel.warning);
+    }
   }
 
   /// Manually trigger daily check (for testing)
   static Future<void> triggerManualCheck() async {
     _log.log('[Manual] Triggering daily check manually for testing...', level: LogLevel.info);
     await _performDailyCheck();
+  }
+
+  /// Schedule iOS daily notification using native scheduled notifications
+  static Future<void> _scheduleIOSDailyNotification({int hour = 7, int minute = 0}) async {
+    final notificationsPlugin = FlutterLocalNotificationsPlugin();
+    
+    // iOS initialization with proper settings
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    
+    const initSettings = InitializationSettings(
+      iOS: iosSettings,
+    );
+    
+    await notificationsPlugin.initialize(initSettings);
+
+    // Schedule daily notification
+    await notificationsPlugin.zonedSchedule(
+      _iosNotificationId,
+      '📅 Lịch học hôm nay',
+      'Nhấn để xem lịch học và thi hôm nay',
+      _nextInstanceOfTime(hour, minute),
+      const NotificationDetails(
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      androidScheduleMode: AndroidScheduleMode.exact,
+      matchDateTimeComponents: DateTimeComponents.time, // Repeat daily at same time
+    );
+
+    _log.log('iOS: Scheduled daily notification at ${hour}:${minute.toString().padLeft(2, '0')}', level: LogLevel.debug);
+  }
+
+  /// Helper to get next instance of a specific time
+  static tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+    
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+    
+    return scheduledDate;
   }
 
   /// Check if there's a daily task scheduled
