@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:tlucalendar/models/api_response.dart';
+import 'package:tlucalendar/services/log_service.dart';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -10,6 +11,7 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
+  final _log = LogService();
 
   bool _initialized = false;
 
@@ -96,7 +98,7 @@ class NotificationService {
   /// Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
     // Handle notification tap - you can navigate to specific screen here
-    print('Notification tapped: ${response.payload}');
+    _log.log('Notification tapped: ${response.payload}', level: LogLevel.info);
   }
 
   /// Schedule notifications for a class (1 hour, 30 min, 15 min before)
@@ -217,25 +219,20 @@ class NotificationService {
     final maxYear = now.year + 10; // Maximum 10 years in future
     
     if (scheduledDate.year > maxYear || scheduledDate.year < 2020) {
-      print('⚠️ Invalid scheduled date: $scheduledDate (year: ${scheduledDate.year})');
-      print('   Notification NOT scheduled - date out of valid range');
+      _log.log('Invalid scheduled date: $scheduledDate (year: ${scheduledDate.year})', level: LogLevel.warning);
+      _log.log('Notification NOT scheduled - date out of valid range', level: LogLevel.warning);
       return;
     }
     
     // Don't schedule if already passed
     if (scheduledDate.isBefore(now)) {
-      print('⏭️ Scheduled date is in the past: $scheduledDate');
+      _log.log('Scheduled date is in the past: $scheduledDate', level: LogLevel.debug);
       return;
     }
     
-    // Debug logging
-    print('📅 Scheduling notification:');
-    print('   ID: $id');
-    print('   Title: $title');
-    print('   Body: $body');
-    print('   Scheduled for: $scheduledDate');
-    print('   Current time: $now');
-    print('   Time until notification: ${scheduledDate.difference(now)}');
+    // Log notification scheduling
+    _log.log('Scheduling notification: $title', level: LogLevel.info);
+    _log.log('Scheduled for: $scheduledDate (in ${scheduledDate.difference(now).inMinutes} minutes)', level: LogLevel.debug);
     
     const androidDetails = AndroidNotificationDetails(
       'class_exam_reminders',
@@ -260,7 +257,7 @@ class NotificationService {
     );
 
     final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
-    print('   TZ Scheduled date: $tzScheduledDate');
+    _log.log('TZ Scheduled date: $tzScheduledDate', level: LogLevel.debug);
     
     await _notificationsPlugin.zonedSchedule(
       id,
@@ -272,7 +269,7 @@ class NotificationService {
       payload: payload,
     );
     
-    print('   ✅ Notification scheduled successfully');
+    _log.log('Notification scheduled successfully', level: LogLevel.success);
   }
 
   /// Cancel a specific notification

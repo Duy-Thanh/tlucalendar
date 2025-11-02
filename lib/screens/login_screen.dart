@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
+import 'package:tlucalendar/services/log_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -78,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
           userProvider.accessToken!,
           userProvider.selectedSemester!.id,
         );
-        print('🚀 Started pre-caching exam data for offline mode');
+        LogService().log('Started pre-caching exam data for offline mode', level: LogLevel.info);
       }
 
       // Show success message

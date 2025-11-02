@@ -1,15 +1,49 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/widgets/empty_state_widget.dart';
 import 'package:tlucalendar/models/api_response.dart';
 
-class TodayScreen extends StatelessWidget {
+class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
 
   @override
+  State<TodayScreen> createState() => _TodayScreenState();
+}
+
+class _TodayScreenState extends State<TodayScreen> {
+  late DateTime _currentDate;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentDate = DateTime.now();
+    
+    // Update every second to keep the date fresh
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      final now = DateTime.now();
+      // Only rebuild if the date actually changed
+      if (now.day != _currentDate.day || 
+          now.month != _currentDate.month || 
+          now.year != _currentDate.year) {
+        setState(() {
+          _currentDate = now;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final today = DateTime.now();
+    final today = _currentDate;
     final dayName = _getDayOfWeek(today.weekday);
     final dateFormat =
         '$dayName, Ngày ${today.day}/${today.month}/${today.year}';

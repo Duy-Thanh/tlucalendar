@@ -6,6 +6,7 @@ import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/providers/schedule_provider.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/services/notification_service.dart';
+import 'package:tlucalendar/services/daily_notification_service.dart';
 import 'package:tlucalendar/theme/app_theme.dart';
 import 'package:tlucalendar/screens/home_shell.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
@@ -50,6 +51,16 @@ void main() async {
   final notificationService = NotificationService();
   await notificationService.initialize();
   debugPrint('✅ Notification service initialized');
+  
+  // Initialize daily notification background worker
+  await DailyNotificationService.initialize();
+  debugPrint('✅ Daily notification service initialized');
+  
+  // Schedule daily check if user has enabled it
+  if (userProvider.dailyNotificationsEnabled) {
+    await DailyNotificationService.scheduleDailyCheck();
+    debugPrint('✅ Daily notification check scheduled');
+  }
 
   runApp(
     MultiProvider(

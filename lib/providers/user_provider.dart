@@ -5,6 +5,8 @@ import 'package:tlucalendar/models/api_response.dart';
 import 'package:tlucalendar/services/auth_service.dart';
 import 'package:tlucalendar/services/database_helper.dart';
 import 'package:tlucalendar/services/notification_service.dart';
+import 'package:tlucalendar/services/daily_notification_service.dart';
+import 'package:tlucalendar/services/log_service.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/utils/notification_helper.dart';
 
@@ -13,6 +15,7 @@ class UserProvider extends ChangeNotifier {
   late SharedPreferences _prefs;
   late AuthService _authService;
   final _dbHelper = DatabaseHelper.instance;
+  final _log = LogService();
   bool _isLoggedIn = false;
   String? _accessToken;
   ExamProvider? _examProvider; // Optional reference to ExamProvider
@@ -34,6 +37,7 @@ class UserProvider extends ChangeNotifier {
   // Notification settings
   bool _notificationsEnabled = true;
   bool _hasNotificationPermission = false;
+  bool _dailyNotificationsEnabled = true;  // Daily morning summary
 
   static const String _studentCodeKey = 'userStudentCode';
   static const String _passwordKey = 'userPassword';
@@ -41,6 +45,7 @@ class UserProvider extends ChangeNotifier {
   static const String _refreshTokenKey = 'refreshToken';
   static const String _isLoggedInKey = 'isLoggedIn';
   static const String _notificationsEnabledKey = 'notificationsEnabled';
+  static const String _dailyNotificationsEnabledKey = 'dailyNotificationsEnabled';
 
   User get currentUser => _currentUser;
   bool get isLoggedIn => _isLoggedIn;
@@ -55,6 +60,7 @@ class UserProvider extends ChangeNotifier {
   String? get courseLoadError => _courseLoadError;
   bool get notificationsEnabled => _notificationsEnabled;
   bool get hasNotificationPermission => _hasNotificationPermission;
+  bool get dailyNotificationsEnabled => _dailyNotificationsEnabled;
   
   // Login progress getters
   String get loginProgress => _loginProgress;
@@ -128,6 +134,7 @@ class UserProvider extends ChangeNotifier {
     _isLoggedIn = _prefs.getBool(_isLoggedInKey) ?? false;
     _accessToken = _prefs.getString(_accessTokenKey);
     _notificationsEnabled = _prefs.getBool(_notificationsEnabledKey) ?? true;
+    _dailyNotificationsEnabled = _prefs.getBool(_dailyNotificationsEnabledKey) ?? true;
 
     // Check actual notification permission status
     await checkNotificationPermission();
@@ -148,7 +155,7 @@ class UserProvider extends ChangeNotifier {
           // They can manually logout if needed
         } catch (e) {
           // Network error - that's fine! We have cached data
-          print('Using cached data (offline mode): $e');
+          _log.log('Using cached data (offline mode): $e', level: LogLevel.info);
           // Keep _isLoggedIn = true so user can access cached data
         }
       }
@@ -208,7 +215,7 @@ class UserProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      print('Error loading cached data: $e');
+      _log.log('Error loading cached data: $e', level: LogLevel.error);
     }
   }
 
@@ -219,7 +226,7 @@ class UserProvider extends ChangeNotifier {
       _updateUserFromTluUser(tluUser);
       await _dbHelper.saveTluUser(tluUser);
     } catch (e) {
-      print('Error refreshing from API: $e');
+      _log.log('Error refreshing from API: $e', level: LogLevel.warning);
     }
   }
 
@@ -320,8 +327,9 @@ class UserProvider extends ChangeNotifier {
         _loginProgressPercent = 0.625; // 5/8
         notifyListeners();
 
-        print(
-          '📥 Downloading courses for ALL ${allSemesters.length} semesters...',
+        _log.log(
+          'Downloading courses for ALL ${allSemesters.length} semesters...',
+          level: LogLevel.info,
         );
 
         for (var i = 0; i < allSemesters.length; i++) {
@@ -337,8 +345,9 @@ class UserProvider extends ChangeNotifier {
 
             // Save to database
             await _dbHelper.saveStudentCourses(semester.id, courses);
-            print(
-              '✅ Saved ${courses.length} courses for semester ${semester.semesterName}',
+            _log.log(
+              'Saved ${courses.length} courses for semester ${semester.semesterName}',
+              level: LogLevel.success,
             );
 
             // If this is the selected semester, update current courses
@@ -346,14 +355,15 @@ class UserProvider extends ChangeNotifier {
               _studentCourses = courses;
             }
           } catch (e) {
-            print(
-              '⚠️ Failed to fetch courses for semester ${semester.semesterName}: $e',
+            _log.log(
+              'Failed to fetch courses for semester ${semester.semesterName}: $e',
+              level: LogLevel.warning,
             );
             // Continue with other semesters even if one fails
           }
         }
 
-        print('🎉 All semester data downloaded and cached!');
+        _log.log('All semester data downloaded and cached!', level: LogLevel.success);
       }
 
       // Step 8: Fetch and save exam data for ALL semesters (for offline use!)
@@ -366,8 +376,9 @@ class UserProvider extends ChangeNotifier {
         _loginProgressPercent = 0.75; // 6/8
         notifyListeners();
 
-        print(
-          '📥 Downloading exam schedules for ALL ${allSemesters.length} semesters...',
+        _log.log(
+          'Downloading exam schedules for ALL ${allSemesters.length} semesters...',
+          level: LogLevel.info,
         );
 
         for (var i = 0; i < allSemesters.length; i++) {
@@ -384,8 +395,9 @@ class UserProvider extends ChangeNotifier {
 
             // Save register periods to database
             await _dbHelper.saveRegisterPeriods(semester.id, periods);
-            print(
-              '✅ Saved ${periods.length} register periods for semester ${semester.semesterName}',
+            _log.log(
+              'Saved ${periods.length} register periods for semester ${semester.semesterName}',
+              level: LogLevel.success,
             );
 
             // For each register period, fetch exam rooms for ALL 5 ROUNDS
@@ -409,31 +421,35 @@ class UserProvider extends ChangeNotifier {
                   );
                   
                   if (examRooms.isNotEmpty) {
-                    print(
-                      '✅ Saved ${examRooms.length} exam rooms for ${semester.semesterName} - ${period.name} - Round $round',
+                    _log.log(
+                      'Saved ${examRooms.length} exam rooms for ${semester.semesterName} - ${period.name} - Round $round',
+                      level: LogLevel.success,
                     );
                   } else {
-                    print(
-                      '○ Round $round empty for ${semester.semesterName} - ${period.name} (cached)',
+                    _log.log(
+                      'Round $round empty for ${semester.semesterName} - ${period.name} (cached)',
+                      level: LogLevel.debug,
                     );
                   }
                 } catch (e) {
-                  print(
-                    '⚠️ Failed round $round for ${semester.semesterName} - ${period.name}: $e',
+                  _log.log(
+                    'Failed round $round for ${semester.semesterName} - ${period.name}: $e',
+                    level: LogLevel.warning,
                   );
                   // Continue with other rounds
                 }
               }
             }
           } catch (e) {
-            print(
-              '⚠️ Failed to fetch exam data for semester ${semester.semesterName}: $e',
+            _log.log(
+              'Failed to fetch exam data for semester ${semester.semesterName}: $e',
+              level: LogLevel.warning,
             );
             // Continue with other semesters even if one fails
           }
         }
 
-        print('🎉 All exam data downloaded and cached!');
+        _log.log('All exam data downloaded and cached!', level: LogLevel.success);
       }
 
       // Final step: Save credentials
@@ -521,8 +537,9 @@ class UserProvider extends ChangeNotifier {
         } catch (apiError) {
           // API failed (offline or network error)
           // We already loaded cached data above, so just log it
-          print(
+          _log.log(
             'Using cached data for semester $semesterId (offline or API error): $apiError',
+            level: LogLevel.info,
           );
         }
       }
@@ -542,13 +559,13 @@ class UserProvider extends ChangeNotifier {
   Future<void> _scheduleNotificationsForCurrentWeek() async {
     // Check if notifications are enabled
     if (!_notificationsEnabled) {
-      print('⏸️ Notifications are disabled by user');
+      _log.log('Notifications are disabled by user', level: LogLevel.info);
       return;
     }
 
     // Check if permission is granted
     if (!_hasNotificationPermission) {
-      print('⚠️ Notification permission not granted');
+      _log.log('Notification permission not granted', level: LogLevel.warning);
       return;
     }
 
@@ -587,10 +604,10 @@ class UserProvider extends ChangeNotifier {
         ? maxWeeksToSchedule 
         : (weeksUntilEnd > 0 ? weeksUntilEnd : 1);
     
-    print('📅 Scheduling notifications for $weeksToSchedule weeks (respecting platform limits)');
+    _log.log('Scheduling notifications for $weeksToSchedule weeks (respecting platform limits)', level: LogLevel.info);
     if (weeksUntilEnd > maxWeeksToSchedule) {
-      print('   ℹ️ Note: Only scheduling next $maxWeeksToSchedule weeks due to platform limits');
-      print('   ℹ️ Notifications will be rescheduled when you reopen the app');
+      _log.log('Note: Only scheduling next $maxWeeksToSchedule weeks due to platform limits', level: LogLevel.info);
+      _log.log('Notifications will be rescheduled when you reopen the app', level: LogLevel.info);
     }
     
     // Schedule for the next few weeks
@@ -606,12 +623,12 @@ class UserProvider extends ChangeNotifier {
           semesterStartDate: semesterStartDate!,
         );
       } catch (e) {
-        print('⚠️ Failed to schedule notifications for week $weekOffset: $e');
+        _log.log('Failed to schedule notifications for week $weekOffset: $e', level: LogLevel.warning);
       }
     }
     
-    print('✅ Notifications scheduled for $weeksToSchedule weeks');
-    print('   💡 Tip: Reopen the app weekly to keep notifications up to date');
+    _log.log('Notifications scheduled for $weeksToSchedule weeks', level: LogLevel.success);
+    _log.log('Tip: Reopen the app weekly to keep notifications up to date', level: LogLevel.info);
   }
 
   /// Change selected semester and load courses
@@ -678,7 +695,7 @@ class UserProvider extends ChangeNotifier {
         // If permission still denied, DON'T change the saved state
         // This allows user to grant permission in settings and try again
         if (!_hasNotificationPermission) {
-          print('⚠️ Notification permission denied by user');
+          _log.log('Notification permission denied by user', level: LogLevel.warning);
           // ✅ DON'T save false to SharedPreferences!
           // Keep the toggle state as it was, so user can try again after granting permission
           notifyListeners();
@@ -707,6 +724,22 @@ class UserProvider extends ChangeNotifier {
   Future<void> checkNotificationPermission() async {
     _hasNotificationPermission =
         await NotificationService().areNotificationsEnabled();
+    notifyListeners();
+  }
+
+  /// Toggle daily morning notifications on/off
+  Future<void> toggleDailyNotifications(bool enabled) async {
+    _dailyNotificationsEnabled = enabled;
+    await _prefs.setBool(_dailyNotificationsEnabledKey, enabled);
+    
+    if (enabled) {
+      await DailyNotificationService.scheduleDailyCheck();
+      _log.log('Daily notifications enabled', level: LogLevel.success);
+    } else {
+      await DailyNotificationService.cancelDailyCheck();
+      _log.log('Daily notifications disabled', level: LogLevel.info);
+    }
+    
     notifyListeners();
   }
 }

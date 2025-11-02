@@ -10,7 +10,10 @@ import 'package:android_intent_plus/android_intent.dart';
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/screens/login_screen.dart';
+import 'package:tlucalendar/screens/logs_screen.dart';
+import 'package:tlucalendar/services/log_service.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
+// import 'package:tlucalendar/services/daily_notification_service.dart'; // Commented out with test button
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -261,7 +264,7 @@ class SettingsScreen extends StatelessWidget {
                                               await launchUrl(settingsUri);
                                             }
                                           } catch (e) {
-                                            print('Error opening settings: $e');
+                                            LogService().log('Error opening settings: $e', level: LogLevel.error);
                                           }
                                         },
                                       ),
@@ -357,6 +360,85 @@ class SettingsScreen extends StatelessWidget {
                           ),
                         ),
                       ],
+                      // Daily notification toggle
+                      if (userProvider.notificationsEnabled) ...[
+                        const Divider(height: 32),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.wb_sunny),
+                                      const SizedBox(width: 16),
+                                      Text(
+                                        'Nhắc nhở hàng ngày',
+                                        style: Theme.of(context).textTheme.titleSmall,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 40),
+                                    child: Text(
+                                      'Nhận thông báo tóm tắt lịch học và thi mỗi sáng (7:00 AM)',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.outline,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Switch(
+                              value: userProvider.dailyNotificationsEnabled,
+                              onChanged: (value) async {
+                                await userProvider.toggleDailyNotifications(value);
+                              
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        value
+                                            ? '✅ Đã bật nhắc nhở hàng ngày (7:00 AM)'
+                                            : 'Đã tắt nhắc nhở hàng ngày',
+                                      ),
+                                      duration: const Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                        
+                        // DEBUG: Test button for daily notification
+                        // if (userProvider.dailyNotificationsEnabled)
+                        //   Padding(
+                        //     padding: const EdgeInsets.only(top: 8),
+                        //     child: OutlinedButton.icon(
+                        //       onPressed: () async {
+                        //         await DailyNotificationService.triggerManualCheck();
+                        //         if (context.mounted) {
+                        //           ScaffoldMessenger.of(context).showSnackBar(
+                        //             const SnackBar(
+                        //               content: Text('🧪 Đã kích hoạt kiểm tra thủ công - Xem log để biết kết quả'),
+                        //               duration: Duration(seconds: 3),
+                        //             ),
+                        //           );
+                        //         }
+                        //       },
+                        //       icon: const Icon(Icons.bug_report, size: 18),
+                        //       label: const Text('Test ngay bây giờ'),
+                        //       style: OutlinedButton.styleFrom(
+                        //         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        //       ),
+                        //     ),
+                        //   ),
+                      ],
                     ],
                   ),
                 ),
@@ -444,7 +526,7 @@ class SettingsScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       Text(
-                        '2025.10.29',
+                        '2025.11.02',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -468,6 +550,27 @@ class SettingsScreen extends StatelessWidget {
                     ],
                   ),
                 ],
+              ),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: ListTile(
+                leading: const Icon(Icons.receipt_long),
+                title: const Text('System Logs'),
+                subtitle: const Text('Xem nhật ký hệ thống để debug'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const LogsScreen(),
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -517,7 +620,7 @@ class SettingsScreen extends StatelessWidget {
 
     // Gather app info
     String appName = 'TLU Calendar';
-    String appVersion = '2025.10.29';
+    String appVersion = '2025.11.02';
     try {
       final pkg = await PackageInfo.fromPlatform();
       appName = pkg.appName;
@@ -636,7 +739,7 @@ class SettingsScreen extends StatelessWidget {
             data: Theme.of(context),
             child: const LicensePage(
               applicationName: 'TLU Calendar',
-              applicationVersion: '2025.10.29',
+              applicationVersion: '2025.11.02',
             ),
           ),
         ),
