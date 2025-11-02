@@ -562,7 +562,7 @@ class SettingsScreen extends StatelessWidget {
               child: ListTile(
                 leading: const Icon(Icons.receipt_long),
                 title: const Text('System Logs'),
-                subtitle: const Text('Xem nhật ký hệ thống để debug'),
+                subtitle: const Text('Xem nhật ký hệ thống'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.of(context).push(

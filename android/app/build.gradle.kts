@@ -35,7 +35,7 @@ android {
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         // Version code with last is 20 is closed testing
-        versionCode = 2025110120
+        versionCode = 2025110220
         versionName = flutter.versionName
 
         ndk {
