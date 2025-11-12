@@ -538,6 +538,22 @@ class SettingsScreen extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
+                        'Build branch',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      Text(
+                        'release_2025.11.12_XX-XX',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
                         'Nhà phát triển',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),

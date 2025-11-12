@@ -36,7 +36,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         // Version code with last is 20 is RELEASE CHANNEL
         // Version code with last is 30 is PREVIEW CHANNEL
-        versionCode = 2025111230
+        versionCode = 2025111220
         versionName = flutter.versionName
 
         ndk {
