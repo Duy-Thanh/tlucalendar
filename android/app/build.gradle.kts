@@ -34,8 +34,9 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        // Version code with last is 20 is closed testing
-        versionCode = 2025110220
+        // Version code with last is 20 is RELEASE CHANNEL
+        // Version code with last is 30 is PREVIEW CHANNEL
+        versionCode = 2025111230
         versionName = flutter.versionName
 
         ndk {
@@ -97,16 +98,13 @@ flutter {
 }
 
 dependencies {
-    // Play Core SDK (Flutter deferred components / SplitInstall)
-    //implementation("com.google.android.play:core:1.10.3")
-    //implementation("com.google.android.play:core-ktx:1.8.1")
-
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
     implementation("androidx.activity:activity-compose:1.11.0")
     implementation("androidx.compose.ui:ui:1.9.4")
     implementation("androidx.compose.material3:material3:1.4.0")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
+    implementation("androidx.compose.material:material-icons-core:1.7.8")
     implementation("androidx.compose.ui:ui-tooling-preview:1.9.4")
     debugImplementation("androidx.compose.ui:ui-tooling:1.9.4")
 

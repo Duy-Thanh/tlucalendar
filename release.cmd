@@ -7,4 +7,4 @@ SET ANDROID_SDK_ROOT=%ANDROID_HOME%
 SET ANDROID_PLATFORM_TOOLS=%ANDROID_HOME%\platform-tools
 
 :: Run the Flutter app
-flutter build apk --release
+flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols

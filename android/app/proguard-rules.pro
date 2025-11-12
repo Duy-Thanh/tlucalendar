@@ -8,7 +8,7 @@
 -keep class io.flutter.** { *; }
 -keep class io.flutter.plugins.** { *; }
 
-# Your app
+# Application
 -keep class com.nekkochan.tlucalendar.** { *; }
 
 # Keep Play Core classes used by Flutter
@@ -48,9 +48,42 @@
 -allowaccessmodification
 
 # Remove debug logs in release (Safe)
+# Logging 
 -assumenosideeffects class android.util.Log {
     public static *** d(...);
     public static *** v(...);
+    public static *** i(...);
+    public static *** w(...);
+    public static *** e(...);
+    public static *** wtf(...);
+}
+
+-assumenosideeffects class io.flutter.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** w(...);
+    public static *** e(...);
+}
+
+-assumenosideeffects class java.util.logging.Level {
+    public static *** w(...);
+    public static *** d(...);
+    public static *** v(...);
+}
+
+-assumenosideeffects class java.util.logging.Logger {
+    public static *** w(...);
+    public static *** d(...);
+    public static *** v(...);
+}
+
+# Removes third parties logging
+-assumenosideeffects class org.slf4j.Logger {
+    public *** trace(...);
+    public *** debug(...);
+    public *** info(...);
+    public *** warn(...);
+    public *** error(...);
 }
 
 # Keep Parcelables (Safe - for data transfer)
