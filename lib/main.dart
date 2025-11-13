@@ -8,6 +8,7 @@ import 'package:tlucalendar/providers/schedule_provider.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/services/notification_service.dart';
 import 'package:tlucalendar/services/daily_notification_service.dart';
+import 'package:tlucalendar/services/download_foreground_service.dart';
 import 'package:tlucalendar/theme/app_theme.dart';
 import 'package:tlucalendar/screens/home_shell.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
@@ -17,6 +18,9 @@ void main() async {
   
   // Initialize timezone database for iOS scheduled notifications
   tz.initializeTimeZones();
+  
+  // Initialize foreground service for background downloads
+  DownloadForegroundService.initForegroundTask();
 
   final errorLogger = ErrorLogger();
 

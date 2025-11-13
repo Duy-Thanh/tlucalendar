@@ -7,8 +7,10 @@ import 'package:tlucalendar/services/database_helper.dart';
 import 'package:tlucalendar/services/notification_service.dart';
 import 'package:tlucalendar/services/daily_notification_service.dart';
 import 'package:tlucalendar/services/log_service.dart';
+import 'package:tlucalendar/services/download_foreground_service.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/utils/notification_helper.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class UserProvider extends ChangeNotifier {
   late User _currentUser;
@@ -46,6 +48,8 @@ class UserProvider extends ChangeNotifier {
   static const String _isLoggedInKey = 'isLoggedIn';
   static const String _notificationsEnabledKey = 'notificationsEnabled';
   static const String _dailyNotificationsEnabledKey = 'dailyNotificationsEnabled';
+  static const String _backgroundDownloadCompleteKey = 'backgroundDownloadComplete';
+  static const String _backgroundDownloadInProgressKey = 'backgroundDownloadInProgress';
 
   User get currentUser => _currentUser;
   bool get isLoggedIn => _isLoggedIn;
@@ -143,6 +147,26 @@ class UserProvider extends ChangeNotifier {
       // Load cached data from database first (works offline!)
       await _loadCachedData();
 
+      // Check if foreground download service is already running
+      final isDownloading = await DownloadForegroundService.isRunning();
+      if (isDownloading) {
+        _log.log('Foreground download service is already running', level: LogLevel.info);
+      } else {
+        // Resume background download if it was interrupted and service not running
+        if (_accessToken != null) {
+          final downloadComplete = _prefs.getBool('download_complete') ?? false;
+          final downloadInProgress = _prefs.getBool('download_in_progress') ?? false;
+          
+          if (!downloadComplete || downloadInProgress) {
+            _log.log('Resuming interrupted background download...', level: LogLevel.info);
+            // Small delay to let UI initialize first
+            Future.delayed(const Duration(seconds: 2), () {
+              _downloadRemainingDataInBackground();
+            });
+          }
+        }
+      }
+
       // Try to refresh from API if we have network (optional)
       if (_accessToken != null) {
         try {
@@ -210,6 +234,14 @@ class UserProvider extends ChangeNotifier {
             _selectedSemester!.id,
           );
           
+          _log.log(
+            'Loaded ${_studentCourses.length} courses for ${_selectedSemester!.semesterName} from cache',
+            level: LogLevel.info,
+          );
+          
+          // Notify UI to update with loaded courses
+          notifyListeners();
+          
           // Schedule notifications for the current week's classes
           await _scheduleNotificationsForCurrentWeek();
         }
@@ -247,9 +279,11 @@ class UserProvider extends ChangeNotifier {
   /// Login with real TLU API
   Future<void> loginWithApi(String studentCode, String password) async {
     try {
-      // Reset progress
+      // Reset progress and download flags for fresh login
       _loginProgress = 'Đang xác thực...';
       _loginProgressPercent = 0.0;
+      await _prefs.setBool(_backgroundDownloadCompleteKey, false);
+      await _prefs.setBool(_backgroundDownloadInProgressKey, false);
       notifyListeners();
       
       // Step 1: Get access token
@@ -317,140 +351,41 @@ class UserProvider extends ChangeNotifier {
             );
       }
 
-      // Step 7: Fetch and save courses for ALL semesters (for offline use!)
-      if (_schoolYears != null) {
-        final allSemesters = _schoolYears!.content
-            .expand((y) => y.semesters)
-            .toList();
-
-        _loginProgress = 'Đang tải lịch học (0/${allSemesters.length})...';
+      // Step 7: Fetch ONLY current semester courses (fast login!)
+      if (_selectedSemester != null) {
+        _loginProgress = 'Đang tải lịch học hiện tại...';
         _loginProgressPercent = 0.625; // 5/8
         notifyListeners();
 
-        _log.log(
-          'Downloading courses for ALL ${allSemesters.length} semesters...',
-          level: LogLevel.info,
-        );
+        try {
+          _studentCourses = await _authService.getStudentCourseSubject(
+            _accessToken!,
+            _selectedSemester!.id,
+          );
 
-        for (var i = 0; i < allSemesters.length; i++) {
-          final semester = allSemesters[i];
+          // Save current semester courses to database
+          await _dbHelper.saveStudentCourses(_selectedSemester!.id, _studentCourses);
+          _log.log(
+            'Saved ${_studentCourses.length} courses for current semester',
+            level: LogLevel.success,
+          );
+        } catch (e) {
+          _log.log(
+            'Failed to fetch current semester courses: $e',
+            level: LogLevel.warning,
+          );
+          // Try to load from cache
           try {
-            _loginProgress = 'Đang tải lịch học (${i + 1}/${allSemesters.length})...';
-            notifyListeners();
-            
-            final courses = await _authService.getStudentCourseSubject(
-              _accessToken!,
-              semester.id,
-            );
-
-            // Save to database
-            await _dbHelper.saveStudentCourses(semester.id, courses);
-            _log.log(
-              'Saved ${courses.length} courses for semester ${semester.semesterName}',
-              level: LogLevel.success,
-            );
-
-            // If this is the selected semester, update current courses
-            if (semester.id == _selectedSemester?.id) {
-              _studentCourses = courses;
-            }
-          } catch (e) {
-            _log.log(
-              'Failed to fetch courses for semester ${semester.semesterName}: $e',
-              level: LogLevel.warning,
-            );
-            // Continue with other semesters even if one fails
+            _studentCourses = await _dbHelper.getStudentCourses(_selectedSemester!.id);
+            _log.log('Loaded courses from cache', level: LogLevel.info);
+          } catch (cacheError) {
+            _log.log('No cached courses available', level: LogLevel.warning);
           }
         }
-
-        _log.log('All semester data downloaded and cached!', level: LogLevel.success);
       }
 
-      // Step 8: Fetch and save exam data for ALL semesters (for offline use!)
-      if (_schoolYears != null && _examProvider != null && _accessToken != null) {
-        final allSemesters = _schoolYears!.content
-            .expand((y) => y.semesters)
-            .toList();
-
-        _loginProgress = 'Đang tải lịch thi (0/${allSemesters.length})...';
-        _loginProgressPercent = 0.75; // 6/8
-        notifyListeners();
-
-        _log.log(
-          'Downloading exam schedules for ALL ${allSemesters.length} semesters...',
-          level: LogLevel.info,
-        );
-
-        for (var i = 0; i < allSemesters.length; i++) {
-          final semester = allSemesters[i];
-          try {
-            _loginProgress = 'Đang tải lịch thi (${i + 1}/${allSemesters.length})...';
-            notifyListeners();
-            
-            // Fetch register periods for this semester
-            final periods = await _authService.getRegisterPeriods(
-              _accessToken!,
-              semester.id,
-            );
-
-            // Save register periods to database
-            await _dbHelper.saveRegisterPeriods(semester.id, periods);
-            _log.log(
-              'Saved ${periods.length} register periods for semester ${semester.semesterName}',
-              level: LogLevel.success,
-            );
-
-            // For each register period, fetch exam rooms for ALL 5 ROUNDS
-            for (var period in periods) {
-              // ✅ CACHE ALL 5 ROUNDS, not just round 1!
-              for (int round = 1; round <= 5; round++) {
-                try {
-                  final examRooms = await _authService.getStudentExamRooms(
-                    _accessToken!,
-                    semester.id,
-                    period.id,
-                    round,
-                  );
-
-                  // Save exam rooms to database
-                  await _dbHelper.saveExamRooms(
-                    semester.id,
-                    period.id,
-                    round,
-                    examRooms,
-                  );
-                  
-                  if (examRooms.isNotEmpty) {
-                    _log.log(
-                      'Saved ${examRooms.length} exam rooms for ${semester.semesterName} - ${period.name} - Round $round',
-                      level: LogLevel.success,
-                    );
-                  } else {
-                    _log.log(
-                      'Round $round empty for ${semester.semesterName} - ${period.name} (cached)',
-                      level: LogLevel.debug,
-                    );
-                  }
-                } catch (e) {
-                  _log.log(
-                    'Failed round $round for ${semester.semesterName} - ${period.name}: $e',
-                    level: LogLevel.warning,
-                  );
-                  // Continue with other rounds
-                }
-              }
-            }
-          } catch (e) {
-            _log.log(
-              'Failed to fetch exam data for semester ${semester.semesterName}: $e',
-              level: LogLevel.warning,
-            );
-            // Continue with other semesters even if one fails
-          }
-        }
-
-        _log.log('All exam data downloaded and cached!', level: LogLevel.success);
-      }
+      // Step 8: Skip full exam download during login (will be done in background)
+      // User can enter app immediately!
 
       // Final step: Save credentials
       _loginProgress = 'Đang hoàn tất...';
@@ -470,6 +405,18 @@ class UserProvider extends ChangeNotifier {
       _loginProgress = 'Hoàn tất!';
       _loginProgressPercent = 1.0;
       notifyListeners();
+
+      // 🚀 Start background download of remaining data (non-blocking)
+      _log.log('Starting background data download...', level: LogLevel.info);
+      _downloadRemainingDataInBackground();
+      
+      // 🚀 Also trigger exam pre-caching if ExamProvider is available
+      if (_examProvider != null && _selectedSemester != null) {
+        _log.log('Starting exam pre-caching...', level: LogLevel.info);
+        Future.delayed(const Duration(seconds: 1), () {
+          _examProvider!.preCacheAllExamData(_accessToken!, _selectedSemester!.id);
+        });
+      }
     } catch (e) {
       // Reset progress on error
       _loginProgress = '';
@@ -483,6 +430,59 @@ class UserProvider extends ChangeNotifier {
       _courseHours = {};
       _studentCourses = [];
       rethrow;
+    }
+  }
+
+  /// Download remaining semesters' data in background (non-blocking)
+  /// This runs after login completes, allowing user to use the app immediately
+  /// Persists progress so it can resume if app is closed
+  /// Uses foreground service to keep download alive even when app is backgrounded
+  /// Download remaining semesters' data using foreground service
+  /// This runs in a separate isolate and survives app exit
+  Future<void> _downloadRemainingDataInBackground() async {
+    try {
+      _log.log('[Background] Starting foreground download service...', level: LogLevel.info);
+
+      if (_schoolYears == null || _accessToken == null || _selectedSemester == null) {
+        _log.log('[Background] Missing required data, skipping', level: LogLevel.warning);
+        return;
+      }
+
+      final allSemesters = _schoolYears!.content
+          .expand((y) => y.semesters)
+          .toList();
+
+      // Prepare semester data for isolate
+      final semesterData = allSemesters.map((s) => {
+        'id': s.id,
+        'name': s.semesterName,
+      }).toList();
+
+      // Start foreground service with download logic
+      final started = await DownloadForegroundService.startDownload(
+        accessToken: _accessToken!,
+        semesters: semesterData,
+        currentSemesterId: _selectedSemester!.id,
+      );
+
+      if (started) {
+        _log.log('[Background] Foreground service started successfully', level: LogLevel.success);
+        
+        // Show toast notification to user
+        Fluttertoast.showToast(
+          msg: "Quá trình tải xuống dữ liệu đang diễn ra, vui lòng kiểm tra thông báo!",
+          toastLength: Toast.LENGTH_LONG,
+          gravity: ToastGravity.BOTTOM,
+          timeInSecForIosWeb: 4,
+          backgroundColor: Colors.blue[700],
+          textColor: Colors.white,
+          fontSize: 14.0,
+        );
+      } else {
+        _log.log('[Background] Failed to start foreground service', level: LogLevel.error);
+      }
+    } catch (e) {
+      _log.log('[Background] Error starting download: $e', level: LogLevel.error);
     }
   }
 
@@ -644,6 +644,11 @@ class UserProvider extends ChangeNotifier {
     await _prefs.remove(_accessTokenKey);
     await _prefs.remove(_refreshTokenKey);
     await _prefs.setBool(_isLoggedInKey, false);
+    
+    // Clear background download flags
+    await _prefs.setBool(_backgroundDownloadCompleteKey, false);
+    await _prefs.setBool(_backgroundDownloadInProgressKey, false);
+    
     _isLoggedIn = false;
     _accessToken = null;
 
