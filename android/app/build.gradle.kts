@@ -37,7 +37,7 @@ android {
         // Version code with last is 20 is RELEASE CHANNEL
         // Version code with last is 30 is BETA CHANNEL
         // Version code with last is 40 is ALPHA CHANNEL
-        versionCode = 2025111340
+        versionCode = 2025111320
         versionName = flutter.versionName
 
         ndk {
