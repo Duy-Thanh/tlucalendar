@@ -10,9 +10,19 @@ class DatabaseHelper {
   DatabaseHelper._init();
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null && _database!.isOpen) return _database!;
     _database = await _initDB('tlu_calendar.db');
     return _database!;
+  }
+
+  /// Force reinitialize database (useful for background isolates)
+  /// Only reinitializes if database is closed
+  Future<void> ensureInitialized() async {
+    if (_database == null || !_database!.isOpen) {
+      _database = null;
+      await database; // Trigger reinitialization
+    }
+    // If already open, reuse the connection
   }
 
   Future<Database> _initDB(String filePath) async {

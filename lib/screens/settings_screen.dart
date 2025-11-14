@@ -548,7 +548,7 @@ class SettingsScreen extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
-                                      'Cập nhật tiếp theo: $timeStr',
+                                      'Lần cập nhật tiếp theo: $timeStr',
                                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                         color: Theme.of(context).colorScheme.onPrimaryContainer,
                                         fontWeight: FontWeight.w500,
