@@ -12,6 +12,7 @@ import 'package:tlucalendar/providers/user_provider.dart';
 import 'package:tlucalendar/screens/login_screen.dart';
 import 'package:tlucalendar/screens/logs_screen.dart';
 import 'package:tlucalendar/services/log_service.dart';
+import 'package:tlucalendar/services/auto_refresh_service.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
 // import 'package:tlucalendar/services/daily_notification_service.dart'; // Commented out with test button
 
@@ -439,6 +440,132 @@ class SettingsScreen extends StatelessWidget {
                         //     ),
                         //   ),
                       ],
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        // Auto-refresh status section
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Text(
+              'Cập nhật tự động',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Consumer<UserProvider>(
+            builder: (context, userProvider, _) {
+              if (!userProvider.isLoggedIn) {
+                return const SizedBox.shrink();
+              }
+              
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.refresh,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Tự động cập nhật dữ liệu',
+                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Hệ thống sẽ tự động tải dữ liệu mới mỗi ngày (8 AM - 12 PM) để đảm bảo thông tin luôn chính xác',
+                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      FutureBuilder<DateTime?>(
+                        future: AutoRefreshService.getNextRefreshTime(),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData && snapshot.data != null) {
+                            final nextTime = snapshot.data!;
+                            final timeStr = '${nextTime.day}/${nextTime.month} ${nextTime.hour.toString().padLeft(2, '0')}:${nextTime.minute.toString().padLeft(2, '0')}';
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.schedule,
+                                    size: 18,
+                                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Cập nhật tiếp theo: $timeStr',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      FutureBuilder<DateTime?>(
+                        future: AutoRefreshService.getLastRefreshTime(),
+                        builder: (context, snapshot) {
+                          if (snapshot.hasData && snapshot.data != null) {
+                            final lastTime = snapshot.data!;
+                            final now = DateTime.now();
+                            final diff = now.difference(lastTime);
+                            String timeAgo;
+                            if (diff.inMinutes < 60) {
+                              timeAgo = '${diff.inMinutes} phút trước';
+                            } else if (diff.inHours < 24) {
+                              timeAgo = '${diff.inHours} giờ trước';
+                            } else {
+                              timeAgo = '${diff.inDays} ngày trước';
+                            }
+                            
+                            return Text(
+                              'Cập nhật gần nhất: $timeAgo',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
                     ],
                   ),
                 ),

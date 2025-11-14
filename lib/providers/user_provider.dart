@@ -8,6 +8,7 @@ import 'package:tlucalendar/services/notification_service.dart';
 import 'package:tlucalendar/services/daily_notification_service.dart';
 import 'package:tlucalendar/services/log_service.dart';
 import 'package:tlucalendar/services/download_foreground_service.dart';
+import 'package:tlucalendar/services/auto_refresh_service.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/utils/notification_helper.dart';
 import 'package:fluttertoast/fluttertoast.dart';
@@ -394,12 +395,15 @@ class UserProvider extends ChangeNotifier {
 
       _isLoggedIn = true;
 
-      // Save to device
+      // Save to device (plain text for backward compatibility)
       await _prefs.setString(_studentCodeKey, studentCode);
       await _prefs.setString(_passwordKey, password);
       await _prefs.setString(_accessTokenKey, loginResponse.accessToken);
       await _prefs.setString(_refreshTokenKey, loginResponse.refreshToken);
       await _prefs.setBool(_isLoggedInKey, true);
+      
+      // 🔐 Save credentials securely for auto-refresh
+      await AutoRefreshService.saveCredentials(studentCode, password);
 
       // Complete!
       _loginProgress = 'Hoàn tất!';
@@ -630,6 +634,9 @@ class UserProvider extends ChangeNotifier {
     await _prefs.remove(_accessTokenKey);
     await _prefs.remove(_refreshTokenKey);
     await _prefs.setBool(_isLoggedInKey, false);
+    
+    // 🔐 Clear secure credentials and cancel auto-refresh
+    await AutoRefreshService.clearCredentials();
     
     // Clear background download flags
     await _prefs.setBool(_backgroundDownloadCompleteKey, false);

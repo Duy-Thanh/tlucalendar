@@ -9,6 +9,7 @@ import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/services/notification_service.dart';
 import 'package:tlucalendar/services/daily_notification_service.dart';
 import 'package:tlucalendar/services/download_foreground_service.dart';
+import 'package:tlucalendar/services/auto_refresh_service.dart';
 import 'package:tlucalendar/theme/app_theme.dart';
 import 'package:tlucalendar/screens/home_shell.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
@@ -21,6 +22,9 @@ void main() async {
   
   // Initialize foreground service for background downloads
   DownloadForegroundService.initForegroundTask();
+  
+  // Initialize auto-refresh service for daily data updates
+  await AutoRefreshService.initialize();
 
   final errorLogger = ErrorLogger();
 
