@@ -77,8 +77,6 @@ class NotificationHelper {
         continue;
       }
 
-      _log.log('Start time: ${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}', level: LogLevel.debug);
-
       // Create the full datetime for the class
       final classDateTime = DateTime(
         classDate.year,
@@ -87,10 +85,6 @@ class NotificationHelper {
         hour,
         minute,
       );
-      
-      _log.log('Class DateTime: $classDateTime', level: LogLevel.debug);
-      _log.log('Current time: $now', level: LogLevel.debug);
-      _log.log('Is in future: ${classDateTime.isAfter(now)}', level: LogLevel.debug);
       
       // Validate year to prevent 32099 bug
       if (classDateTime.year > now.year + 10 || classDateTime.year < 2020) {

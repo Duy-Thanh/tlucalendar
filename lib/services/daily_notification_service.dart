@@ -147,7 +147,6 @@ class DailyNotificationService {
 @pragma('vm:entry-point')
 Future<void> _performDailyCheck() async {
   final log = LogService();
-  log.log('[Background] Checking today\'s schedule...', level: LogLevel.info);
 
   // Initialize notification plugin
   final FlutterLocalNotificationsPlugin notificationsPlugin =
@@ -224,12 +223,6 @@ Future<void> _performDailyCheck() async {
 
   await database.close();
 
-  log.log('[Background] Checking schedule for ${today.day}/${today.month}/${today.year}', level: LogLevel.debug);
-  log.log('Day of week: ${today.weekday} (Dart format: 1=Mon, 7=Sun)', level: LogLevel.debug);
-  log.log('API day of week: $apiDayOfWeek (API format: 2=Mon, 8=Sun)', level: LogLevel.debug);
-  log.log('Current week number: ${_getCurrentWeekNumber(today)}', level: LogLevel.debug);
-  log.log('Found ${classes.length} classes and ${exams.length} exams today', level: LogLevel.info);
-  
   // Filter out past classes (only show upcoming ones)
   final currentTime = today;
   final upcomingClasses = classes.where((cls) {
@@ -253,8 +246,6 @@ Future<void> _performDailyCheck() async {
   // Filter out past exams (exams already in the query are for today, just check if time passed)
   final upcomingExams = exams; // Exams are usually all-day events, keep all for today
 
-  log.log('After filtering: ${upcomingClasses.length} upcoming classes, ${upcomingExams.length} exams', level: LogLevel.info);
-
   // Send notification if there's anything scheduled
   if (upcomingClasses.isNotEmpty || upcomingExams.isNotEmpty) {
     await _sendDailySummaryNotification(
@@ -262,8 +253,6 @@ Future<void> _performDailyCheck() async {
       upcomingClasses,
       upcomingExams,
     );
-  } else {
-    log.log('[Background] Nothing upcoming today - no notification sent', level: LogLevel.info);
   }
 }
 

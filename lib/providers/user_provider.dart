@@ -150,7 +150,7 @@ class UserProvider extends ChangeNotifier {
       // Check if foreground download service is already running
       final isDownloading = await DownloadForegroundService.isRunning();
       if (isDownloading) {
-        _log.log('Foreground download service is already running', level: LogLevel.info);
+        // Service already running, skip
       } else {
         // Resume background download if it was interrupted and service not running
         if (_accessToken != null) {
@@ -441,10 +441,7 @@ class UserProvider extends ChangeNotifier {
   /// This runs in a separate isolate and survives app exit
   Future<void> _downloadRemainingDataInBackground() async {
     try {
-      _log.log('[Background] Starting foreground download service...', level: LogLevel.info);
-
       if (_schoolYears == null || _accessToken == null || _selectedSemester == null) {
-        _log.log('[Background] Missing required data, skipping', level: LogLevel.warning);
         return;
       }
 
@@ -466,8 +463,6 @@ class UserProvider extends ChangeNotifier {
       );
 
       if (started) {
-        _log.log('[Background] Foreground service started successfully', level: LogLevel.success);
-        
         // Show toast notification to user
         Fluttertoast.showToast(
           msg: "Quá trình tải xuống dữ liệu đang diễn ra, vui lòng kiểm tra thông báo!",
@@ -604,12 +599,6 @@ class UserProvider extends ChangeNotifier {
         ? maxWeeksToSchedule 
         : (weeksUntilEnd > 0 ? weeksUntilEnd : 1);
     
-    _log.log('Scheduling notifications for $weeksToSchedule weeks (respecting platform limits)', level: LogLevel.info);
-    if (weeksUntilEnd > maxWeeksToSchedule) {
-      _log.log('Note: Only scheduling next $maxWeeksToSchedule weeks due to platform limits', level: LogLevel.info);
-      _log.log('Notifications will be rescheduled when you reopen the app', level: LogLevel.info);
-    }
-    
     // Schedule for the next few weeks
     for (int weekOffset = 0; weekOffset < weeksToSchedule; weekOffset++) {
       final weekStart = currentWeekStart.add(Duration(days: 7 * weekOffset));
@@ -626,9 +615,6 @@ class UserProvider extends ChangeNotifier {
         _log.log('Failed to schedule notifications for week $weekOffset: $e', level: LogLevel.warning);
       }
     }
-    
-    _log.log('Notifications scheduled for $weeksToSchedule weeks', level: LogLevel.success);
-    _log.log('Tip: Reopen the app weekly to keep notifications up to date', level: LogLevel.info);
   }
 
   /// Change selected semester and load courses
