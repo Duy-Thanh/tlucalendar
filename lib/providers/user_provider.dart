@@ -144,6 +144,11 @@ class UserProvider extends ChangeNotifier {
     // Check actual notification permission status
     await checkNotificationPermission();
 
+    // 🔄 MIGRATION: Move old credentials to secure storage for auto-refresh
+    if (_isLoggedIn) {
+      await _migrateCredentialsToSecureStorage();
+    }
+
     if (_isLoggedIn) {
       // Load cached data from database first (works offline!)
       await _loadCachedData();
@@ -665,6 +670,31 @@ class UserProvider extends ChangeNotifier {
   /// Get saved password (if exists)
   String? getSavedPassword() {
     return _prefs.getString(_passwordKey);
+  }
+
+  /// Migrate old credentials from SharedPreferences to secure storage
+  /// This ensures auto-refresh works for users updating from older versions
+  Future<void> _migrateCredentialsToSecureStorage() async {
+    try {
+      // Check if already migrated
+      final hasSecureCredentials = await AutoRefreshService.hasStoredCredentials();
+      if (hasSecureCredentials) {
+        return; // Already migrated
+      }
+
+      // Get old credentials from SharedPreferences
+      final studentCode = _prefs.getString(_studentCodeKey);
+      final password = _prefs.getString(_passwordKey);
+
+      if (studentCode != null && password != null) {
+        // Migrate to secure storage
+        await AutoRefreshService.saveCredentials(studentCode, password);
+        debugPrint('✅ [UserProvider] Migrated credentials to secure storage for auto-refresh');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [UserProvider] Failed to migrate credentials: $e');
+      // Don't fail the init process if migration fails
+    }
   }
 
   /// Toggle notifications on/off
