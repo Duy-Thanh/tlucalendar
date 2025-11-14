@@ -98,7 +98,7 @@ class NotificationService {
   /// Handle notification tap
   void _onNotificationTapped(NotificationResponse response) {
     // Handle notification tap - you can navigate to specific screen here
-    _log.log('Notification tapped: ${response.payload}', level: LogLevel.info);
+// Removed log
   }
 
   /// Schedule notifications for a class (1 hour, 30 min, 15 min before)
@@ -226,13 +226,13 @@ class NotificationService {
     
     // Don't schedule if already passed
     if (scheduledDate.isBefore(now)) {
-      _log.log('Scheduled date is in the past: $scheduledDate', level: LogLevel.debug);
+// Removed log
       return;
     }
     
     // Log notification scheduling
-    _log.log('Scheduling notification: $title', level: LogLevel.info);
-    _log.log('Scheduled for: $scheduledDate (in ${scheduledDate.difference(now).inMinutes} minutes)', level: LogLevel.debug);
+// Removed log
+// Removed log
     
     const androidDetails = AndroidNotificationDetails(
       'class_exam_reminders',
@@ -257,7 +257,7 @@ class NotificationService {
     );
 
     final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
-    _log.log('TZ Scheduled date: $tzScheduledDate', level: LogLevel.debug);
+// Removed log
     
     await _notificationsPlugin.zonedSchedule(
       id,
@@ -269,7 +269,7 @@ class NotificationService {
       payload: payload,
     );
     
-    _log.log('Notification scheduled successfully', level: LogLevel.success);
+// Removed log
   }
 
   /// Cancel a specific notification

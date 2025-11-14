@@ -13,39 +13,39 @@ class NotificationHelper {
     required DateTime weekStartDate,
     required DateTime semesterStartDate,
   }) async {
-    _log.log('scheduleWeekClassNotifications called', level: LogLevel.info);
-    _log.log('Courses: ${courses.length}', level: LogLevel.debug);
-    _log.log('Week start: $weekStartDate', level: LogLevel.debug);
-    _log.log('Semester start: $semesterStartDate', level: LogLevel.debug);
+// Removed log
+// Removed log
+// Removed log
+// Removed log
     
     final now = DateTime.now();
 
     for (final course in courses) {
       // Check if course is active during this week
       if (!course.isActiveOn(weekStartDate, semesterStartDate)) {
-        _log.log('Course ${course.courseName} not active this week', level: LogLevel.debug);
+// Removed log
         continue;
       }
 
-      _log.log('Course ${course.courseName} is active', level: LogLevel.debug);
+// Removed log
       
       // Get day of week from API (2=Monday, 3=Tuesday, ..., 8=Sunday)
       // Convert to 0-based (0=Monday, 1=Tuesday, ..., 6=Sunday)
       final apiDayOfWeek = course.dayOfWeek;
       final dayOfWeek = apiDayOfWeek - 2; // Convert from 2-based to 0-based
-      _log.log('Day of week from API: $apiDayOfWeek (2=Mon, 3=Tue, ..., 8=Sun)', level: LogLevel.debug);
-      _log.log('Converted to 0-based: $dayOfWeek (0=Mon, 1=Tue, ..., 6=Sun)', level: LogLevel.debug);
+// Removed log
+// Removed log
 
       // Calculate the actual date for this class in the week
       final classDate = weekStartDate.add(Duration(days: dayOfWeek));
-      _log.log('Week start date: $weekStartDate', level: LogLevel.debug);
-      _log.log('Adding $dayOfWeek days', level: LogLevel.debug);
-      _log.log('Calculated class date: $classDate', level: LogLevel.debug);
-      _log.log('Class date day of week: ${classDate.weekday} (1=Mon, 7=Sun in Dart)', level: LogLevel.debug);
+// Removed log
+// Removed log
+// Removed log
+// Removed log
 
       // Skip if class date is in the past
       if (classDate.isBefore(now) && !_isSameDay(classDate, now)) {
-        _log.log('Class date is in the past', level: LogLevel.debug);
+// Removed log
         continue;
       }
 
@@ -109,7 +109,7 @@ class NotificationHelper {
   static Future<void> scheduleExamNotifications({
     required List<StudentExamRoom> examRooms,
   }) async {
-    _log.log('scheduleExamNotifications called with ${examRooms.length} exam rooms', level: LogLevel.info);
+// Removed log
     
     for (final examRoom in examRooms) {
       final examDetail = examRoom.examRoom;
@@ -129,8 +129,8 @@ class NotificationHelper {
 
       // Convert timestamp to DateTime
       final date = DateTime.fromMillisecondsSinceEpoch(examDate);
-      _log.log('Exam: ${examRoom.subjectName}', level: LogLevel.debug);
-      _log.log('Date from timestamp: $date', level: LogLevel.debug);
+// Removed log
+// Removed log
 
       // Parse exam hour start time from startString (e.g., "07:00")
       final startString = examHour.startString;
@@ -139,7 +139,7 @@ class NotificationHelper {
         continue;
       }
       
-      _log.log('Start time string: $startString', level: LogLevel.debug);
+// Removed log
 
       final startParts = startString.split(':');
       if (startParts.length != 2) {
@@ -163,9 +163,9 @@ class NotificationHelper {
         minute,
       );
       
-      _log.log('Exam DateTime: $examDateTime', level: LogLevel.debug);
-      _log.log('Current time: ${DateTime.now()}', level: LogLevel.debug);
-      _log.log('Is in future: ${examDateTime.isAfter(DateTime.now())}', level: LogLevel.debug);
+// Removed log
+// Removed log
+// Removed log
       
       // Validate year to prevent invalid dates
       final now = DateTime.now();

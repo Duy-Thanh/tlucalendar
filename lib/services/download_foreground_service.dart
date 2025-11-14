@@ -46,7 +46,7 @@ class DownloadForegroundService {
       return true;
     }
 
-    _log.log('[ForegroundService] Starting download service...', level: LogLevel.info);
+// Removed log
 
     // Save download data to SharedPreferences for isolate access
     final prefs = await SharedPreferences.getInstance();
@@ -70,7 +70,7 @@ class DownloadForegroundService {
 
   /// Stop the foreground service
   static Future<bool> stopService() async {
-    _log.log('[ForegroundService] Stopping service', level: LogLevel.info);
+// Removed log
     await FlutterForegroundTask.stopService();
     return !(await FlutterForegroundTask.isRunningService);
   }

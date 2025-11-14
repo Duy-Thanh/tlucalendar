@@ -79,7 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
           userProvider.accessToken!,
           userProvider.selectedSemester!.id,
         );
-        LogService().log('Started pre-caching exam data for offline mode', level: LogLevel.info);
+// Removed log
       }
 
       // Show success message

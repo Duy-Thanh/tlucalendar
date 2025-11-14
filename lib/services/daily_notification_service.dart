@@ -19,9 +19,9 @@ class DailyNotificationService {
   static Future<void> initialize() async {
     if (Platform.isAndroid) {
       await AndroidAlarmManager.initialize();
-      _log.log('[Platform] Initialized Android AlarmManager', level: LogLevel.debug);
+// Removed log
     } else if (Platform.isIOS) {
-      _log.log('[Platform] iOS uses native scheduled notifications', level: LogLevel.debug);
+// Removed log
     }
   }
 
@@ -35,9 +35,9 @@ class DailyNotificationService {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    _log.log('[${Platform.isAndroid ? 'Android' : 'iOS'}] Scheduling daily notification...', level: LogLevel.info);
-    _log.log('Current time: $now', level: LogLevel.debug);
-    _log.log('Next scheduled: $scheduledDate', level: LogLevel.debug);
+// Removed log
+// Removed log
+// Removed log
     
     if (Platform.isAndroid) {
       // Android: Use AlarmManager for exact timing
@@ -50,14 +50,14 @@ class DailyNotificationService {
         wakeup: true, // Wake up device if sleeping
         rescheduleOnReboot: true, // Reschedule after device reboot
       );
-      _log.log('Android: Daily check scheduled using AlarmManager', level: LogLevel.success);
+// Removed log
     } else if (Platform.isIOS) {
       // iOS: Use scheduled notifications with daily repeat
       await _scheduleIOSDailyNotification(hour: hour, minute: minute);
-      _log.log('iOS: Daily check scheduled using native notifications', level: LogLevel.success);
+// Removed log
     }
 
-    _log.log('Daily notification check scheduled for ${hour}:${minute.toString().padLeft(2, '0')} every day', level: LogLevel.success);
+// Removed log
   }
 
   /// Cancel daily check
@@ -74,7 +74,7 @@ class DailyNotificationService {
 
   /// Manually trigger daily check (for testing)
   static Future<void> triggerManualCheck() async {
-    _log.log('[Manual] Triggering daily check manually for testing...', level: LogLevel.info);
+// Removed log
     await _performDailyCheck();
   }
 
@@ -112,7 +112,7 @@ class DailyNotificationService {
       matchDateTimeComponents: DateTimeComponents.time, // Repeat daily at same time
     );
 
-    _log.log('iOS: Scheduled daily notification at ${hour}:${minute.toString().padLeft(2, '0')}', level: LogLevel.debug);
+// Removed log
   }
 
   /// Helper to get next instance of a specific time
@@ -334,7 +334,7 @@ Future<void> _sendDailySummaryNotification(
   );
 
   final log = LogService();
-  log.log('[Background] Daily summary notification sent!', level: LogLevel.success);
+// Removed log
 }
 
 /// Calculate current week number

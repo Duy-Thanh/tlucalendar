@@ -158,7 +158,7 @@ class UserProvider extends ChangeNotifier {
           final downloadInProgress = _prefs.getBool('download_in_progress') ?? false;
           
           if (!downloadComplete || downloadInProgress) {
-            _log.log('Resuming interrupted background download...', level: LogLevel.info);
+// Removed log
             // Small delay to let UI initialize first
             Future.delayed(const Duration(seconds: 2), () {
               _downloadRemainingDataInBackground();
@@ -179,7 +179,7 @@ class UserProvider extends ChangeNotifier {
           // They can manually logout if needed
         } catch (e) {
           // Network error - that's fine! We have cached data
-          _log.log('Using cached data (offline mode): $e', level: LogLevel.info);
+// Removed log
           // Keep _isLoggedIn = true so user can access cached data
         }
       }
@@ -377,7 +377,7 @@ class UserProvider extends ChangeNotifier {
           // Try to load from cache
           try {
             _studentCourses = await _dbHelper.getStudentCourses(_selectedSemester!.id);
-            _log.log('Loaded courses from cache', level: LogLevel.info);
+// Removed log
           } catch (cacheError) {
             _log.log('No cached courses available', level: LogLevel.warning);
           }
@@ -407,12 +407,12 @@ class UserProvider extends ChangeNotifier {
       notifyListeners();
 
       // 🚀 Start background download of remaining data (non-blocking)
-      _log.log('Starting background data download...', level: LogLevel.info);
+// Removed log
       _downloadRemainingDataInBackground();
       
       // 🚀 Also trigger exam pre-caching if ExamProvider is available
       if (_examProvider != null && _selectedSemester != null) {
-        _log.log('Starting exam pre-caching...', level: LogLevel.info);
+// Removed log
         Future.delayed(const Duration(seconds: 1), () {
           _examProvider!.preCacheAllExamData(_accessToken!, _selectedSemester!.id);
         });
@@ -554,7 +554,7 @@ class UserProvider extends ChangeNotifier {
   Future<void> _scheduleNotificationsForCurrentWeek() async {
     // Check if notifications are enabled
     if (!_notificationsEnabled) {
-      _log.log('Notifications are disabled by user', level: LogLevel.info);
+// Removed log
       return;
     }
 
@@ -725,10 +725,10 @@ class UserProvider extends ChangeNotifier {
     
     if (enabled) {
       await DailyNotificationService.scheduleDailyCheck();
-      _log.log('Daily notifications enabled', level: LogLevel.success);
+// Removed log
     } else {
       await DailyNotificationService.cancelDailyCheck();
-      _log.log('Daily notifications disabled', level: LogLevel.info);
+// Removed log
     }
     
     notifyListeners();
