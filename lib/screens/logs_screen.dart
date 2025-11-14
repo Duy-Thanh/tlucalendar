@@ -44,7 +44,7 @@ class _LogsScreenState extends State<LogsScreen> {
           // Auto-scroll toggle
           IconButton(
             icon: Icon(_autoScroll ? Icons.arrow_downward : Icons.arrow_downward_outlined),
-            tooltip: _autoScroll ? 'Auto-scroll ON' : 'Auto-scroll OFF',
+            tooltip: _autoScroll ? 'Auto-scroll is ON' : 'Auto-scroll is OFF',
             onPressed: () {
               setState(() {
                 _autoScroll = !_autoScroll;
