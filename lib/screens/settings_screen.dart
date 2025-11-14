@@ -463,7 +463,30 @@ class SettingsScreen extends StatelessWidget {
           child: Consumer<UserProvider>(
             builder: (context, userProvider, _) {
               if (!userProvider.isLoggedIn) {
-                return const SizedBox.shrink();
+                return Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.info_outline,
+                          color: Theme.of(context).colorScheme.secondary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Tính năng tự động cập nhật chỉ hoạt động sau khi bạn đã đăng nhập thành công',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               }
               
               return Card(
@@ -547,6 +570,10 @@ class SettingsScreen extends StatelessWidget {
                             final lastTime = snapshot.data!;
                             final now = DateTime.now();
                             final diff = now.difference(lastTime);
+                            
+                            // Format last update time
+                            final timeStr = '${lastTime.day}/${lastTime.month}/${lastTime.year} ${lastTime.hour.toString().padLeft(2, '0')}:${lastTime.minute.toString().padLeft(2, '0')}';
+                            
                             String timeAgo;
                             if (diff.inMinutes < 60) {
                               timeAgo = '${diff.inMinutes} phút trước';
@@ -556,11 +583,38 @@ class SettingsScreen extends StatelessWidget {
                               timeAgo = '${diff.inDays} ngày trước';
                             }
                             
-                            return Text(
-                              'Cập nhật gần nhất: $timeAgo',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                              ),
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle_outline,
+                                      size: 16,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Thời gian cập nhật dữ liệu:',
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 22),
+                                  child: Text(
+                                    '$timeStr ($timeAgo)',
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             );
                           }
                           return const SizedBox.shrink();
