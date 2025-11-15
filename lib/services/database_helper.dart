@@ -124,27 +124,20 @@ class DatabaseHelper {
         debugPrint('✓ [DatabaseHelper] Database is already encrypted, skipping migration');
         return;
       } catch (e) {
-        // Database is not encrypted (or corrupted), proceed with migration
-        debugPrint('🔄 [DatabaseHelper] Database needs migration or is corrupted');
+        // Database is not encrypted (or doesn't exist yet), check further
+        debugPrint('🔍 [DatabaseHelper] Database is not encrypted or does not exist yet');
       }
       
       // 5. Try to open WITHOUT password - if it works, it's unencrypted and needs migration
-      Database? unencryptedDb;
       try {
-        unencryptedDb = await openDatabase(oldDbPath, readOnly: true, singleInstance: false);
+        final unencryptedDb = await openDatabase(oldDbPath, readOnly: true, singleInstance: false);
         await unencryptedDb.close();
         // Database is unencrypted - proceed with migration
-        debugPrint('🔄 [DatabaseHelper] Starting migration from unencrypted to encrypted...');
+        debugPrint('🔄 [DatabaseHelper] Found unencrypted database, starting migration...');
       } catch (e) {
-        // Database is corrupted - delete it
-        final errorMsg = e.toString().toLowerCase();
-        if (errorMsg.contains('file is not a database') || errorMsg.contains('open_failed')) {
-          debugPrint('🗑️ [DatabaseHelper] Database is corrupted, deleting...');
-          try {
-            await oldFile.delete();
-            debugPrint('✓ [DatabaseHelper] Corrupted database deleted');
-          } catch (_) {}
-        }
+        // Database is corrupted or doesn't exist
+        // Don't delete it here - just return and let normal database creation handle it
+        debugPrint('⚠️ [DatabaseHelper] Cannot open database (corrupted or missing), skipping migration');
         return;
       }
       
@@ -208,7 +201,6 @@ class DatabaseHelper {
       debugPrint('✅ [DatabaseHelper] Database migration completed successfully!');
       
     } catch (e, stackTrace) {
-      final oldDbPath = join(dbPath, fileName);
       final tempDbPath = join(dbPath, '${fileName}_encrypted_temp');
       final lockFilePath = join(dbPath, '${fileName}_migration.lock');
       
@@ -231,23 +223,9 @@ class DatabaseHelper {
         }
       } catch (_) {}
       
-      // If migration fails due to corruption, delete corrupted database
-      // This allows app to create fresh encrypted database
-      final errorMsg = e.toString().toLowerCase();
-      if (errorMsg.contains('file is not a database') || 
-          errorMsg.contains('open_failed') ||
-          errorMsg.contains('database is locked')) {
-        try {
-          debugPrint('🗑️ [DatabaseHelper] Deleting corrupted database file...');
-          final oldFile = File(oldDbPath);
-          if (await oldFile.exists()) {
-            await oldFile.delete();
-            debugPrint('✓ [DatabaseHelper] Corrupted database deleted, will create fresh encrypted database');
-          }
-        } catch (deleteError) {
-          debugPrint('⚠️ [DatabaseHelper] Failed to delete corrupted database: $deleteError');
-        }
-      }
+      // Don't delete database here - it may be in use by other isolates
+      // Just log the error and let normal database opening handle it
+      debugPrint('⚠️ [DatabaseHelper] Migration failed, but database may still be usable');
     }
   }
 
