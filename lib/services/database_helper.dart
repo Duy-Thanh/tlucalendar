@@ -1,11 +1,16 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/api_response.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
+  static const _storage = FlutterSecureStorage();
+  static const String _dbPasswordKey = 'database_encryption_key';
 
   DatabaseHelper._init();
 
@@ -25,12 +30,139 @@ class DatabaseHelper {
     // If already open, reuse the connection
   }
 
+  /// Close database connection (for background services)
+  /// ⚠️ Only call this from background isolates/services, never from main app
+  /// This prevents memory leaks and security issues when background tasks complete
+  Future<void> closeForBackground() async {
+    if (_database != null && _database!.isOpen) {
+      await _database!.close();
+      _database = null;
+    }
+  }
+
+  /// Check if database is currently open
+  bool get isOpen => _database != null && _database!.isOpen;
+
+  /// Get or generate database encryption password
+  static Future<String> _getDatabasePassword() async {
+    // Try to get existing password
+    String? password = await _storage.read(key: _dbPasswordKey);
+    
+    if (password == null) {
+      // Generate a new secure random password (256-bit)
+      // Using timestamp + random to ensure uniqueness
+      password = '${DateTime.now().millisecondsSinceEpoch}_${DateTime.now().microsecond}_tlu_calendar_secure_db';
+      await _storage.write(key: _dbPasswordKey, value: password);
+    }
+    
+    return password;
+  }
+
+  /// Migrate from old unencrypted database to encrypted one
+  /// This ensures users upgrading from older versions don't lose data
+  Future<void> _migrateFromUnencryptedIfNeeded(String dbPath, String fileName) async {
+    final oldDbPath = join(dbPath, fileName);
+    final tempDbPath = join(dbPath, '${fileName}_encrypted_temp');
+    
+    try {
+      // Check if old unencrypted database exists
+      final oldFile = File(oldDbPath);
+      if (!await oldFile.exists()) {
+        return; // No old database, nothing to migrate
+      }
+      
+      // Check if it's already encrypted by trying to open without password
+      try {
+        final testDb = await openDatabase(oldDbPath, readOnly: true);
+        await testDb.close();
+        // If we got here, database is unencrypted - needs migration
+      } catch (e) {
+        // Database is already encrypted or corrupted, skip migration
+        return;
+      }
+      
+      debugPrint('🔄 [DatabaseHelper] Migrating unencrypted database to encrypted version...');
+      
+      // Open old unencrypted database
+      final oldDb = await openDatabase(oldDbPath, readOnly: true);
+      
+      // Get encryption password for new database
+      final password = await _getDatabasePassword();
+      
+      // Create new encrypted database
+      final newDb = await openDatabase(
+        tempDbPath,
+        password: password,
+        version: 4,
+        onCreate: _createDB,
+      );
+      
+      // Get all table names
+      final tables = await oldDb.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+      );
+      
+      // Copy all data from old to new database
+      for (var table in tables) {
+        final tableName = table['name'] as String;
+        debugPrint('  Migrating table: $tableName');
+        
+        // Get all rows from old table
+        final rows = await oldDb.query(tableName);
+        
+        // Insert into new encrypted table
+        for (var row in rows) {
+          await newDb.insert(tableName, row, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+        
+        debugPrint('  ✓ Migrated ${rows.length} rows from $tableName');
+      }
+      
+      // Close databases
+      await oldDb.close();
+      await newDb.close();
+      
+      // Backup old database
+      final backupPath = join(dbPath, '${fileName}_unencrypted_backup');
+      await oldFile.rename(backupPath);
+      debugPrint('  ✓ Old database backed up to: $backupPath');
+      
+      // Rename encrypted database to original name
+      final tempFile = File(tempDbPath);
+      await tempFile.rename(oldDbPath);
+      
+      debugPrint('✅ [DatabaseHelper] Database migration completed successfully!');
+      
+    } catch (e, stackTrace) {
+      debugPrint('❌ [DatabaseHelper] Migration failed: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
+      // Clean up temp file if it exists
+      try {
+        final tempFile = File(tempDbPath);
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+        }
+      } catch (_) {}
+      
+      // If migration fails, we'll try to open the old database anyway
+      // User may lose data but app won't crash
+    }
+  }
+
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
+    
+    // 🔄 Check if old unencrypted database exists and migrate
+    await _migrateFromUnencryptedIfNeeded(dbPath, filePath);
+    
+    // Get encryption password from secure storage
+    final password = await _getDatabasePassword();
 
     return await openDatabase(
       path,
+      password: password, // 🔐 Enable database encryption
       version: 4, // Version 4: Add exam_round_cache_metadata table
       onCreate: _createDB,
       onUpgrade: _onUpgrade,

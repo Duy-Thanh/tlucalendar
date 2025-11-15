@@ -297,9 +297,9 @@ class AutoRefreshService {
         'Dữ liệu đã được cập nhật thành công (${duration.inSeconds}s)',
       );
       
-      // Don't close database - main app may still need it
-      // The database will be reused if already open
-      log.log('[AutoRefresh] 💾 Database connection kept open for main app', level: LogLevel.warning);
+      // 🔒 Close database after background task to prevent memory leaks & security issues
+      await dbHelper.closeForBackground();
+      log.log('[AutoRefresh] 💾 Database closed securely after background refresh', level: LogLevel.warning);
       
       // Schedule next refresh for tomorrow
       await scheduleNextRefresh();
@@ -313,6 +313,15 @@ class AutoRefreshService {
         'Cập nhật thất bại',
         'Lỗi: ${e.toString().substring(0, e.toString().length > 100 ? 100 : e.toString().length)}',
       );
+      
+      // 🔒 Close database even on error to prevent leaks
+      try {
+        final dbHelper = DatabaseHelper.instance;
+        await dbHelper.closeForBackground();
+        log.log('[AutoRefresh] 💾 Database closed after error', level: LogLevel.warning);
+      } catch (closeError) {
+        log.log('[AutoRefresh] ⚠️ Failed to close database: $closeError', level: LogLevel.warning);
+      }
       
       // Retry tomorrow anyway
       await scheduleNextRefresh();

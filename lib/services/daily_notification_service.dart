@@ -1,10 +1,9 @@
 import 'dart:io' show Platform;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:tlucalendar/services/log_service.dart';
+import 'package:tlucalendar/services/database_helper.dart';
 
 /// Service for sending daily reminders about classes and exams
 /// Platform-specific implementation:
@@ -161,12 +160,9 @@ Future<void> _performDailyCheck() async {
   final todayStart = DateTime(today.year, today.month, today.day);
   final todayEnd = todayStart.add(const Duration(days: 1));
 
-  // Open database
-  final dbPath = await getDatabasesPath();
-  final database = await openDatabase(
-    join(dbPath, 'tlu_calendar.db'),
-    readOnly: true,
-  );
+  // Get database instance (encrypted)
+  final dbHelper = DatabaseHelper.instance;
+  final database = await dbHelper.database;
 
   // Check for classes today
   // Convert Dart's weekday (1=Monday, 7=Sunday) to API format (2=Monday, 8=Sunday)
@@ -183,7 +179,8 @@ Future<void> _performDailyCheck() async {
   
   if (currentSemesterId == null) {
     log.log('[Background] No current semester found', level: LogLevel.warning);
-    await database.close();
+    // 🔒 Close database before returning
+    await dbHelper.closeForBackground();
     return;
   }
   
@@ -221,7 +218,10 @@ Future<void> _performDailyCheck() async {
     todayEnd.millisecondsSinceEpoch,
   ]);
 
-  await database.close();
+  // 🔒 IMPORTANT: Close database after background task completes
+  // This prevents memory leaks and keeps encrypted data secure
+  // The main app will reopen it when needed (singleton pattern)
+  await dbHelper.closeForBackground();
 
   // Filter out past classes (only show upcoming ones)
   final currentTime = today;
@@ -333,8 +333,8 @@ Future<void> _sendDailySummaryNotification(
     notificationDetailsWithBigText,
   );
 
-  final log = LogService();
-// Removed log
+  // Log successfully sent notification
+  // (LogService instance removed - log was commented out)
 }
 
 /// Calculate current week number

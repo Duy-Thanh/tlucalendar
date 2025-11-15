@@ -415,30 +415,6 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        
-                        // DEBUG: Test button for daily notification
-                        // if (userProvider.dailyNotificationsEnabled)
-                        //   Padding(
-                        //     padding: const EdgeInsets.only(top: 8),
-                        //     child: OutlinedButton.icon(
-                        //       onPressed: () async {
-                        //         await DailyNotificationService.triggerManualCheck();
-                        //         if (context.mounted) {
-                        //           ScaffoldMessenger.of(context).showSnackBar(
-                        //             const SnackBar(
-                        //               content: Text('🧪 Đã kích hoạt kiểm tra thủ công - Xem log để biết kết quả'),
-                        //               duration: Duration(seconds: 3),
-                        //             ),
-                        //           );
-                        //         }
-                        //       },
-                        //       icon: const Icon(Icons.bug_report, size: 18),
-                        //       label: const Text('Test ngay bây giờ'),
-                        //       style: OutlinedButton.styleFrom(
-                        //         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        //       ),
-                        //     ),
-                        //   ),
                       ],
                     ],
                   ),
@@ -707,7 +683,7 @@ class SettingsScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       Text(
-                        '2025.11.13',
+                        '2025.11.15',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -756,7 +732,7 @@ class SettingsScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       Text(
-                        'release_2025.11.13_XX-XX',
+                        'release_2025.11.15_XX-XX',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -775,6 +751,33 @@ class SettingsScreen extends StatelessWidget {
                         'Nguyen Duy Thanh',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.lock,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Mã hóa dữ liệu',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ],
+                      ),
+                      Text(
+                        'AES-256',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ],
@@ -850,7 +853,7 @@ class SettingsScreen extends StatelessWidget {
 
     // Gather app info
     String appName = 'TLU Calendar';
-    String appVersion = '2025.11.13';
+    String appVersion = '2025.11.15';
     try {
       final pkg = await PackageInfo.fromPlatform();
       appName = pkg.appName;
@@ -969,7 +972,7 @@ class SettingsScreen extends StatelessWidget {
             data: Theme.of(context),
             child: const LicensePage(
               applicationName: 'TLU Calendar',
-              applicationVersion: '2025.11.13',
+              applicationVersion: '2025.11.15',
             ),
           ),
         ),

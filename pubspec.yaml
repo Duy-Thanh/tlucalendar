@@ -1,7 +1,7 @@
 name: tlucalendar
 description: "TLU Calendar for TLU students"
 publish_to: 'none'
-version: 2025.11.13
+version: 2025.11.15
 
 environment:
   sdk: ^3.9.2
@@ -13,7 +13,7 @@ dependencies:
   shared_preferences: ^2.5.3
   http: ^1.6.0
   dio: ^5.9.0
-  sqflite: ^2.4.2
+  sqflite_sqlcipher: ^3.4.0  # Encrypted SQLite database
   path: ^1.9.1
   url_launcher: ^6.3.2
   device_info_plus: ^12.2.0
