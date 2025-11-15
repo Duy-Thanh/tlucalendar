@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../models/api_response.dart';
 
@@ -11,6 +12,7 @@ class DatabaseHelper {
   static Database? _database;
   static const _storage = FlutterSecureStorage();
   static const String _dbPasswordKey = 'database_encryption_key';
+  static bool _warningShown = false;
 
   DatabaseHelper._init();
 
@@ -75,186 +77,123 @@ class DatabaseHelper {
     return password;
   }
 
-  /// Migrate from old unencrypted database to encrypted one
-  /// This ensures users upgrading from older versions don't lose data
-  Future<void> _migrateFromUnencryptedIfNeeded(String dbPath, String fileName) async {
-    final oldDbPath = join(dbPath, fileName);
-    final backupPath = join(dbPath, '${fileName}_unencrypted_backup');
-    final lockFilePath = join(dbPath, '${fileName}_migration.lock');
-    
-    try {
-      // 1. Check if migration already completed (backup exists)
-      if (await File(backupPath).exists()) {
-        debugPrint('✓ [DatabaseHelper] Migration already completed (backup exists)');
-        return;
-      }
-      
-      // 2. Check if old database exists
-      final oldFile = File(oldDbPath);
-      if (!await oldFile.exists()) {
-        // No old database - this is a fresh install
-        debugPrint('✓ [DatabaseHelper] No old database, fresh install');
-        return;
-      }
-      
-      // 3. Check if migration lock exists (another process is migrating)
-      final lockFile = File(lockFilePath);
-      if (await lockFile.exists()) {
-        final lockAge = DateTime.now().difference(await lockFile.lastModified());
-        if (lockAge.inMinutes < 3) {
-          debugPrint('⏳ [DatabaseHelper] Migration in progress by another process, skipping...');
-          return;
-        } else {
-          // Stale lock, remove it
-          await lockFile.delete();
-        }
-      }
-      
-      // 4. Try to open with password first - if it works, database is already encrypted
-      try {
-        final password = await _getDatabasePassword();
-        final testDb = await openDatabase(
-          oldDbPath,
-          password: password,
-          readOnly: true,
-          singleInstance: false,
-        );
-        await testDb.close();
-        // Database is already encrypted, no migration needed
-        debugPrint('✓ [DatabaseHelper] Database is already encrypted, skipping migration');
-        return;
-      } catch (e) {
-        // Database is not encrypted (or doesn't exist yet), check further
-        debugPrint('🔍 [DatabaseHelper] Database is not encrypted or does not exist yet');
-      }
-      
-      // 5. Try to open WITHOUT password - if it works, it's unencrypted and needs migration
-      try {
-        final unencryptedDb = await openDatabase(oldDbPath, readOnly: true, singleInstance: false);
-        await unencryptedDb.close();
-        // Database is unencrypted - proceed with migration
-        debugPrint('🔄 [DatabaseHelper] Found unencrypted database, starting migration...');
-      } catch (e) {
-        // Database is corrupted or doesn't exist
-        // Don't delete it here - just return and let normal database creation handle it
-        debugPrint('⚠️ [DatabaseHelper] Cannot open database (corrupted or missing), skipping migration');
-        return;
-      }
-      
-      // 6. Create lock file
-      await lockFile.writeAsString(DateTime.now().toIso8601String());
-      
-      final tempDbPath = join(dbPath, '${fileName}_encrypted_temp');
-      
-      // 7. Perform actual migration
-      // Open old unencrypted database (with singleInstance: false to avoid conflicts)
-      final oldDb = await openDatabase(oldDbPath, readOnly: true, singleInstance: false);
-      
-      // Get encryption password for new database
-      final password = await _getDatabasePassword();
-      
-      // Create new encrypted database (with singleInstance: false to avoid conflicts)
-      final newDb = await openDatabase(
-        tempDbPath,
-        password: password,
-        version: 4,
-        onCreate: _createDB,
-        singleInstance: false,
-      );
-      
-      // Get all table names
-      final tables = await oldDb.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
-      );
-      
-      // Copy all data from old to new database
-      for (var table in tables) {
-        final tableName = table['name'] as String;
-        debugPrint('  Migrating table: $tableName');
-        
-        // Get all rows from old table
-        final rows = await oldDb.query(tableName);
-        
-        // Insert into new encrypted table
-        for (var row in rows) {
-          await newDb.insert(tableName, row, conflictAlgorithm: ConflictAlgorithm.replace);
-        }
-        
-        debugPrint('  ✓ Migrated ${rows.length} rows from $tableName');
-      }
-      
-      // Close databases
-      await oldDb.close();
-      await newDb.close();
-      
-      // Backup old database
-      await oldFile.rename(backupPath);
-      debugPrint('  ✓ Old database backed up to: $backupPath');
-      
-      // Rename encrypted database to original name
-      final tempFile = File(tempDbPath);
-      await tempFile.rename(oldDbPath);
-      
-      // Clean up lock file
-      await lockFile.delete();
-      
-      debugPrint('✅ [DatabaseHelper] Database migration completed successfully!');
-      
-    } catch (e, stackTrace) {
-      final tempDbPath = join(dbPath, '${fileName}_encrypted_temp');
-      final lockFilePath = join(dbPath, '${fileName}_migration.lock');
-      
-      debugPrint('❌ [DatabaseHelper] Migration failed: $e');
-      debugPrint('Stack trace: $stackTrace');
-      
-      // Clean up lock file
-      try {
-        final lockFile = File(lockFilePath);
-        if (await lockFile.exists()) {
-          await lockFile.delete();
-        }
-      } catch (_) {}
-      
-      // Clean up temp file if it exists
-      try {
-        final tempFile = File(tempDbPath);
-        if (await tempFile.exists()) {
-          await tempFile.delete();
-        }
-      } catch (_) {}
-      
-      // Don't delete database here - it may be in use by other isolates
-      // Just log the error and let normal database opening handle it
-      debugPrint('⚠️ [DatabaseHelper] Migration failed, but database may still be usable');
-    }
-  }
-
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
     
-    // 🔒 CRITICAL: Close any existing database connection before migration
-    // This prevents "database is locked" errors during migration
+    // 🔒 CRITICAL: Close any existing database connection before initialization
     if (_database != null && _database!.isOpen) {
-      debugPrint('🔒 [DatabaseHelper] Closing existing database before migration check...');
+      debugPrint('🔒 [DatabaseHelper] Closing existing database before initialization...');
       await _database!.close();
       _database = null;
     }
     
-    // 🔄 Check if old unencrypted database exists and migrate
-    await _migrateFromUnencryptedIfNeeded(dbPath, filePath);
-    
     // Get encryption password from secure storage
     final password = await _getDatabasePassword();
 
-    return await openDatabase(
-      path,
-      password: password, // 🔐 Enable AES-256 encryption
-      version: 4,
-      onCreate: _createDB,
-      onUpgrade: _onUpgrade,
-      readOnly: false, // Explicitly enable write access
-    );
+    try {
+      return await openDatabase(
+        path,
+        password: password, // 🔐 Enable AES-256 encryption
+        version: 4,
+        onCreate: _createDB,
+        onUpgrade: _onUpgrade,
+        readOnly: false, // Explicitly enable write access
+      );
+    } catch (e) {
+      // If database fails to open (corrupted or wrong encryption), delete and recreate
+      final errorMsg = e.toString().toLowerCase();
+      if (errorMsg.contains('file is not a database') || 
+          errorMsg.contains('open_failed') ||
+          errorMsg.contains('notadb')) {
+        debugPrint('❌ [DatabaseHelper] Database corrupted, deleting and recreating...');
+        
+        // Show warning to user (only once per session)
+        if (!_warningShown) {
+          _warningShown = true;
+          _showCorruptionWarning();
+        }
+        
+        try {
+          final dbFile = File(path);
+          if (await dbFile.exists()) {
+            await dbFile.delete();
+          }
+          // Try to open again after deletion
+          return await openDatabase(
+            path,
+            password: password,
+            version: 4,
+            onCreate: _createDB,
+            onUpgrade: _onUpgrade,
+            readOnly: false,
+          );
+        } catch (e2) {
+          debugPrint('❌ [DatabaseHelper] Failed to recreate database: $e2');
+          rethrow;
+        }
+      }
+      rethrow;
+    }
+  }
+
+  /// Show warning dialog to user about database corruption and required re-login
+  Future<void> _showCorruptionWarning() async {
+    // Find the app context (if available)
+    final context = WidgetsBinding.instance.rootElement;
+    if (context == null) {
+      debugPrint('⚠️ [DatabaseHelper] Cannot show warning: No context available');
+      return;
+    }
+
+    // Show dialog on next frame to avoid showing during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          icon: Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 48),
+          title: Text('Cơ sở dữ liệu bị lỗi'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ứng dụng đã phát hiện lỗi trong cơ sở dữ liệu và cần khởi tạo lại.',
+                style: TextStyle(fontSize: 15),
+              ),
+              SizedBox(height: 12),
+              Text(
+                '⚠️ BẠN CẦN ĐĂNG NHẬP LẠI',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.red[700],
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Dữ liệu offline sẽ được tải lại từ máy chủ sau khi đăng nhập.',
+                style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+              child: Text(
+                'Đã hiểu',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
