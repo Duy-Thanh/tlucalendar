@@ -19,12 +19,12 @@ android {
     compileOptions {
         // Flag to enable support for the new language APIs
         isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = JavaVersion.VERSION_21.toString()
     }
 
     defaultConfig {
@@ -37,7 +37,7 @@ android {
         // Version code with last is 20 is RELEASE CHANNEL
         // Version code with last is 30 is BETA CHANNEL
         // Version code with last is 40 is ALPHA CHANNEL
-        versionCode = 2025111340
+        versionCode = 2025112020
         versionName = flutter.versionName
 
         ndk {
