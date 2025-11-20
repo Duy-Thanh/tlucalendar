@@ -624,6 +624,7 @@ class UserProvider extends ChangeNotifier {
   /// Change selected semester and load courses
   Future<void> selectSemester(Semester semester) async {
     _selectedSemester = semester;
+    notifyListeners(); // Immediately update UI with selected semester
     await loadCoursesForSemester(semester.id);
   }
 
