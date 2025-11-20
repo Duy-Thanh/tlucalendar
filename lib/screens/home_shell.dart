@@ -15,9 +15,11 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, TickerProviderStateMixin {
   int _selectedIndex = 0;
   Timer? _refreshCheckTimer;
+  late List<AnimationController> _animationControllers;
+  late List<Animation<double>> _scaleAnimations;
 
   final List<Widget> _screens = [
     const TodayScreen(),
@@ -32,6 +34,22 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _checkDataRefresh(); // Check on first load
     
+    // Initialize animation controllers for each tab
+    _animationControllers = List.generate(
+      4,
+      (index) => AnimationController(
+        duration: const Duration(milliseconds: 200),
+        vsync: this,
+      ),
+    );
+    
+    // Initialize scale animations
+    _scaleAnimations = _animationControllers.map((controller) {
+      return Tween<double>(begin: 1.0, end: 1.15).animate(
+        CurvedAnimation(parent: controller, curve: Curves.easeOutBack),
+      );
+    }).toList();
+    
     // Start periodic check every 10 seconds when app is in foreground
     _startRefreshCheckTimer();
   }
@@ -39,6 +57,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     _refreshCheckTimer?.cancel();
+    for (var controller in _animationControllers) {
+      controller.dispose();
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -102,6 +123,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
       // Use IndexedStack to preserve state of each tab so screens aren't
       // recreated when switching tabs. This prevents re-running initState
@@ -110,22 +134,83 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         index: _selectedIndex,
         children: _screens,
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (int index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.today), label: 'Hôm nay'),
-          NavigationDestination(
-            icon: Icon(Icons.calendar_month),
-            label: 'Lịch học',
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+          child: Container(
+            height: 56,
+            decoration: BoxDecoration(
+              color: isDark 
+                  ? colorScheme.surfaceContainerHigh
+                  : colorScheme.surface,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark 
+                      ? Colors.black.withOpacity(0.3)
+                      : colorScheme.shadow.withOpacity(0.08),
+                  blurRadius: 16,
+                  offset: const Offset(0, -2),
+                  spreadRadius: 0,
+                ),
+                if (isDark)
+                  BoxShadow(
+                    color: Colors.white.withOpacity(0.05),
+                    blurRadius: 1,
+                    offset: const Offset(0, -1),
+                    spreadRadius: 0,
+                  ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: NavigationBar(
+                backgroundColor: Colors.transparent,
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: (int index) {
+                  // Animate the tapped icon
+                  _animationControllers[index].forward().then((_) {
+                    _animationControllers[index].reverse();
+                  });
+                  
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                destinations: [
+                  NavigationDestination(
+                    icon: ScaleTransition(
+                      scale: _scaleAnimations[0],
+                      child: const Icon(Icons.today),
+                    ),
+                    label: 'Hôm nay',
+                  ),
+                  NavigationDestination(
+                    icon: ScaleTransition(
+                      scale: _scaleAnimations[1],
+                      child: const Icon(Icons.calendar_month),
+                    ),
+                    label: 'Lịch học',
+                  ),
+                  NavigationDestination(
+                    icon: ScaleTransition(
+                      scale: _scaleAnimations[2],
+                      child: const Icon(Icons.quiz),
+                    ),
+                    label: 'Lịch thi',
+                  ),
+                  NavigationDestination(
+                    icon: ScaleTransition(
+                      scale: _scaleAnimations[3],
+                      child: const Icon(Icons.settings),
+                    ),
+                    label: 'Cài đặt',
+                  ),
+                ],
+              ),
+            ),
           ),
-          NavigationDestination(icon: Icon(Icons.quiz), label: 'Lịch thi'),
-          NavigationDestination(icon: Icon(Icons.settings), label: 'Cài đặt'),
-        ],
+        ),
       ),
       // Auto-resume happens in background, no button needed
       // floatingActionButton: const ResumeCachingButton(),

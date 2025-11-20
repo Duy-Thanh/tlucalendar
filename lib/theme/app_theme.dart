@@ -121,11 +121,55 @@ class AppTheme {
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      height: 70,
-      elevation: 0,
+      height: 56,
+      elevation: 3,
+      shadowColor: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: Brightness.light,
+      ).shadow.withOpacity(0.1),
+      backgroundColor: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: Brightness.light,
+      ).surface,
+      indicatorColor: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: Brightness.light,
+      ).primaryContainer,
       indicatorShape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          );
+        }
+        return const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.3,
+        );
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return IconThemeData(
+            size: 24,
+            color: ColorScheme.fromSeed(
+              seedColor: seedColor,
+              brightness: Brightness.light,
+            ).onPrimaryContainer,
+          );
+        }
+        return IconThemeData(
+          size: 22,
+          color: ColorScheme.fromSeed(
+            seedColor: seedColor,
+            brightness: Brightness.light,
+          ).onSurfaceVariant,
+        );
+      }),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
@@ -253,11 +297,55 @@ class AppTheme {
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      height: 70,
-      elevation: 0,
+      height: 56,
+      elevation: 3,
+      shadowColor: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: Brightness.dark,
+      ).shadow.withOpacity(0.2),
+      backgroundColor: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: Brightness.dark,
+      ).surface,
+      indicatorColor: ColorScheme.fromSeed(
+        seedColor: seedColor,
+        brightness: Brightness.dark,
+      ).primaryContainer,
       indicatorShape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
+      labelTextStyle: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          );
+        }
+        return const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.3,
+        );
+      }),
+      iconTheme: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return IconThemeData(
+            size: 24,
+            color: ColorScheme.fromSeed(
+              seedColor: seedColor,
+              brightness: Brightness.dark,
+            ).onPrimaryContainer,
+          );
+        }
+        return IconThemeData(
+          size: 22,
+          color: ColorScheme.fromSeed(
+            seedColor: seedColor,
+            brightness: Brightness.dark,
+          ).onSurfaceVariant,
+        );
+      }),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
