@@ -103,21 +103,21 @@ class ExamProvider with ChangeNotifier {
       // Auto-select the first period if available
       if (_registerPeriods.isNotEmpty) {
         _selectedRegisterPeriodId = _registerPeriods.first.id;
-        
+
         // Try to load exam rooms for the first period from cache
         final hasExamCache = await _dbHelper.hasExamRoomCache(
           semesterId,
           _registerPeriods.first.id,
           1,
         );
-        
+
         if (hasExamCache) {
           _examRooms = await _dbHelper.getExamRooms(
             semesterId,
             _registerPeriods.first.id,
             1,
           );
-          
+
           // Schedule notifications for cached exam data
           await _scheduleExamNotifications();
         }
@@ -140,30 +140,30 @@ class ExamProvider with ChangeNotifier {
     try {
       // Try to load from cache first
       final cachedSemesters = await _dbHelper.getSemesters();
-      
+
       if (cachedSemesters.isNotEmpty) {
         _availableSemesters = cachedSemesters;
-        
+
         // Sort by ordinalNumbers descending (newest first)
         _availableSemesters.sort(
           (a, b) => (b.ordinalNumbers ?? 0).compareTo(a.ordinalNumbers ?? 0),
         );
-        
+
         _isLoadingSemesters = false;
         notifyListeners();
-        
-//         Removed log
-        
+
+        //         Removed log
+
         // Fetch fresh data in background ONLY if we have valid access token
         if (accessToken != null && accessToken.isNotEmpty) {
-//           Removed log
+          //           Removed log
           _fetchAvailableSemestersFromApi(accessToken);
         }
         return;
       }
-      
+
       // No cache, try to fetch from API if we have access token
-//       Removed log
+      //       Removed log
       if (accessToken != null && accessToken.isNotEmpty) {
         await _fetchAvailableSemestersFromApi(accessToken);
       } else {
@@ -177,7 +177,7 @@ class ExamProvider with ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   /// Fetch semesters from API (internal method)
   Future<void> _fetchAvailableSemestersFromApi(String accessToken) async {
     try {
@@ -188,7 +188,7 @@ class ExamProvider with ChangeNotifier {
       _availableSemesters.sort(
         (a, b) => (b.ordinalNumbers ?? 0).compareTo(a.ordinalNumbers ?? 0),
       );
-      
+
       // Save to cache
       await _dbHelper.saveSemesters(_availableSemesters);
 
@@ -197,19 +197,25 @@ class ExamProvider with ChangeNotifier {
         _isLoadingSemesters = false;
         notifyListeners();
       }
-      
-//       Removed log
+
+      //       Removed log
     } catch (e) {
       // Check if this is a 401 error (token expired) - completely silent
       final is401Error = e.toString().contains('401');
-      
+
       // Check if we have cached data
       if (_availableSemesters.isEmpty) {
         // Initial fetch failed, show error
-        _log.log('Failed to load available semesters: $e', level: LogLevel.error);
+        _log.log(
+          'Failed to load available semesters: $e',
+          level: LogLevel.error,
+        );
       } else if (!is401Error) {
         // Only log non-auth errors for background refresh
-        _log.log('Background semesters refresh failed: $e', level: LogLevel.warning);
+        _log.log(
+          'Background semesters refresh failed: $e',
+          level: LogLevel.warning,
+        );
       }
       // If it's 401 and we have cached data, completely silent (expected offline behavior)
     }
@@ -225,11 +231,13 @@ class ExamProvider with ChangeNotifier {
     notifyListeners();
 
     await fetchExamSchedule(accessToken, semesterId);
-    
+
     // After fetching register periods, pre-cache all exam rounds for offline use
-    if (_selectedRegisterPeriodId != null && _selectedSemesterId != null && accessToken != null) {
-//       Removed log
-      
+    if (_selectedRegisterPeriodId != null &&
+        _selectedSemesterId != null &&
+        accessToken != null) {
+      //       Removed log
+
       // Fetch exam rooms for the selected round (will be displayed)
       await fetchExamRoomDetails(
         accessToken,
@@ -237,7 +245,7 @@ class ExamProvider with ChangeNotifier {
         _selectedRegisterPeriodId!,
         _selectedExamRound,
       );
-      
+
       // Pre-cache other rounds in background (silently, don't block UI)
       _preCacheExamRounds(
         accessToken,
@@ -264,85 +272,91 @@ class ExamProvider with ChangeNotifier {
   /// Pre-cache ALL exam data on login for full offline mode
   /// EXHAUSTIVE CACHING: Cache every single semester, period, and round
   /// Supports resuming from where it left off if app closes mid-cache
-  Future<void> preCacheAllExamData(String accessToken, int currentSemesterId) async {
+  Future<void> preCacheAllExamData(
+    String accessToken,
+    int currentSemesterId,
+  ) async {
     _isPreCaching = true;
     _preCacheProgress = 0;
     _preCacheStatus = 'Bắt đầu tải dữ liệu offline...';
     notifyListeners();
-    
-//     Removed log
-//     Removed log
-    
+
+    //     Removed log
+    //     Removed log
+
     try {
       // Check if caching was already complete
       final isComplete = await _dbHelper.isCacheComplete();
       if (isComplete) {
-//         Removed log
+        //         Removed log
         _isPreCaching = false;
         _preCacheProgress = 100;
         _preCacheStatus = 'Dữ liệu đã được tải đầy đủ';
         notifyListeners();
         return;
       }
-      
+
       // Get list of already cached semesters (for resume capability)
       final cachedSemesterIds = await _dbHelper.getCachedSemesterIds();
-//       Removed log
-      
+      //       Removed log
+
       // Step 1: Fetch ALL available semesters
-//       Removed log
-//       Removed log
+      //       Removed log
+      //       Removed log
       _preCacheStatus = 'Đang lấy danh sách học kỳ...';
       notifyListeners();
-      
+
       final allSemesters = await _authService.getAllSemesters(accessToken);
       _preCacheTotalSemesters = allSemesters.content.length;
-//       Removed log
-//       Removed log
-      
+      //       Removed log
+      //       Removed log
+
       // Save all semesters to cache immediately
       await _dbHelper.saveSemesters(allSemesters.content);
-//       Removed log
-      
+      //       Removed log
+
       // Filter out already cached semesters (for resume)
       final semestersToCache = allSemesters.content
           .where((sem) => !cachedSemesterIds.contains(sem.id))
           .toList();
-      
+
       if (semestersToCache.isEmpty) {
-//         Removed log
+        //         Removed log
         await _dbHelper.updateCacheProgress(
           totalSemesters: _preCacheTotalSemesters,
           cachedSemesters: _preCacheTotalSemesters,
           isComplete: true,
         );
-        
+
         _isPreCaching = false;
         _preCacheProgress = 100;
         _preCacheStatus = 'Hoàn tất! Tất cả dữ liệu đã sẵn sàng';
         notifyListeners();
         return;
       }
-      
-//       Removed log
-      
+
+      //       Removed log
+
       int totalPeriods = 0;
       int totalRounds = 0;
       int totalRooms = 0;
-      
+
       // Step 2: Cache EVERY REMAINING SEMESTER
       for (int i = 0; i < semestersToCache.length; i++) {
         final sem = semestersToCache[i];
         _preCacheCurrentSemester = cachedSemesterIds.length + i + 1;
-        
-//         Removed log
-//         Removed log
-//         Removed log
-        
-        _preCacheStatus = 'Đang tải học kỳ ${sem.semesterName} ($_preCacheCurrentSemester/$_preCacheTotalSemesters)';
-        _preCacheProgress = ((_preCacheCurrentSemester - 1) * 100 / _preCacheTotalSemesters).round();
+
+        //         Removed log
+        //         Removed log
+        //         Removed log
+
+        _preCacheStatus =
+            'Đang tải học kỳ ${sem.semesterName} ($_preCacheCurrentSemester/$_preCacheTotalSemesters)';
+        _preCacheProgress =
+            ((_preCacheCurrentSemester - 1) * 100 / _preCacheTotalSemesters)
+                .round();
         notifyListeners();
-        
+
         // Update database progress
         await _dbHelper.updateCacheProgress(
           totalSemesters: _preCacheTotalSemesters,
@@ -351,10 +365,10 @@ class ExamProvider with ChangeNotifier {
           currentSemesterId: sem.id,
           currentSemesterName: sem.semesterName,
         );
-        
+
         try {
           // Fetch and cache register periods for this semester
-//           Removed log
+          //           Removed log
           final periods = await _authService.getRegisterPeriods(
             accessToken,
             sem.id,
@@ -362,17 +376,18 @@ class ExamProvider with ChangeNotifier {
           await _dbHelper.saveRegisterPeriods(sem.id, periods);
           totalPeriods += periods.length;
           _preCacheTotalPeriods = periods.length;
-//           Removed log
-          
+          //           Removed log
+
           // For EVERY register period, cache ALL 5 exam rounds
           for (int j = 0; j < periods.length; j++) {
             final period = periods[j];
             _preCacheCurrentPeriod = j + 1;
-            
-//             Removed log
-            _preCacheStatus = '${sem.semesterName}: Đợt ${period.name} ($_preCacheCurrentPeriod/$_preCacheTotalPeriods)';
+
+            //             Removed log
+            _preCacheStatus =
+                '${sem.semesterName}: Đợt ${period.name} ($_preCacheCurrentPeriod/$_preCacheTotalPeriods)';
             notifyListeners();
-            
+
             for (int round = 1; round <= 5; round++) {
               try {
                 final rooms = await _authService.getStudentExamRooms(
@@ -381,30 +396,28 @@ class ExamProvider with ChangeNotifier {
                   period.id,
                   round,
                 );
-                
-                await _dbHelper.saveExamRooms(
-                  sem.id,
-                  period.id,
-                  round,
-                  rooms,
-                );
+
+                await _dbHelper.saveExamRooms(sem.id, period.id, round, rooms);
                 totalRounds++;
                 totalRooms += rooms.length;
-                
+
                 if (rooms.isNotEmpty) {
-//                   Removed log
+                  //                   Removed log
                 } else {
-//                   Removed log
+                  //                   Removed log
                 }
               } catch (e) {
-                _log.log('Round $round: ${e.toString().substring(0, min(50, e.toString().length))}...', level: LogLevel.warning);
+                _log.log(
+                  'Round $round: ${e.toString().substring(0, min(50, e.toString().length))}...',
+                  level: LogLevel.warning,
+                );
                 // Continue even if one round fails
               }
             }
           }
-          
-//           Removed log
-          
+
+          //           Removed log
+
           // Update progress after completing this semester
           await _dbHelper.updateCacheProgress(
             totalSemesters: _preCacheTotalSemesters,
@@ -413,35 +426,36 @@ class ExamProvider with ChangeNotifier {
             currentSemesterId: sem.id,
             currentSemesterName: sem.semesterName,
           );
-          
         } catch (e) {
-          _log.log('Failed to cache semester ${sem.semesterName}: $e', level: LogLevel.error);
+          _log.log(
+            'Failed to cache semester ${sem.semesterName}: $e',
+            level: LogLevel.error,
+          );
           // Continue with next semester even if this one fails
         }
       }
-      
+
       // Mark caching as complete
       await _dbHelper.updateCacheProgress(
         totalSemesters: _preCacheTotalSemesters,
         cachedSemesters: _preCacheTotalSemesters,
         isComplete: true,
       );
-      
-//       Removed log
-//       Removed log
-//       Removed log
-//       Removed log
-//       Removed log
-//       Removed log
-//       Removed log
-//       Removed log
-//       Removed log
-      
+
+      //       Removed log
+      //       Removed log
+      //       Removed log
+      //       Removed log
+      //       Removed log
+      //       Removed log
+      //       Removed log
+      //       Removed log
+      //       Removed log
+
       _isPreCaching = false;
       _preCacheProgress = 100;
       _preCacheStatus = 'Hoàn tất! Ứng dụng có thể hoạt động offline';
       notifyListeners();
-      
     } catch (e) {
       _log.log('Pre-caching failed: $e', level: LogLevel.error);
       _isPreCaching = false;
@@ -450,7 +464,7 @@ class ExamProvider with ChangeNotifier {
       // Don't throw - app should still work even if pre-caching fails
     }
   }
-  
+
   /// Pre-cache all exam rounds in background for offline use
   Future<void> _preCacheExamRounds(
     String accessToken,
@@ -458,21 +472,21 @@ class ExamProvider with ChangeNotifier {
     int registerPeriodId,
     int currentRound,
   ) async {
-//     Removed log
-    
+    //     Removed log
+
     // Cache all 5 rounds (skip the current one since it's already cached)
     for (int round = 1; round <= 5; round++) {
       if (round == currentRound) continue; // Skip current round
-      
+
       try {
-//         Removed log
+        //         Removed log
         final rooms = await _authService.getStudentExamRooms(
           accessToken,
           semesterId,
           registerPeriodId,
           round,
         );
-        
+
         // Save to cache
         await _dbHelper.saveExamRooms(
           semesterId,
@@ -480,15 +494,18 @@ class ExamProvider with ChangeNotifier {
           round,
           rooms,
         );
-//         Removed log
+        //         Removed log
       } catch (e) {
         // Silently fail - not critical if pre-caching fails
-        _log.log('_preCacheExamRounds: Failed to cache round $round: $e', level: LogLevel.warning);
+        _log.log(
+          '_preCacheExamRounds: Failed to cache round $round: $e',
+          level: LogLevel.warning,
+        );
       }
     }
-//     Removed log
+    //     Removed log
   }
-  
+
   /// Fetch exam schedule (register periods) for a semester
   Future<void> fetchExamSchedule(String? accessToken, int semesterId) async {
     _isLoading = true;
@@ -498,14 +515,16 @@ class ExamProvider with ChangeNotifier {
     try {
       // Try to load from cache first
       final hasCache = await _dbHelper.hasRegisterPeriodsCache(semesterId);
-//       Removed log
-      
+      //       Removed log
+
       if (hasCache) {
         _registerPeriods = await _dbHelper.getRegisterPeriods(semesterId);
-//         Removed log
-        
+        //         Removed log
+
         // Sort by display order
-        _registerPeriods.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
+        _registerPeriods.sort(
+          (a, b) => a.displayOrder.compareTo(b.displayOrder),
+        );
 
         // Auto-select the first period if none selected
         if (_registerPeriods.isNotEmpty && _selectedRegisterPeriodId == null) {
@@ -517,14 +536,14 @@ class ExamProvider with ChangeNotifier {
 
         // Fetch fresh data in background ONLY if we have valid access token
         if (accessToken != null && accessToken.isNotEmpty) {
-//           Removed log
+          //           Removed log
           _fetchExamScheduleFromApi(accessToken, semesterId);
         }
         return;
       }
 
       // No cache, try to fetch from API if we have access token
-//       Removed log
+      //       Removed log
       if (accessToken != null && accessToken.isNotEmpty) {
         await _fetchExamScheduleFromApi(accessToken, semesterId);
       } else {
@@ -536,31 +555,40 @@ class ExamProvider with ChangeNotifier {
     } catch (e) {
       // Check if this is a 401 error (token expired)
       final is401Error = e.toString().contains('401');
-      _log.log('fetchExamSchedule ERROR: is401=$is401Error, error=$e', level: LogLevel.error);
-      
+      _log.log(
+        'fetchExamSchedule ERROR: is401=$is401Error, error=$e',
+        level: LogLevel.error,
+      );
+
       if (is401Error) {
-//         Removed log
+        //         Removed log
         // Token expired - try to use cache as fallback
         final hasCache = await _dbHelper.hasRegisterPeriodsCache(semesterId);
-//         Removed log
-        
+        //         Removed log
+
         if (hasCache) {
           // Load from cache instead of showing error
           _registerPeriods = await _dbHelper.getRegisterPeriods(semesterId);
-          _registerPeriods.sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-          
-          if (_registerPeriods.isNotEmpty && _selectedRegisterPeriodId == null) {
+          _registerPeriods.sort(
+            (a, b) => a.displayOrder.compareTo(b.displayOrder),
+          );
+
+          if (_registerPeriods.isNotEmpty &&
+              _selectedRegisterPeriodId == null) {
             _selectedRegisterPeriodId = _registerPeriods.first.id;
           }
-          
+
           _isLoading = false;
           _errorMessage = null; // No error - we have cached data!
           notifyListeners();
-//           Removed log
+          //           Removed log
           return; // Success! Using cached data
         }
         // No cache available - show friendly message
-        _log.log('fetchExamSchedule: No cache available, showing error', level: LogLevel.warning);
+        _log.log(
+          'fetchExamSchedule: No cache available, showing error',
+          level: LogLevel.warning,
+        );
         _errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
       } else {
         // Other error - show actual error
@@ -601,15 +629,18 @@ class ExamProvider with ChangeNotifier {
       _log.log('_fetchExamScheduleFromApi ERROR: $e', level: LogLevel.error);
       // Check if this is a 401 error (token expired) - completely silent
       final is401Error = e.toString().contains('401');
-      
+
       // Check if this is an initial fetch (no existing periods) or background refresh
       if (_registerPeriods.isEmpty && _selectedSemesterId == semesterId) {
         // Initial fetch failed, rethrow so outer catch can handle with fallback
-//         Removed log
+        //         Removed log
         rethrow;
       } else if (!is401Error) {
         // Only log non-auth errors for background refresh
-        _log.log('Background exam schedule refresh failed: $e', level: LogLevel.warning);
+        _log.log(
+          'Background exam schedule refresh failed: $e',
+          level: LogLevel.warning,
+        );
       }
       // If it's 401 and we have cached data, completely silent (expected offline behavior)
     }
@@ -626,15 +657,10 @@ class ExamProvider with ChangeNotifier {
     _examRooms = []; // Clear exam rooms when register period changes
     _isLoadingRooms = true; // Show loading state immediately
     notifyListeners();
-    
+
     // Fetch exam rooms for the selected register period and exam round
-    await fetchExamRoomDetails(
-      accessToken,
-      semesterId,
-      periodId,
-      examRound,
-    );
-    
+    await fetchExamRoomDetails(accessToken, semesterId, periodId, examRound);
+
     // Pre-cache other exam rounds for this period in background
     if (accessToken != null) {
       _preCacheExamRounds(accessToken, semesterId, periodId, examRound);
@@ -656,8 +682,8 @@ class ExamProvider with ChangeNotifier {
     int registerPeriodId,
     int examRound,
   ) async {
-//     Removed log
-//     Removed log
+    //     Removed log
+    //     Removed log
     // Clear exam rooms when starting to fetch new data
     _examRooms = [];
     _isLoadingRooms = true;
@@ -671,7 +697,7 @@ class ExamProvider with ChangeNotifier {
         registerPeriodId,
         examRound,
       );
-//       Removed log
+      //       Removed log
 
       if (hasCache) {
         _examRooms = await _dbHelper.getExamRooms(
@@ -682,14 +708,14 @@ class ExamProvider with ChangeNotifier {
 
         _isLoadingRooms = false;
         notifyListeners();
-//         Removed log
+        //         Removed log
 
         // Schedule notifications for cached data
         await _scheduleExamNotifications();
 
         // Fetch fresh data in background ONLY if we have a valid access token
         if (accessToken != null && accessToken.isNotEmpty) {
-//           Removed log
+          //           Removed log
           _fetchExamRoomDetailsFromApi(
             accessToken,
             semesterId,
@@ -701,7 +727,7 @@ class ExamProvider with ChangeNotifier {
       }
 
       // No cache, try to fetch from API if we have access token
-//       Removed log
+      //       Removed log
       if (accessToken != null && accessToken.isNotEmpty) {
         await _fetchExamRoomDetailsFromApi(
           accessToken,
@@ -718,18 +744,21 @@ class ExamProvider with ChangeNotifier {
     } catch (e) {
       // Check if this is a 401 error (token expired)
       final is401Error = e.toString().contains('401');
-      _log.log('fetchExamRoomDetails ERROR: is401=$is401Error, error=$e', level: LogLevel.error);
-      
+      _log.log(
+        'fetchExamRoomDetails ERROR: is401=$is401Error, error=$e',
+        level: LogLevel.error,
+      );
+
       if (is401Error) {
-//         Removed log
+        //         Removed log
         // Token expired - try to use cache as fallback
         final hasCache = await _dbHelper.hasExamRoomCache(
           semesterId,
           registerPeriodId,
           examRound,
         );
-//         Removed log
-        
+        //         Removed log
+
         if (hasCache) {
           // Load from cache instead of showing error
           _examRooms = await _dbHelper.getExamRooms(
@@ -737,19 +766,23 @@ class ExamProvider with ChangeNotifier {
             registerPeriodId,
             examRound,
           );
-          
+
           _isLoadingRooms = false;
           _roomErrorMessage = null; // No error - we have cached data!
           notifyListeners();
-          
+
           // Schedule notifications for cached data
           await _scheduleExamNotifications();
-//           Removed log
+          //           Removed log
           return; // Success! Using cached data
         }
         // No cache available - show friendly message
-        _log.log('fetchExamRoomDetails: No cache available, showing error', level: LogLevel.warning);
-        _roomErrorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
+        _log.log(
+          'fetchExamRoomDetails: No cache available, showing error',
+          level: LogLevel.warning,
+        );
+        _roomErrorMessage =
+            'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
       } else {
         // Other error - show actual error
         _roomErrorMessage = e.toString();
@@ -784,7 +817,7 @@ class ExamProvider with ChangeNotifier {
           // First compare by exam date (if available)
           final aDate = a.examRoom?.examDate;
           final bDate = b.examRoom?.examDate;
-          
+
           if (aDate != null && bDate != null) {
             final dateComparison = aDate.compareTo(bDate);
             if (dateComparison != 0) return dateComparison;
@@ -793,21 +826,22 @@ class ExamProvider with ChangeNotifier {
           } else if (bDate != null) {
             return 1; // b has date, a doesn't -> b comes first
           }
-          
+
           // If dates are equal or both null, compare by exam date string
           final aDateStr = a.examRoom?.examDateString ?? '';
           final bDateStr = b.examRoom?.examDateString ?? '';
           final dateStrComparison = aDateStr.compareTo(bDateStr);
           if (dateStrComparison != 0) return dateStrComparison;
-          
+
           // If still equal, compare by subject name for stability
           return a.subjectName.compareTo(b.subjectName);
         });
-        
+
         // Check if data actually changed before updating
-        final dataChanged = _examRooms.length != rooms.length ||
+        final dataChanged =
+            _examRooms.length != rooms.length ||
             !_areExamRoomsEqual(_examRooms, rooms);
-        
+
         _examRooms = rooms;
         _isLoadingRooms = false;
         notifyListeners();
@@ -829,18 +863,21 @@ class ExamProvider with ChangeNotifier {
       _log.log('_fetchExamRoomDetailsFromApi ERROR: $e', level: LogLevel.error);
       // Check if this is a 401 error (token expired) - completely silent
       final is401Error = e.toString().contains('401');
-      
+
       // Silently fail background refresh if we already have cached data
       if (_examRooms.isEmpty &&
           _selectedSemesterId == semesterId &&
           _selectedRegisterPeriodId == registerPeriodId &&
           _selectedExamRound == examRound) {
         // This is initial fetch (not background), rethrow so outer catch can handle with fallback
-//         Removed log
+        //         Removed log
         rethrow; // Let outer catch handle it with cache fallback!
       } else if (!is401Error) {
         // Background refresh failed for non-auth reasons - log it
-        _log.log('Background exam room refresh failed: $e', level: LogLevel.warning);
+        _log.log(
+          'Background exam room refresh failed: $e',
+          level: LogLevel.warning,
+        );
       }
       // If it's 401 and we have cached data, completely silent (expected offline behavior)
     }
@@ -865,23 +902,27 @@ class ExamProvider with ChangeNotifier {
     if (_examRooms.isEmpty) return;
 
     try {
-      await NotificationHelper.scheduleExamNotifications(
-        examRooms: _examRooms,
-      );
-//       Removed log
+      await NotificationHelper.scheduleExamNotifications(examRooms: _examRooms);
+      //       Removed log
     } catch (e) {
-      _log.log('Failed to schedule exam notifications: $e', level: LogLevel.warning);
+      _log.log(
+        'Failed to schedule exam notifications: $e',
+        level: LogLevel.warning,
+      );
     }
   }
 
   /// Compare two lists of exam rooms for equality
-  bool _areExamRoomsEqual(List<StudentExamRoom> list1, List<StudentExamRoom> list2) {
+  bool _areExamRoomsEqual(
+    List<StudentExamRoom> list1,
+    List<StudentExamRoom> list2,
+  ) {
     if (list1.length != list2.length) return false;
-    
+
     for (int i = 0; i < list1.length; i++) {
       final room1 = list1[i];
       final room2 = list2[i];
-      
+
       // Compare key fields that would affect notifications
       if (room1.id != room2.id ||
           room1.subjectName != room2.subjectName ||
@@ -891,7 +932,7 @@ class ExamProvider with ChangeNotifier {
         return false;
       }
     }
-    
+
     return true;
   }
 }
