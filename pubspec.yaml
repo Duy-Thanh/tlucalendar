@@ -26,6 +26,14 @@ dependencies:
   fluttertoast: ^9.0.0  # For toast messages
   flutter_secure_storage: ^9.2.4  # For encrypted credential storage
   encrypt: ^5.0.3  # For additional encryption
+  dartz: ^0.10.1
+  get_it: ^9.2.0
+  equatable: ^2.0.7
+  shimmer: ^3.0.0
+  lottie: ^3.3.2
+  flutter_staggered_animations: ^1.1.1
+  table_calendar: ^3.2.0
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
@@ -34,3 +42,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/lottie/

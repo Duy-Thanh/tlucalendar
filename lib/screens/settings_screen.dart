@@ -6,15 +6,15 @@ import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
 import 'package:url_launcher/url_launcher.dart';
-import 'package:android_intent_plus/android_intent.dart';
+
 import 'package:tlucalendar/providers/theme_provider.dart';
-import 'package:tlucalendar/providers/user_provider.dart';
+import 'package:tlucalendar/providers/auth_provider.dart';
+import 'package:tlucalendar/providers/schedule_provider.dart';
 import 'package:tlucalendar/screens/login_screen.dart';
 import 'package:tlucalendar/screens/logs_screen.dart';
-import 'package:tlucalendar/services/log_service.dart';
+// import 'package:tlucalendar/services/log_service.dart'; // Unused
 import 'package:tlucalendar/services/auto_refresh_service.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
-// import 'package:tlucalendar/services/daily_notification_service.dart'; // Commented out with test button
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -38,33 +38,63 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
         SliverToBoxAdapter(
-          child: Consumer<UserProvider>(
-            builder: (context, userProvider, _) {
-              final user = userProvider.currentUser;
-              // Only show profile card when logged in
-              if (!userProvider.isLoggedIn) {
+          child: Consumer<AuthProvider>(
+            builder: (context, authProvider, _) {
+              if (!authProvider.isLoggedIn ||
+                  authProvider.currentUser == null) {
                 return const SizedBox.shrink();
               }
-              return Padding(
-                padding: const EdgeInsets.all(16),
+              final user = authProvider.currentUser!;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Theme.of(context).colorScheme.primary,
+                      Theme.of(context).colorScheme.tertiary,
+                    ],
+                  ),
+                  borderRadius: const BorderRadius.vertical(
+                    bottom: Radius.circular(32),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
                 child: Column(
                   children: [
-                    CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Theme.of(
-                        context,
-                      ).colorScheme.primaryContainer,
-                      child: Text(
-                        user.fullName.isNotEmpty
-                            ? user.fullName[0].toUpperCase()
-                            : '?',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
-                            ),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                      ),
+                      child: CircleAvatar(
+                        radius: 40,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer,
+                        child: Text(
+                          user.fullName.isNotEmpty
+                              ? user.fullName[0].toUpperCase()
+                              : '?',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
+                              ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -72,20 +102,14 @@ class SettingsScreen extends StatelessWidget {
                       user.fullName,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
+                        color: Colors.white,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      user.studentId,
+                      '${user.studentId} • ${user.email}',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      user.email,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
+                        color: Colors.white.withOpacity(0.9),
                       ),
                     ),
                   ],
@@ -106,19 +130,20 @@ class SettingsScreen extends StatelessWidget {
           ),
         ),
         SliverToBoxAdapter(
-          child: Consumer<UserProvider>(
-            builder: (context, userProvider, _) {
+          child: Consumer<AuthProvider>(
+            builder: (context, authProvider, _) {
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
                     children: [
-                      if (userProvider.isLoggedIn) ...[
+                      if (authProvider.isLoggedIn &&
+                          authProvider.currentUser != null) ...[
                         ListTile(
                           leading: const Icon(Icons.check_circle),
                           title: const Text('Đã đăng nhập'),
-                          subtitle: Text(userProvider.currentUser.studentId),
+                          subtitle: Text(authProvider.currentUser!.studentId),
                           trailing: Icon(
                             Icons.check,
                             color: Theme.of(context).colorScheme.primary,
@@ -129,11 +154,11 @@ class SettingsScreen extends StatelessWidget {
                           width: double.infinity,
                           child: OutlinedButton(
                             onPressed: () {
-                              userProvider.logout();
+                              authProvider.logout();
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text('Đã đăng xuất'),
-                                  duration: const Duration(seconds: 2),
+                                const SnackBar(
+                                  content: Text('Đã đăng xuất'),
+                                  duration: Duration(seconds: 2),
                                 ),
                               );
                             },
@@ -170,281 +195,16 @@ class SettingsScreen extends StatelessWidget {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Text(
-              'Thông báo',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Consumer<UserProvider>(
-            builder: (context, userProvider, _) {
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      userProvider.notificationsEnabled
-                                          ? Icons.notifications_active
-                                          : Icons.notifications_off,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Text(
-                                      'Thông báo lịch học',
-                                      style: Theme.of(context).textTheme.titleSmall,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Padding(
-                                  padding: const EdgeInsets.only(left: 40),
-                                  child: Text(
-                                    'Nhận thông báo trước giờ học và thi',
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Theme.of(context).colorScheme.outline,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Switch(
-                            value: userProvider.notificationsEnabled,
-                            onChanged: (value) async {
-                              // ✅ ALWAYS check current permission status before toggling
-                              // This handles the case where user granted permission in settings
-                              await userProvider.checkNotificationPermission();
-                              
-                              // Try to toggle
-                              bool success = await userProvider.toggleNotifications(value);
-                              
-                              if (context.mounted) {
-                                if (value && !success) {
-                                  // User tried to enable but permission denied
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '⚠️ Không thể bật thông báo - cần cấp quyền',
-                                      ),
-                                      duration: const Duration(seconds: 3),
-                                      action: SnackBarAction(
-                                        label: 'Cài đặt',
-                                        onPressed: () async {
-                                          try {
-                                            if (Platform.isAndroid) {
-                                              final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-                                              final String packageName = packageInfo.packageName;
-                                              
-                                              final AndroidIntent intent = AndroidIntent(
-                                                action: 'android.settings.APP_NOTIFICATION_SETTINGS',
-                                                arguments: <String, dynamic>{
-                                                  'android.provider.extra.APP_PACKAGE': packageName,
-                                                },
-                                              );
-                                              
-                                              await intent.launch();
-                                            } else if (Platform.isIOS) {
-                                              final Uri settingsUri = Uri.parse('app-settings:');
-                                              await launchUrl(settingsUri);
-                                            }
-                                          } catch (e) {
-                                            LogService().log('Error opening settings: $e', level: LogLevel.error);
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  );
-                                } else if (success) {
-                                  // Only show success message if toggle actually changed
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        value
-                                            ? '✅ Đã bật thông báo'
-                                            : 'Đã tắt thông báo',
-                                      ),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                        ],
-                      ),
-                      // Show warning ONLY when toggle is OFF but permission is denied
-                      // (so user knows they need to grant permission before enabling)
-                      if (!userProvider.notificationsEnabled && 
-                          !userProvider.hasNotificationPermission) ...[
-                        const Divider(height: 16),
-                        ListTile(
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          leading: Icon(
-                            Icons.warning,
-                            color: Colors.orange,
-                          ),
-                          title: Text(
-                            'Cần cấp quyền thông báo',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          subtitle: Text(
-                            'Vui lòng cấp quyền thông báo trong cài đặt hệ thống để nhận thông báo',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: () async {
-                              try {
-                                if (Platform.isAndroid) {
-                                  // Android: Open app notification settings using AndroidIntent
-                                  final PackageInfo packageInfo = await PackageInfo.fromPlatform();
-                                  final String packageName = packageInfo.packageName;
-                                  
-                                  final AndroidIntent intent = AndroidIntent(
-                                    action: 'android.settings.APP_NOTIFICATION_SETTINGS',
-                                    arguments: <String, dynamic>{
-                                      'android.provider.extra.APP_PACKAGE': packageName,
-                                    },
-                                  );
-                                  
-                                  await intent.launch();
-                                } else if (Platform.isIOS) {
-                                  // iOS: Open app settings
-                                  final Uri settingsUri = Uri.parse('app-settings:');
-                                  await launchUrl(settingsUri);
-                                }
-                                
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Đã mở cài đặt - Vui lòng bật Thông báo'),
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Lỗi: $e'),
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                            icon: Icon(Icons.settings),
-                            label: Text('Mở cài đặt hệ thống'),
-                          ),
-                        ),
-                      ],
-                      // Daily notification toggle
-                      if (userProvider.notificationsEnabled) ...[
-                        const Divider(height: 32),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.wb_sunny),
-                                      const SizedBox(width: 16),
-                                      Text(
-                                        'Nhắc nhở hàng ngày',
-                                        style: Theme.of(context).textTheme.titleSmall,
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Padding(
-                                    padding: const EdgeInsets.only(left: 40),
-                                    child: Text(
-                                      'Nhận thông báo tóm tắt lịch học và thi mỗi sáng (7:00 AM)',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.outline,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: userProvider.dailyNotificationsEnabled,
-                              onChanged: (value) async {
-                                await userProvider.toggleDailyNotifications(value);
-                              
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        value
-                                            ? '✅ Đã bật nhắc nhở hàng ngày (7:00 AM)'
-                                            : 'Đã tắt nhắc nhở hàng ngày',
-                                      ),
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                        
-                        // DEBUG: Test button for daily notification
-                        // if (userProvider.dailyNotificationsEnabled)
-                        //   Padding(
-                        //     padding: const EdgeInsets.only(top: 8),
-                        //     child: OutlinedButton.icon(
-                        //       onPressed: () async {
-                        //         await DailyNotificationService.triggerManualCheck();
-                        //         if (context.mounted) {
-                        //           ScaffoldMessenger.of(context).showSnackBar(
-                        //             const SnackBar(
-                        //               content: Text('🧪 Đã kích hoạt kiểm tra thủ công - Xem log để biết kết quả'),
-                        //               duration: Duration(seconds: 3),
-                        //             ),
-                        //           );
-                        //         }
-                        //       },
-                        //       icon: const Icon(Icons.bug_report, size: 18),
-                        //       label: const Text('Test ngay bây giờ'),
-                        //       style: OutlinedButton.styleFrom(
-                        //         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        //       ),
-                        //     ),
-                        //   ),
-                      ],
-                    ],
-                  ),
+            padding: const EdgeInsets.all(16),
+            child: Center(
+              child: Text(
+                'Cài đặt thông báo đang được nâng cấp',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.outline,
+                  fontStyle: FontStyle.italic,
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ),
         // Auto-refresh status section
@@ -453,18 +213,21 @@ class SettingsScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Text(
               'Cập nhật tự động',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
         ),
         SliverToBoxAdapter(
-          child: Consumer<UserProvider>(
-            builder: (context, userProvider, _) {
-              if (!userProvider.isLoggedIn) {
+          child: Consumer<AuthProvider>(
+            builder: (context, authProvider, _) {
+              if (!authProvider.isLoggedIn) {
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Row(
@@ -478,9 +241,12 @@ class SettingsScreen extends StatelessWidget {
                         Expanded(
                           child: Text(
                             'Tính năng tự động cập nhật chỉ hoạt động sau khi bạn đã đăng nhập thành công',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.secondary,
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
+                                ),
                           ),
                         ),
                       ],
@@ -488,7 +254,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 );
               }
-              
+
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Padding(
@@ -509,16 +275,18 @@ class SettingsScreen extends StatelessWidget {
                               children: [
                                 Text(
                                   'Tự động cập nhật dữ liệu',
-                                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  style: Theme.of(context).textTheme.titleSmall
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   'Hệ thống sẽ tự động tải dữ liệu mới mỗi ngày (8 AM - 12 PM) để đảm bảo thông tin luôn chính xác',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                  ),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
                                 ),
                               ],
                             ),
@@ -531,11 +299,14 @@ class SettingsScreen extends StatelessWidget {
                         builder: (context, snapshot) {
                           if (snapshot.hasData && snapshot.data != null) {
                             final nextTime = snapshot.data!;
-                            final timeStr = '${nextTime.day}/${nextTime.month} ${nextTime.hour.toString().padLeft(2, '0')}:${nextTime.minute.toString().padLeft(2, '0')}';
+                            final timeStr =
+                                '${nextTime.day}/${nextTime.month} ${nextTime.hour.toString().padLeft(2, '0')}:${nextTime.minute.toString().padLeft(2, '0')}';
                             return Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primaryContainer,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.primaryContainer,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
@@ -543,16 +314,23 @@ class SettingsScreen extends StatelessWidget {
                                   Icon(
                                     Icons.schedule,
                                     size: 18,
-                                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimaryContainer,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       'Lần cập nhật tiếp theo: $timeStr',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onPrimaryContainer,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                     ),
                                   ),
                                 ],
@@ -570,10 +348,11 @@ class SettingsScreen extends StatelessWidget {
                             final lastTime = snapshot.data!;
                             final now = DateTime.now();
                             final diff = now.difference(lastTime);
-                            
+
                             // Format last update time
-                            final timeStr = '${lastTime.day}/${lastTime.month}/${lastTime.year} ${lastTime.hour.toString().padLeft(2, '0')}:${lastTime.minute.toString().padLeft(2, '0')}';
-                            
+                            final timeStr =
+                                '${lastTime.day}/${lastTime.month}/${lastTime.year} ${lastTime.hour.toString().padLeft(2, '0')}:${lastTime.minute.toString().padLeft(2, '0')}';
+
                             String timeAgo;
                             if (diff.inMinutes < 60) {
                               timeAgo = '${diff.inMinutes} phút trước';
@@ -582,7 +361,7 @@ class SettingsScreen extends StatelessWidget {
                             } else {
                               timeAgo = '${diff.inDays} ngày trước';
                             }
-                            
+
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -591,15 +370,22 @@ class SettingsScreen extends StatelessWidget {
                                     Icon(
                                       Icons.check_circle_outline,
                                       size: 16,
-                                      color: Theme.of(context).colorScheme.primary,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Thời gian cập nhật dữ liệu:',
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                            fontWeight: FontWeight.w500,
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -608,10 +394,15 @@ class SettingsScreen extends StatelessWidget {
                                   padding: const EdgeInsets.only(left: 22),
                                   child: Text(
                                     '$timeStr ($timeAgo)',
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: Theme.of(context).colorScheme.onSurface,
-                                      fontWeight: FontWeight.bold,
-                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                   ),
                                 ),
                               ],
@@ -796,9 +587,7 @@ class SettingsScreen extends StatelessWidget {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const LogsScreen(),
-                    ),
+                    MaterialPageRoute(builder: (context) => const LogsScreen()),
                   );
                 },
               ),
@@ -846,7 +635,11 @@ class SettingsScreen extends StatelessWidget {
   }
 
   static Future<void> _sendBugReport(BuildContext context) async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final scheduleProvider = Provider.of<ScheduleProvider>(
+      context,
+      listen: false,
+    );
 
     // Gather app info
     String appName = 'TLU Calendar';
@@ -880,14 +673,15 @@ class SettingsScreen extends StatelessWidget {
     }
 
     // Collect user and app state
-    final userId = userProvider.isLoggedIn
-        ? userProvider.currentUser.studentId
+    final userId = authProvider.isLoggedIn
+        ? (authProvider.currentUser?.studentId ?? 'unknown_user')
         : 'not_logged_in';
-    final userName = userProvider.isLoggedIn
-        ? userProvider.currentUser.fullName
+    final userName = authProvider.isLoggedIn
+        ? (authProvider.currentUser?.fullName ?? 'unknown')
         : 'not_logged_in';
+
     final selectedSemester =
-        userProvider.selectedSemester?.semesterName ?? 'unknown';
+        scheduleProvider.selectedSemester?.semesterName ?? 'unknown';
 
     // Get error logs from ErrorLogger
     final errorLogger = ErrorLogger();

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:tlucalendar/providers/user_provider.dart';
+import 'package:tlucalendar/providers/auth_provider.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
+import 'package:tlucalendar/providers/schedule_provider.dart';
 import 'package:tlucalendar/services/log_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -65,21 +66,33 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     try {
-      // Call real TLU API for login
-      await context.read<UserProvider>().loginWithApi(studentCode, password);
+      // 1. Authenticate
+      final success = await context.read<AuthProvider>().login(
+        studentCode,
+        password,
+      );
+
+      if (!success) {
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+              context.read<AuthProvider>().errorMessage ?? 'Đăng nhập thất bại';
+        });
+        return;
+      }
 
       if (!mounted) return;
-      
-      // Pre-cache all exam data for offline mode
-      final userProvider = context.read<UserProvider>();
-      final examProvider = context.read<ExamProvider>();
-      if (userProvider.selectedSemester != null && userProvider.accessToken != null) {
-        // Run in background, don't block login
-        examProvider.preCacheAllExamData(
-          userProvider.accessToken!,
-          userProvider.selectedSemester!.id,
-        );
-// Removed log
+
+      final accessToken = context.read<AuthProvider>().accessToken;
+      if (accessToken != null) {
+        // 2. Initialize Data Providers
+        final scheduleProvider = context.read<ScheduleProvider>();
+        final examProvider = context.read<ExamProvider>();
+
+        // Trigger loads
+        await scheduleProvider.init(accessToken);
+        await examProvider.init(accessToken);
       }
 
       // Show success message
@@ -91,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
 
-      // Go back to settings screen
+      // Return to previous screen (Settings or Home)
       Navigator.of(context).pop();
     } catch (e) {
       setState(
@@ -196,10 +209,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       Expanded(
                         child: Text(
                           _errorMessage!,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onErrorContainer,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: colorScheme.onErrorContainer,
+                                fontWeight: FontWeight.w500,
+                              ),
                         ),
                       ),
                     ],
@@ -281,8 +295,8 @@ class _LoginScreenState extends State<LoginScreen> {
               // Progress indicator (shows when loading)
               if (_isLoading) ...[
                 const SizedBox(height: 24),
-                Consumer<UserProvider>(
-                  builder: (context, userProvider, _) {
+                Consumer<AuthProvider>(
+                  builder: (context, authProvider, _) {
                     return Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -299,29 +313,26 @@ class _LoginScreenState extends State<LoginScreen> {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(4),
                             child: LinearProgressIndicator(
-                              value: userProvider.loginProgressPercent,
+                              value: authProvider.loginProgressPercent,
                               minHeight: 8,
-                              backgroundColor:
-                                  colorScheme.surfaceContainerHigh,
+                              backgroundColor: colorScheme.surfaceContainerHigh,
                               valueColor: AlwaysStoppedAnimation<Color>(
                                 colorScheme.primary,
                               ),
                             ),
                           ),
                           const SizedBox(height: 12),
-                          
+
                           // Progress text and percentage
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Expanded(
                                 child: Text(
-                                  userProvider.loginProgress.isEmpty
+                                  authProvider.loginProgress.isEmpty
                                       ? 'Đang xử lý...'
-                                      : userProvider.loginProgress,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
+                                      : authProvider.loginProgress,
+                                  style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(
                                         fontWeight: FontWeight.w500,
                                         color: colorScheme.onSurface,
@@ -329,10 +340,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                               ),
                               Text(
-                                '${(userProvider.loginProgressPercent * 100).toInt()}%',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
+                                '${(authProvider.loginProgressPercent * 100).toInt()}%',
+                                style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: colorScheme.primary,
@@ -340,16 +349,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ],
                           ),
-                          
+
                           // Helpful message
                           const SizedBox(height: 8),
                           Text(
                             'Đang tải dữ liệu để sử dụng offline. Vui lòng đợi...',
-                            style:
-                                Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                      fontStyle: FontStyle.italic,
-                                    ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontStyle: FontStyle.italic,
+                                ),
                           ),
                         ],
                       ),

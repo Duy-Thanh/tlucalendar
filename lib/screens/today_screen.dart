@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:tlucalendar/providers/user_provider.dart';
+import 'package:tlucalendar/providers/auth_provider.dart';
+import 'package:tlucalendar/providers/schedule_provider.dart';
+import 'package:tlucalendar/features/schedule/domain/entities/course.dart';
 import 'package:tlucalendar/widgets/empty_state_widget.dart';
-import 'package:tlucalendar/models/api_response.dart';
+import 'package:tlucalendar/widgets/schedule_skeleton.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
@@ -20,14 +23,14 @@ class _TodayScreenState extends State<TodayScreen> {
   void initState() {
     super.initState();
     _currentDate = DateTime.now();
-    
-    // Update every second to keep the date fresh
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+
+    // Update every minute (sufficient for class status updates)
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       final now = DateTime.now();
-      // Only rebuild if the date actually changed
-      if (now.day != _currentDate.day || 
-          now.month != _currentDate.month || 
-          now.year != _currentDate.year) {
+      if (now.day != _currentDate.day ||
+          now.month != _currentDate.month ||
+          now.year != _currentDate.year ||
+          now.minute != _currentDate.minute) {
         setState(() {
           _currentDate = now;
         });
@@ -41,34 +44,52 @@ class _TodayScreenState extends State<TodayScreen> {
     super.dispose();
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Chào buổi sáng';
+    if (hour < 18) return 'Chào buổi chiều';
+    return 'Chào buổi tối';
+  }
+
   @override
   Widget build(BuildContext context) {
-    final today = _currentDate;
+    final today = DateTime.now();
     final dayName = _getDayOfWeek(today.weekday);
-    final dateFormat =
-        '$dayName, Ngày ${today.day}/${today.month}/${today.year}';
+    final dateFormat = '$dayName, ${today.day}/${today.month}';
 
-    return Consumer<UserProvider>(
-      builder: (context, userProvider, _) {
-        // Show login prompt if not logged in
-        if (!userProvider.isLoggedIn) {
-          return Center(
+    return Consumer2<AuthProvider, ScheduleProvider>(
+      builder: (context, authProvider, scheduleProvider, _) {
+        if (!authProvider.isLoggedIn) {
+          return const Center(
             child: EmptyStateWidget(
               icon: Icons.lock_outlined,
               title: 'Vui lòng đăng nhập',
               description: 'Đăng nhập để xem lịch học của bạn',
+              lottieAsset: 'assets/lottie/login_required.json',
             ),
           );
         }
 
-        // Get today's courses
-        final todayWeekIndex = today.weekday + 1;
-        final activeCourses = userProvider.getActiveCourses(today);
-        final todaySchedules =
-            activeCourses
-                .where((course) => course.dayOfWeek == todayWeekIndex)
-                .toList()
-              ..sort((a, b) => a.startCourseHour.compareTo(b.startCourseHour));
+        if (scheduleProvider.isLoading) {
+          return const Scaffold(
+            body: SafeArea(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: ScheduleSkeleton(),
+              ),
+            ),
+          );
+        }
+
+        final activeCourses = scheduleProvider.getActiveCourses(today);
+        // todayWeekIndex logic handled inside getActiveCourses
+        final todaySchedules = activeCourses;
+        todaySchedules.sort(
+          (a, b) => a.startCourseHour.compareTo(b.startCourseHour),
+        );
+
+        final userName =
+            authProvider.currentUser?.fullName.split(' ').last ?? 'bạn';
 
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
@@ -76,17 +97,34 @@ class _TodayScreenState extends State<TodayScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
+                // Personalized Greeting Header
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-                  child: Text(
-                    'Hôm nay',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_getGreeting()}, $userName!',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        todaySchedules.isEmpty
+                            ? 'Hôm nay bạn được nghỉ ngơi thoải mái!'
+                            : 'Hôm nay chiến ${todaySchedules.length} môn nhé.',
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                // Date chip
+
+                // Date Chip
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
@@ -94,59 +132,68 @@ class _TodayScreenState extends State<TodayScreen> {
                   ),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                      horizontal: 12,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
                       color: Theme.of(
                         context,
-                      ).colorScheme.primaryContainer.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(16),
+                      ).colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.calendar_today,
-                          size: 18,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onPrimaryContainer,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          dateFormat,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onPrimaryContainer,
-                                fontWeight: FontWeight.w500,
-                              ),
-                        ),
-                      ],
+                    child: Text(
+                      dateFormat,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                // Course list
+
+                const SizedBox(height: 16),
+
+                // Timeline List
                 Expanded(
                   child: todaySchedules.isEmpty
-                      ? EmptyStateWidget(
-                          icon: Icons.school_outlined,
+                      ? const EmptyStateWidget(
+                          icon: Icons.weekend_outlined,
                           title: 'Không có lớp hôm nay',
-                          description: 'Hãy tận hưởng ngày nghỉ của bạn!',
+                          description: 'Dành thời gian cho bản thân nhé!',
+                          lottieAsset: 'assets/lottie/relax.json',
                         )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: todaySchedules.length,
-                          itemBuilder: (context, index) {
-                            return _buildCourseCard(
-                              context,
-                              userProvider,
-                              todaySchedules[index],
-                            );
-                          },
+                      : AnimationLimiter(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 8,
+                            ),
+                            itemCount: todaySchedules.length,
+                            itemBuilder: (context, index) {
+                              final course = todaySchedules[index];
+                              final isLast = index == todaySchedules.length - 1;
+                              final status = _getCourseStatus(
+                                scheduleProvider,
+                                course,
+                              );
+
+                              return AnimationConfiguration.staggeredList(
+                                position: index,
+                                duration: const Duration(milliseconds: 375),
+                                child: SlideAnimation(
+                                  verticalOffset: 50.0,
+                                  child: FadeInAnimation(
+                                    child: _buildTimelineItem(
+                                      context,
+                                      scheduleProvider,
+                                      course,
+                                      isLast,
+                                      status,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                 ),
               ],
@@ -157,202 +204,353 @@ class _TodayScreenState extends State<TodayScreen> {
     );
   }
 
-  Widget _buildCourseCard(
+  Widget _buildTimelineItem(
     BuildContext context,
-    UserProvider userProvider,
-    StudentCourseSubject course,
+    ScheduleProvider scheduleProvider,
+    Course course,
+    bool isLast,
+    _CourseStatus status,
   ) {
-    final timeRange = _getTimeRange(userProvider, course);
     final colorScheme = Theme.of(context).colorScheme;
+    final timeRange = _getTimeRange(scheduleProvider, course);
+    final startTime = timeRange.split('\n')[0];
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colorScheme.primaryContainer,
-            colorScheme.secondaryContainer.withOpacity(0.5),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.primary.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    Color cardColor;
+    Color contentColor;
+    Color borderColor = Colors.transparent;
+    double elevation = 0;
+    bool isCurrent = false;
+
+    switch (status) {
+      case _CourseStatus.past:
+        cardColor = colorScheme.surfaceContainerHighest.withOpacity(0.5);
+        contentColor = colorScheme.onSurfaceVariant.withOpacity(0.7);
+        break;
+      case _CourseStatus.current:
+        cardColor = colorScheme.primaryContainer;
+        contentColor = colorScheme.onPrimaryContainer;
+        borderColor = colorScheme.primary;
+        elevation = 4;
+        isCurrent = true;
+        break;
+      case _CourseStatus.future:
+        cardColor = colorScheme.surfaceContainerLow;
+        contentColor = colorScheme.onSurface;
+        borderColor = colorScheme.outlineVariant.withOpacity(0.5);
+        break;
+    }
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Timeline Column
+          SizedBox(
+            width: 50,
+            child: Column(
+              children: [
+                Text(
+                  startTime,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: isCurrent
+                        ? colorScheme.primary
+                        : colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: isCurrent
+                        ? colorScheme.primary
+                        : colorScheme.outlineVariant,
+                    shape: BoxShape.circle,
+                    border: isCurrent
+                        ? Border.all(color: colorScheme.surface, width: 2)
+                        : null,
+                    boxShadow: isCurrent
+                        ? [
+                            BoxShadow(
+                              color: colorScheme.primary.withOpacity(0.4),
+                              blurRadius: 6,
+                              spreadRadius: 2,
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      color: colorScheme.outlineVariant.withOpacity(0.5),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+          // Card
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: _PulseWrapper(
+                isPulsing: isCurrent,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderColor),
+                    boxShadow: elevation > 0
+                        ? [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(
+                                0.05,
+                              ), // Fixed shadow color
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                course.courseName,
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: contentColor,
+                                    ),
+                              ),
+                            ),
+                            if (isCurrent)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Đang học',
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        color: colorScheme.onPrimary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.room,
+                              size: 16,
+                              color: status == _CourseStatus.current
+                                  ? contentColor.withOpacity(0.8)
+                                  : colorScheme.outline,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              course.room.isNotEmpty
+                                  ? course.room
+                                  : 'Chưa có phòng',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: status == _CourseStatus.current
+                                        ? contentColor.withOpacity(0.9)
+                                        : colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                course.courseCode,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: status == _CourseStatus.current
+                                          ? contentColor.withOpacity(0.7)
+                                          : colorScheme.outline,
+                                      fontSize: 10,
+                                    ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
         ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Enhanced time block on the left
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    colorScheme.surface,
-                    colorScheme.surfaceContainerHighest,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: colorScheme.outline.withOpacity(0.1),
-                  width: 1,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.schedule,
-                    size: 18,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    timeRange.split('\n')[0], // Start time
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onSurface,
-                      letterSpacing: -0.3,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Container(
-                    width: 2,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          colorScheme.primary,
-                          colorScheme.primary.withOpacity(0.3),
-                        ],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      borderRadius: BorderRadius.circular(1),
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    timeRange.split('\n')[1], // End time
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 14),
-            // Enhanced course details on the right
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    course.courseName,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      height: 1.25,
-                      letterSpacing: 0.1,
-                      fontSize: 15,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: colorScheme.tertiaryContainer.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      course.courseCode,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colorScheme.onTertiaryContainer,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: colorScheme.surface.withOpacity(0.7),
-                          borderRadius: BorderRadius.circular(7),
-                        ),
-                        child: Icon(
-                          Icons.location_on,
-                          size: 14,
-                          color: colorScheme.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      Flexible(
-                        child: Text(
-                          course.building.isNotEmpty
-                              ? '${course.room}-${course.building}'
-                              : course.room,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 12,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
 
-  String _getDayOfWeek(int weekday) {
-    // Monday = 1, Sunday = 7
-    // In Vietnamese: Monday-Saturday use "Thứ" prefix, Sunday is just "Chủ Nhật"
-    const days = [
-      'Thứ Hai', // Monday (1)
-      'Thứ Ba', // Tuesday (2)
-      'Thứ Tư', // Wednesday (3)
-      'Thứ Năm', // Thursday (4)
-      'Thứ Sáu', // Friday (5)
-      'Thứ Bảy', // Saturday (6)
-      'Chủ Nhật', // Sunday (7)
-    ];
-    if (weekday >= 1 && weekday <= 7) {
-      return days[weekday - 1];
+  _CourseStatus _getCourseStatus(
+    ScheduleProvider scheduleProvider,
+    Course course,
+  ) {
+    if (scheduleProvider.courseHours.isEmpty) return _CourseStatus.future;
+
+    final startHour = scheduleProvider.courseHours
+        .where((h) => h.indexNumber == course.startCourseHour)
+        .firstOrNull;
+    final endHour = scheduleProvider.courseHours
+        .where((h) => h.indexNumber == course.endCourseHour)
+        .firstOrNull;
+
+    if (startHour == null || endHour == null) return _CourseStatus.future;
+
+    final now = DateTime.now();
+    // Parse "HH:mm"
+    final startParts = startHour.startString.split(':');
+    final endParts = endHour.endString.split(':');
+
+    final startTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      int.parse(startParts[0]),
+      int.parse(startParts[1]),
+    );
+    final endTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      int.parse(endParts[0]),
+      int.parse(endParts[1]),
+    );
+
+    if (now.isAfter(endTime)) {
+      return _CourseStatus.past;
+    } else if (now.isAfter(startTime) && now.isBefore(endTime)) {
+      return _CourseStatus.current;
+    } else {
+      return _CourseStatus.future;
     }
+  }
+
+  String _getDayOfWeek(int weekday) {
+    const days = [
+      'Thứ Hai',
+      'Thứ Ba',
+      'Thứ Tư',
+      'Thứ Năm',
+      'Thứ Sáu',
+      'Thứ Bảy',
+      'Chủ Nhật',
+    ];
+    if (weekday >= 1 && weekday <= 7) return days[weekday - 1];
     return '';
   }
 
-  String _getTimeRange(UserProvider userProvider, StudentCourseSubject course) {
-    final startHour = userProvider.courseHours[course.startCourseHour];
-    final endHour = userProvider.courseHours[course.endCourseHour];
+  String _getTimeRange(ScheduleProvider scheduleProvider, Course course) {
+    if (scheduleProvider.courseHours.isEmpty) {
+      return 'Tiết ${course.startCourseHour}\nTiết ${course.endCourseHour}';
+    }
+
+    final startHour = scheduleProvider.courseHours
+        .where((h) => h.indexNumber == course.startCourseHour)
+        .firstOrNull;
+    final endHour = scheduleProvider.courseHours
+        .where((h) => h.indexNumber == course.endCourseHour)
+        .firstOrNull;
 
     if (startHour != null && endHour != null) {
       return '${startHour.startString}\n${endHour.endString}';
     }
-
     return 'Tiết ${course.startCourseHour}\nTiết ${course.endCourseHour}';
+  }
+}
+
+enum _CourseStatus { past, current, future }
+
+class _PulseWrapper extends StatefulWidget {
+  final Widget child;
+  final bool isPulsing;
+
+  const _PulseWrapper({required this.child, this.isPulsing = false});
+
+  @override
+  State<_PulseWrapper> createState() => _PulseWrapperState();
+}
+
+class _PulseWrapperState extends State<_PulseWrapper>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.02,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+    if (widget.isPulsing) {
+      _controller.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_PulseWrapper oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isPulsing != oldWidget.isPulsing) {
+      if (widget.isPulsing) {
+        _controller.repeat(reverse: true);
+      } else {
+        _controller.stop();
+        _controller.reset();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isPulsing) return widget.child;
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.scale(scale: _scaleAnimation.value, child: child);
+      },
+      child: widget.child,
+    );
   }
 }

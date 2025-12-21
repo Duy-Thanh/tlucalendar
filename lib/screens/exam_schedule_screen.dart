@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
-import 'package:tlucalendar/providers/user_provider.dart';
+import 'package:tlucalendar/providers/auth_provider.dart';
 import 'package:tlucalendar/models/api_response.dart';
+import 'package:tlucalendar/widgets/schedule_skeleton.dart';
+import 'package:tlucalendar/widgets/empty_state_widget.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class ExamScheduleScreen extends StatefulWidget {
   const ExamScheduleScreen({super.key});
@@ -20,115 +24,134 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_hasInitialized) {
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
-        if (userProvider.isLoggedIn) {
-          _loadExamSchedule();
-          _loadAvailableSemesters();
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        if (authProvider.isLoggedIn) {
+          // Trigger data loading
+          _loadData();
           _hasInitialized = true;
-          _lastLoginState = userProvider.isLoggedIn;
+          _lastLoginState = authProvider.isLoggedIn;
         }
       }
     });
   }
 
-  Future<void> _loadAvailableSemesters() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+  Future<void> _loadData() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final examProvider = Provider.of<ExamProvider>(context, listen: false);
 
-    if (!userProvider.isLoggedIn) {
-      return;
-    }
+    if (!authProvider.isLoggedIn || authProvider.accessToken == null) return;
 
-    await examProvider.fetchAvailableSemesters(userProvider.accessToken!);
+    // 1. Load Semesters
+    await examProvider.fetchAvailableSemesters(authProvider.accessToken!);
+
+    // 2. If semester selected (auto-selected by provider), load exam schedule
+    if (examProvider.selectedSemesterId != null) {
+      await _loadExamSchedule(examProvider.selectedSemesterId!);
+    }
   }
 
-  Future<void> _loadExamSchedule() async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
+  Future<void> _loadExamSchedule(int semesterId) async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final examProvider = Provider.of<ExamProvider>(context, listen: false);
 
-    if (!userProvider.isLoggedIn) {
-      return;
-    }
-
-    final selectedSemester = userProvider.selectedSemester;
-    if (selectedSemester == null) {
+    if (!authProvider.isLoggedIn) {
       return;
     }
 
     // Always try to load data, whether from cache or API
     // Check if we have cached data first
-    final hasCache = await examProvider.hasRegisterPeriodsCache(selectedSemester.id);
-    
+    final hasCache = await examProvider.hasRegisterPeriodsCache(semesterId);
+
     if (hasCache) {
       // Load from cache without API call
-      await examProvider.selectSemesterFromCache(selectedSemester.id);
+      await examProvider.selectSemesterFromCache(semesterId);
     } else {
       // No cache, fetch from API (will handle null token gracefully)
-      await examProvider.selectSemester(
-        userProvider.accessToken,
-        selectedSemester.id,
-      );
+      await examProvider.selectSemester(authProvider.accessToken!, semesterId);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<UserProvider, ExamProvider>(
-      builder: (context, userProvider, examProvider, _) {
+    return Consumer2<AuthProvider, ExamProvider>(
+      builder: (context, authProvider, examProvider, _) {
         // Check if login state changed and schedule reinitialize after build
-        if (_lastLoginState != userProvider.isLoggedIn) {
-          _lastLoginState = userProvider.isLoggedIn;
+        if (_lastLoginState != authProvider.isLoggedIn) {
+          _lastLoginState = authProvider.isLoggedIn;
           _hasInitialized = false;
-          
+
           // Schedule initialization for after the build completes
-          if (userProvider.isLoggedIn && !_hasInitialized) {
+          if (authProvider.isLoggedIn && !_hasInitialized) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted && !_hasInitialized) {
-                _loadExamSchedule();
-                _loadAvailableSemesters();
+                _loadData();
                 _hasInitialized = true;
               }
             });
           }
         }
-        
-        if (!userProvider.isLoggedIn) {
+
+        if (!authProvider.isLoggedIn) {
           return _buildNotLoggedIn();
         }
 
-        if (userProvider.selectedSemester == null) {
-          return _buildNoSemesterSelected();
+        // If loading semesters, show skeleton
+        if (examProvider.isLoadingSemesters) {
+          return const Scaffold(body: SafeArea(child: ScheduleSkeleton()));
+        }
+
+        if (examProvider.errorMessage != null &&
+            examProvider.availableSemesters.isEmpty) {
+          // Error loading semesters
+          return _buildError(examProvider.errorMessage!, _loadData);
+        }
+
+        if (examProvider.availableSemesters.isEmpty) {
+          return const Scaffold(
+            body: Center(child: Text("Không tìm thấy học kỳ nào")),
+          );
         }
 
         if (examProvider.isLoading) {
-          return _buildLoading();
+          // Loading schedules
+          return const Scaffold(body: SafeArea(child: ScheduleSkeleton()));
         }
 
         if (examProvider.errorMessage != null) {
-          return _buildError(examProvider.errorMessage!, _loadExamSchedule);
+          return _buildError(examProvider.errorMessage!, () async {
+            if (examProvider.selectedSemesterId != null) {
+              _loadExamSchedule(examProvider.selectedSemesterId!);
+            } else {
+              _loadData();
+            }
+          });
         }
 
-        // If no semester is selected yet in exam provider, show loading
-        if (examProvider.selectedSemesterId == null) {
-          return _buildLoading();
+        // Check if exams/periods found
+        // If registerPeriods empty, maybe no exams?
+        if (examProvider.registerPeriods.isEmpty && !examProvider.isLoading) {
+          // This might happen if semester has no register periods?
+          // Show empty state inside scaffold
+          return Scaffold(
+            appBar: AppBar(title: const Text('Lịch thi')),
+            body: _buildNoExams(),
+          );
         }
 
-        if (examProvider.registerPeriods.isEmpty) {
-          return _buildNoExams();
-        }
-
-        return _buildExamSchedule(context, userProvider, examProvider);
+        return _buildExamSchedule(context, authProvider, examProvider);
       },
     );
   }
 
   Widget _buildExamSchedule(
     BuildContext context,
-    UserProvider userProvider,
+    AuthProvider authProvider,
     ExamProvider examProvider,
   ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    
+    // colorScheme variable removed as it was unused
+    final selectedSemesterName =
+        examProvider.selectedSemester?.semesterName ?? 'Chọn học kỳ';
+
     return CustomScrollView(
       slivers: [
         SliverAppBar(
@@ -141,399 +164,89 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
               context,
             ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
           ),
-        ),
-        // Semester info
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Chọn học kỳ',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(60),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  _showFilterBottomSheet(context, examProvider, authProvider);
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
                     ),
-                    const SizedBox(height: 8),
-                    if (examProvider.isLoadingSemesters)
-                      const Center(child: CircularProgressIndicator())
-                    else if (examProvider.availableSemesters.isNotEmpty)
-                      Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              colorScheme.primaryContainer.withOpacity(0.6),
-                              colorScheme.secondaryContainer.withOpacity(0.4),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: colorScheme.outline.withOpacity(0.2),
-                            width: 1,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: colorScheme.primary.withOpacity(0.08),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.tune,
+                        size: 20,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Bộ lọc hiển thị',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$selectedSemesterName • Lần ${examProvider.selectedExamRound}',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
-                        child: DropdownButtonFormField<int>(
-                        value: examProvider.selectedSemesterId,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Colors.transparent,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none,
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                        ),
-                        icon: Icon(
-                          Icons.arrow_drop_down_rounded,
-                          color: colorScheme.primary,
-                        ),
-                        dropdownColor: colorScheme.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        items: examProvider.availableSemesters
-                            .map(
-                              (semester) {
-                                final isSelected = semester.id == examProvider.selectedSemesterId;
-                                return DropdownMenuItem<int>(
-                                  value: semester.id,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (isSelected)
-                                        Padding(
-                                          padding: const EdgeInsets.only(right: 8),
-                                          child: Icon(
-                                            Icons.check_circle,
-                                            size: 16,
-                                            color: colorScheme.primary,
-                                          ),
-                                        ),
-                                      Flexible(
-                                        child: Text(
-                                          semester.semesterName,
-                                          style: TextStyle(
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                            fontSize: 14,
-                                            color: colorScheme.onSurface,
-                                          ),
-                                        ),
-                                      ),
-                                      if (semester.isCurrent) ...[
-                                        const SizedBox(width: 12),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 3,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                colorScheme.tertiary,
-                                                colorScheme.tertiary.withOpacity(0.8),
-                                              ],
-                                            ),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            'Hiện tại',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: colorScheme.onTertiary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                );
-                              },
-                            )
-                            .toList(),
-                        onChanged: (value) async {
-                          if (value != null) {
-                            await examProvider.selectSemester(
-                              userProvider.accessToken,
-                              value,
-                            );
-                          }
-                        },
                       ),
-                      )
-                    else
-                      Text(
-                        userProvider.selectedSemester?.semesterName ??
-                            'Không có học kỳ',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                  ],
+                      const Icon(Icons.keyboard_arrow_down),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
-        // Register period filter
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Đợt học',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            colorScheme.primaryContainer.withOpacity(0.6),
-                            colorScheme.secondaryContainer.withOpacity(0.4),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: colorScheme.outline.withOpacity(0.2),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.primary.withOpacity(0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: DropdownButtonFormField<int>(
-                      value: examProvider.selectedRegisterPeriodId,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.transparent,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                      ),
-                      icon: Icon(
-                        Icons.arrow_drop_down_rounded,
-                        color: colorScheme.primary,
-                      ),
-                      dropdownColor: colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      items: examProvider.registerPeriods
-                          .map(
-                            (period) {
-                              final isSelected = period.id == examProvider.selectedRegisterPeriodId;
-                              return DropdownMenuItem<int>(
-                                value: period.id,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (isSelected)
-                                      Padding(
-                                        padding: const EdgeInsets.only(right: 8),
-                                        child: Icon(
-                                          Icons.check_circle,
-                                          size: 16,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
-                                    Flexible(
-                                      child: Text(
-                                        period.name,
-                                        style: TextStyle(
-                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                          fontSize: 14,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null &&
-                            examProvider.selectedSemesterId != null) {
-                          // selectRegisterPeriod now handles fetching internally
-                          examProvider.selectRegisterPeriod(
-                            userProvider.accessToken,
-                            examProvider.selectedSemesterId!,
-                            value,
-                            examProvider.selectedExamRound,
-                          );
-                        }
-                      },
-                    ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        // Exam round selector
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Lần thi',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            colorScheme.primaryContainer.withOpacity(0.6),
-                            colorScheme.secondaryContainer.withOpacity(0.4),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: colorScheme.outline.withOpacity(0.2),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.primary.withOpacity(0.08),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: DropdownButtonFormField<int>(
-                      value: examProvider.selectedExamRound,
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: Colors.transparent,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                      ),
-                      icon: Icon(
-                        Icons.arrow_drop_down_rounded,
-                        color: colorScheme.primary,
-                      ),
-                      dropdownColor: colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      items: [1, 2, 3, 4, 5]
-                          .map(
-                            (round) {
-                              final isSelected = round == examProvider.selectedExamRound;
-                              return DropdownMenuItem<int>(
-                                value: round,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (isSelected)
-                                      Padding(
-                                        padding: const EdgeInsets.only(right: 8),
-                                        child: Icon(
-                                          Icons.check_circle,
-                                          size: 16,
-                                          color: colorScheme.primary,
-                                        ),
-                                      ),
-                                    Flexible(
-                                      child: Text(
-                                        'Lần $round',
-                                        style: TextStyle(
-                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                          fontSize: 14,
-                                          color: colorScheme.onSurface,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null &&
-                            examProvider.selectedSemesterId != null &&
-                            examProvider.selectedRegisterPeriodId != null) {
-                          examProvider.selectExamRound(value);
-                          // Fetch exam room details when round changes
-                          examProvider.fetchExamRoomDetails(
-                            userProvider.accessToken,
-                            examProvider.selectedSemesterId!,
-                            examProvider.selectedRegisterPeriodId!,
-                            value,
-                          );
-                        }
-                      },
-                    ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+
         // Exam room details
-        _buildExamRoomDetails(context, userProvider, examProvider),
+        _buildExamRoomDetails(context, authProvider, examProvider),
+
+        // Add some bottom padding for floating action buttons or just spacing
+        const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
   }
 
   Widget _buildExamRoomDetails(
     BuildContext context,
-    UserProvider userProvider,
+    AuthProvider authProvider,
     ExamProvider examProvider,
   ) {
     if (examProvider.isLoadingRooms) {
       return const SliverToBoxAdapter(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Center(child: CircularProgressIndicator()),
-        ),
+        child: Padding(padding: EdgeInsets.all(16), child: ScheduleSkeleton()),
       );
     }
 
@@ -560,10 +273,11 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () {
+                      HapticFeedback.lightImpact();
                       if (examProvider.selectedSemesterId != null &&
                           examProvider.selectedRegisterPeriodId != null) {
                         examProvider.fetchExamRoomDetails(
-                          userProvider.accessToken!,
+                          authProvider.accessToken!,
                           examProvider.selectedSemesterId!,
                           examProvider.selectedRegisterPeriodId!,
                           examProvider.selectedExamRound,
@@ -613,8 +327,9 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                     examProvider.selectedRegisterPeriodId != null)
                   ElevatedButton.icon(
                     onPressed: () {
+                      HapticFeedback.lightImpact();
                       examProvider.fetchExamRoomDetails(
-                        userProvider.accessToken!,
+                        authProvider.accessToken!,
                         examProvider.selectedSemesterId!,
                         examProvider.selectedRegisterPeriodId!,
                         examProvider.selectedExamRound,
@@ -633,8 +348,209 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
         final examRoom = examProvider.examRooms[index];
-        return _buildExamRoomCard(context, examRoom, index);
+        return AnimationConfiguration.staggeredList(
+          position: index,
+          duration: const Duration(milliseconds: 375),
+          child: SlideAnimation(
+            verticalOffset: 50.0,
+            child: FadeInAnimation(
+              child: _buildExamRoomCard(context, examRoom, index),
+            ),
+          ),
+        );
       }, childCount: examProvider.examRooms.length),
+    );
+  }
+
+  void _showFilterBottomSheet(
+    BuildContext context,
+    ExamProvider examProvider,
+    AuthProvider authProvider,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Consumer<ExamProvider>(
+          builder: (context, provider, _) {
+            // Need to wrap in Consumer to listen to state changes inside the sheet
+            return DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              minChildSize: 0.4,
+              maxChildSize: 0.9,
+              expand: false,
+              builder: (context, scrollController) {
+                return SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'Bộ lọc lịch thi',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // 1. Semester Selector
+                      Text(
+                        'Học kỳ',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<int>(
+                        value: provider.selectedSemesterId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                        ),
+                        items: provider.availableSemesters.map((s) {
+                          return DropdownMenuItem(
+                            value: s.id,
+                            child: Text(
+                              s.semesterName,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            HapticFeedback.lightImpact();
+                            // Update selected semester and reload
+                            provider.selectSemester(
+                              authProvider.accessToken!,
+                              val,
+                            );
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // 2. Register Period Selector
+                      Text(
+                        'Đợt học',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<int>(
+                        value: provider.selectedRegisterPeriodId,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                        ),
+                        items: provider.registerPeriods.map((p) {
+                          return DropdownMenuItem(
+                            value: p.id,
+                            child: Text(
+                              p.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null &&
+                              provider.selectedSemesterId != null) {
+                            HapticFeedback.lightImpact();
+                            provider.selectRegisterPeriod(
+                              authProvider.accessToken!,
+                              provider.selectedSemesterId!,
+                              val,
+                              provider.selectedExamRound,
+                            );
+                          }
+                        },
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // 3. Exam Round Selector
+                      Text(
+                        'Lần thi',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Chips
+                      Wrap(
+                        spacing: 8,
+                        children: [1, 2, 3, 4, 5].map((round) {
+                          final isSelected =
+                              round == provider.selectedExamRound;
+                          return ChoiceChip(
+                            label: Text('Lần $round'),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              if (selected) {
+                                HapticFeedback.lightImpact();
+                                if (provider.selectedSemesterId != null &&
+                                    provider.selectedRegisterPeriodId != null) {
+                                  provider.selectExamRound(round);
+                                  provider.fetchExamRoomDetails(
+                                    authProvider.accessToken!,
+                                    provider.selectedSemesterId!,
+                                    provider.selectedRegisterPeriodId!,
+                                    round,
+                                  );
+                                }
+                              }
+                            },
+                          );
+                        }).toList(),
+                      ),
+
+                      const SizedBox(height: 40),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: FilledButton(
+                          onPressed: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Xong'),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 
@@ -644,7 +560,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     int index,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return Padding(
       key: ValueKey(examRoom.id), // Add unique key to preserve widget identity
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -697,12 +613,13 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                       ),
                       child: Text(
                         'STT ${index + 1}',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: colorScheme.onPrimary,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                          fontSize: 12,
-                        ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: colorScheme.onPrimary,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                              fontSize: 12,
+                            ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -803,9 +720,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                           const SizedBox(height: 8),
                           Text(
                             'Chưa có thông tin phòng thi',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.outline,
-                            ),
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: colorScheme.outline),
                           ),
                         ],
                       ),
@@ -827,7 +743,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     IconData icon,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Container(
@@ -848,11 +764,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                 color: colorScheme.primaryContainer.withOpacity(0.5),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(
-                icon,
-                size: 18,
-                color: colorScheme.primary,
-              ),
+              child: Icon(icon, size: 18, color: colorScheme.primary),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -886,135 +798,36 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   }
 
   Widget _buildNotLoggedIn() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.lock_outline,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Chưa đăng nhập',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Vui lòng đăng nhập để xem lịch thi',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
+    return const EmptyStateWidget(
+      icon: Icons.lock_outline,
+      title: 'Chưa đăng nhập',
+      description: 'Vui lòng đăng nhập để xem lịch thi',
+      lottieAsset: 'assets/lottie/login_required.json',
     );
   }
 
-  Widget _buildNoSemesterSelected() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.event_busy,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Chưa chọn học kỳ',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Vui lòng chọn học kỳ trong cài đặt',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoading() {
-    return const Center(child: CircularProgressIndicator());
-  }
-
-  Widget _buildError(String error, VoidCallback onRetry) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Lỗi tải dữ liệu',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Thử lại'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // _buildNoSemesterSelected removed as handled by examProvider.selectedSemesterId checks or _buildError
 
   Widget _buildNoExams() {
+    return const EmptyStateWidget(
+      icon: Icons.event_available,
+      title: 'Không có lịch thi',
+      description: 'Không tìm thấy lịch thi nào cho kỳ học này',
+      lottieAsset: 'assets/lottie/empty_schedule.json',
+    );
+  }
+
+  Widget _buildError(String message, VoidCallback onRetry) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.event_available,
-              size: 64,
-              color: Theme.of(context).colorScheme.outline,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Không có lịch thi',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Chưa có lịch thi nào được công bố cho học kỳ này',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.outline,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(message, textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          ElevatedButton(onPressed: onRetry, child: const Text("Thử lại")),
+        ],
       ),
     );
   }

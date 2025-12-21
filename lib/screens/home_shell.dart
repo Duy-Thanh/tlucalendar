@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/screens/today_screen.dart';
@@ -6,7 +7,7 @@ import 'package:tlucalendar/screens/calendar_screen.dart';
 import 'package:tlucalendar/screens/exam_schedule_screen.dart';
 import 'package:tlucalendar/screens/settings_screen.dart';
 import 'package:tlucalendar/services/auto_refresh_service.dart';
-import 'package:tlucalendar/providers/user_provider.dart';
+import 'package:tlucalendar/providers/auth_provider.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -15,7 +16,8 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, TickerProviderStateMixin {
+class _HomeShellState extends State<HomeShell>
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   int _selectedIndex = 0;
   Timer? _refreshCheckTimer;
   late List<AnimationController> _animationControllers;
@@ -33,7 +35,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, Tick
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkDataRefresh(); // Check on first load
-    
+
     // Initialize animation controllers for each tab
     _animationControllers = List.generate(
       4,
@@ -42,14 +44,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, Tick
         vsync: this,
       ),
     );
-    
+
     // Initialize scale animations
     _scaleAnimations = _animationControllers.map((controller) {
-      return Tween<double>(begin: 1.0, end: 1.15).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeOutBack),
-      );
+      return Tween<double>(
+        begin: 1.0,
+        end: 1.15,
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutBack));
     }).toList();
-    
+
     // Start periodic check every 10 seconds when app is in foreground
     _startRefreshCheckTimer();
   }
@@ -77,7 +80,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, Tick
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    
+
     // When app resumes from background, check if data was refreshed
     if (state == AppLifecycleState.resumed) {
       _checkDataRefresh();
@@ -90,20 +93,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, Tick
   /// Check if data was refreshed and reload UI if needed
   Future<void> _checkDataRefresh() async {
     final isRefreshPending = await AutoRefreshService.isDataRefreshPending();
-    
+
     if (isRefreshPending && mounted) {
       debugPrint('🔄 [HomeShell] Data refresh detected, reloading UI...');
-      
+
       // Clear the pending flag first to prevent duplicate reloads
       await AutoRefreshService.clearDataRefreshPending();
-      
+
       // Re-initialize user provider to reload all data from database
       try {
-        final userProvider = Provider.of<UserProvider>(context, listen: false);
-        await userProvider.init();
-        
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        await authProvider.init();
+
         debugPrint('✅ [HomeShell] UI reloaded successfully');
-        
+
         // Show a snackbar to inform user
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -125,28 +128,25 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, Tick
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       // Use IndexedStack to preserve state of each tab so screens aren't
       // recreated when switching tabs. This prevents re-running initState
       // (and thus avoids unnecessary API calls) when returning to a tab.
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
           child: Container(
             height: 56,
             decoration: BoxDecoration(
-              color: isDark 
+              color: isDark
                   ? colorScheme.surfaceContainerHigh
                   : colorScheme.surface,
               borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: isDark 
+                  color: isDark
                       ? Colors.black.withOpacity(0.3)
                       : colorScheme.shadow.withOpacity(0.08),
                   blurRadius: 16,
@@ -168,11 +168,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, Tick
                 backgroundColor: Colors.transparent,
                 selectedIndex: _selectedIndex,
                 onDestinationSelected: (int index) {
+                  HapticFeedback.lightImpact(); // Add haptic feedback
                   // Animate the tapped icon
                   _animationControllers[index].forward().then((_) {
                     _animationControllers[index].reverse();
                   });
-                  
+
                   setState(() {
                     _selectedIndex = index;
                   });
