@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:tlucalendar/core/error/failures.dart';
 import 'package:tlucalendar/core/network/network_client.dart';
-import 'package:tlucalendar/core/parser/json_parser.dart';
+
 import 'package:tlucalendar/features/exam/data/models/exam_room_model.dart';
 import 'package:tlucalendar/features/exam/data/models/exam_schedule_model.dart';
 import 'package:tlucalendar/core/native/native_parser.dart';
@@ -23,9 +23,8 @@ abstract class ExamRemoteDataSource {
 
 class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
   final NetworkClient client;
-  final JsonParser jsonParser;
 
-  ExamRemoteDataSourceImpl({required this.client, required this.jsonParser});
+  ExamRemoteDataSourceImpl({required this.client});
 
   @override
   Future<List<ExamScheduleModel>> getExamSchedules(

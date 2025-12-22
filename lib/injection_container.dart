@@ -1,7 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tlucalendar/core/network/network_client.dart';
-import 'package:tlucalendar/core/parser/json_parser.dart';
+
 import 'package:tlucalendar/features/auth/data/datasources/auth_local_data_source.dart';
 import 'package:tlucalendar/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:tlucalendar/features/auth/data/repositories/auth_repository_impl.dart';
@@ -48,7 +48,7 @@ Future<void> init() async {
 
   // Data Sources
   sl.registerLazySingleton<AuthRemoteDataSource>(
-    () => AuthRemoteDataSourceImpl(client: sl(), jsonParser: sl()),
+    () => AuthRemoteDataSourceImpl(client: sl()),
   );
   sl.registerLazySingleton<AuthLocalDataSource>(
     () => AuthLocalDataSourceImpl(
@@ -84,7 +84,7 @@ Future<void> init() async {
   // Data Sources
   // Data Sources
   sl.registerLazySingleton<ExamRemoteDataSource>(
-    () => ExamRemoteDataSourceImpl(client: sl(), jsonParser: sl()),
+    () => ExamRemoteDataSourceImpl(client: sl()),
   );
   sl.registerLazySingleton<ExamLocalDataSource>(
     () => ExamLocalDataSourceImpl(databaseHelper: DatabaseHelper.instance),
@@ -92,7 +92,7 @@ Future<void> init() async {
 
   // Data Sources
   sl.registerLazySingleton<ScheduleRemoteDataSource>(
-    () => ScheduleRemoteDataSourceImpl(client: sl(), jsonParser: sl()),
+    () => ScheduleRemoteDataSourceImpl(client: sl()),
   );
   sl.registerLazySingleton<ScheduleLocalDataSource>(
     () => ScheduleLocalDataSourceImpl(databaseHelper: DatabaseHelper.instance),
@@ -102,7 +102,6 @@ Future<void> init() async {
   sl.registerLazySingleton<NetworkClient>(
     () => NetworkClient(baseUrl: 'https://sinhvien1.tlu.edu.vn/education'),
   );
-  sl.registerLazySingleton<JsonParser>(() => DartJsonParser());
 
   //! Providers
   sl.registerLazySingleton(

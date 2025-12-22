@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tlucalendar/core/network/network_client.dart';
-import 'package:tlucalendar/core/parser/json_parser.dart';
+
 import 'package:tlucalendar/features/auth/data/datasources/auth_remote_data_source.dart';
 import 'package:tlucalendar/features/schedule/data/datasources/schedule_remote_data_source.dart';
 import 'package:tlucalendar/features/schedule/data/models/semester_model.dart';
@@ -62,11 +62,8 @@ class AutoRefreshService {
       final networkClient = NetworkClient(
         baseUrl: 'https://sinhvien1.tlu.edu.vn/education',
       );
-      final jsonParser = DartJsonParser();
-      final authRemote = AuthRemoteDataSourceImpl(
-        client: networkClient,
-        jsonParser: jsonParser,
-      );
+
+      final authRemote = AuthRemoteDataSourceImpl(client: networkClient);
 
       final tokenMap = await authRemote.login(studentCode, password);
       final accessToken = tokenMap['access_token'];
@@ -82,7 +79,6 @@ class AutoRefreshService {
       // 2. Fetch Data
       final scheduleRemote = ScheduleRemoteDataSourceImpl(
         client: networkClient,
-        jsonParser: jsonParser,
       );
       final dbHelper = DatabaseHelper.instance;
 
@@ -144,10 +140,7 @@ class AutoRefreshService {
 
       final rawTokenStr = prefs.getString('rawToken');
 
-      final examRemote = ExamRemoteDataSourceImpl(
-        client: networkClient,
-        jsonParser: jsonParser,
-      );
+      final examRemote = ExamRemoteDataSourceImpl(client: networkClient);
       final examLocal = ExamLocalDataSourceImpl(databaseHelper: dbHelper);
 
       try {

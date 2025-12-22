@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:tlucalendar/core/error/failures.dart';
 import 'package:tlucalendar/core/network/network_client.dart';
-import 'package:tlucalendar/core/parser/json_parser.dart';
+
 import 'package:tlucalendar/features/auth/data/models/user_model.dart';
 import 'package:tlucalendar/core/native/native_parser.dart';
 
@@ -12,9 +12,8 @@ abstract class AuthRemoteDataSource {
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   final NetworkClient client;
-  final JsonParser jsonParser;
 
-  AuthRemoteDataSourceImpl({required this.client, required this.jsonParser});
+  AuthRemoteDataSourceImpl({required this.client});
 
   static const String _tokenEndpoint = '/oauth/token';
   static const String _userEndpoint = '/api/users/getCurrentUser';
