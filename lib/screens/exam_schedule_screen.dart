@@ -648,27 +648,9 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                                   fontSize: 15,
                                 ),
                           ),
-                          if (examRoom.examCode != null) ...[
-                            const SizedBox(height: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHighest,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                'SBD: ${examRoom.examCode}',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 11,
-                                    ),
-                              ),
-                            ),
+                          if (examRoom.studentCode != null) ...[
+                            // Keep layout structure if needed, or just remove.
+                            // Removing chip to avoid duplication as requested by plan.
                           ],
                         ],
                       ),
@@ -684,6 +666,12 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                   ),
                 ),
                 if (examRoom.examRoom != null) ...[
+                  _buildDetailRow(
+                    context,
+                    'Số báo danh',
+                    examRoom.examCode ?? 'Chưa có',
+                    Icons.badge,
+                  ),
                   _buildDetailRow(
                     context,
                     'Ngày thi',

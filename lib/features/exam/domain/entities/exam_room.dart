@@ -4,6 +4,7 @@ class ExamRoom extends Equatable {
   final int id;
   final String subjectName;
   final String examPeriodCode;
+  final String? examCode;
   final String? studentCode;
   final DateTime? examDate;
   final String? examTime; // e.g. "07:00"
@@ -17,6 +18,7 @@ class ExamRoom extends Equatable {
     required this.id,
     required this.subjectName,
     required this.examPeriodCode,
+    this.examCode,
     this.studentCode,
     this.examDate,
     this.examTime,
@@ -32,6 +34,7 @@ class ExamRoom extends Equatable {
     id,
     subjectName,
     examPeriodCode,
+    examCode,
     examDate,
     roomName,
     numberExpectedStudent,

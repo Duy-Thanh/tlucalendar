@@ -289,7 +289,7 @@ class ExamProvider with ChangeNotifier {
             studentCode: e.studentCode,
             examRound: 0,
             examRoom: detail,
-            examCode: null,
+            examCode: e.examCode,
           );
         }).toList();
       });

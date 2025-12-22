@@ -85,6 +85,7 @@ class ExamLocalDataSourceImpl implements ExamLocalDataSource {
           // Assuming 'subjectName' is available in Model
           subjectName: legacy.subjectName,
           examPeriodCode: legacy.examPeriodCode,
+          examCode: legacy.examCode,
           studentCode: legacy.studentCode,
           examDate: examDate,
           examTime: examTime,
@@ -161,7 +162,7 @@ class ExamLocalDataSourceImpl implements ExamLocalDataSource {
         return Legacy.StudentExamRoom(
           id: model.id,
           status: 0, // Default, Model doesn't have it
-          examCode: null, // Model doesn't have it
+          examCode: model.examCode,
           examCodeNumber: null,
           markingCode: null,
           examPeriodCode: model.examPeriodCode,
