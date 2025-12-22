@@ -28,8 +28,8 @@ void main() async {
   tz.initializeTimeZones();
 
   // Initialize Daily Notification Service
-  // Initialize Daily Notification Service
   await DailyNotificationService.initialize();
+  await DailyNotificationService.scheduleDailyCheck(hour: 7, minute: 0);
 
   // Initialize Auto Refresh Service
   await AutoRefreshService.initialize();

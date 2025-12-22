@@ -22,7 +22,6 @@ dependencies:
   flutter_local_notifications: ^19.5.0
   timezone: ^0.10.1
   android_alarm_manager_plus: ^5.0.0  # For exact daily alarms
-  flutter_foreground_task: ^9.1.0  # For download progress foreground service
   fluttertoast: ^9.0.0  # For toast messages
   flutter_secure_storage: ^9.2.4  # For encrypted credential storage
   encrypt: ^5.0.3  # For additional encryption
