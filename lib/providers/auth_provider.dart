@@ -22,6 +22,7 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoggedIn = false;
   String? _accessToken;
   Map<String, dynamic>? _rawTokenData;
+  String? _rawTokenStr;
 
   // Login progress tracking
   String _loginProgress = '';
@@ -36,6 +37,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoggedIn => _isLoggedIn;
   String? get accessToken => _accessToken;
   Map<String, dynamic>? get rawTokenData => _rawTokenData;
+  String? get rawTokenStr => _rawTokenStr;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -54,6 +56,7 @@ class AuthProvider extends ChangeNotifier {
     if (accessToken != null) {
       _accessToken = accessToken;
       if (rawTokenJson != null) {
+        _rawTokenStr = rawTokenJson;
         try {
           _rawTokenData = jsonDecode(rawTokenJson) as Map<String, dynamic>;
         } catch (e) {
@@ -111,7 +114,11 @@ class AuthProvider extends ChangeNotifier {
           _rawTokenData = tokenData;
           _isLoggedIn = true;
           await _prefs.setString(_accessTokenKey, _accessToken!);
-          await _prefs.setString('rawToken', jsonEncode(tokenData));
+
+          final tokenStr = jsonEncode(tokenData);
+          _rawTokenStr = tokenStr;
+          await _prefs.setString('rawToken', tokenStr);
+
           // Save other token fields if needed, or serialize the whole map
           // For simplicity, we just keep it in memory. If app restarts, we might lose refresh_token
           // if we don't save it. For now, let's just make it work for the session.
@@ -154,6 +161,7 @@ class AuthProvider extends ChangeNotifier {
     await _prefs.remove(_accessTokenKey);
     await _prefs.remove('rawToken');
     _rawTokenData = null;
+    _rawTokenStr = null;
     notifyListeners();
   }
 }

@@ -143,15 +143,6 @@ class AutoRefreshService {
       // In AuthProvider we stored it: await _prefs.setString('rawToken', jsonEncode(tokenData));
 
       final rawTokenStr = prefs.getString('rawToken');
-      Map<String, dynamic>? rawToken;
-      if (rawTokenStr != null) {
-        try {
-          final parsed = jsonParser.parse(rawTokenStr);
-          if (parsed is Map<String, dynamic>) {
-            rawToken = parsed;
-          }
-        } catch (_) {}
-      }
 
       final examRemote = ExamRemoteDataSourceImpl(
         client: networkClient,
@@ -164,7 +155,7 @@ class AutoRefreshService {
         final examSchedules = await examRemote.getExamSchedules(
           currentSem.id,
           accessToken,
-          rawToken,
+          rawTokenStr,
         );
 
         await examLocal.cacheExamSchedules(currentSem.id, examSchedules);
@@ -179,7 +170,7 @@ class AutoRefreshService {
               scheduleId: schedule.id,
               round: 1,
               accessToken: accessToken,
-              rawToken: rawToken,
+              rawToken: rawTokenStr,
             );
             await examLocal.cacheExamRooms(
               semesterId: currentSem.id,
@@ -196,7 +187,7 @@ class AutoRefreshService {
               scheduleId: schedule.id,
               round: 2,
               accessToken: accessToken,
-              rawToken: rawToken,
+              rawToken: rawTokenStr,
             );
             await examLocal.cacheExamRooms(
               semesterId: currentSem.id,

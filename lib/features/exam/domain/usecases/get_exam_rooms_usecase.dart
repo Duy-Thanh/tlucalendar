@@ -30,7 +30,7 @@ class GetExamRoomsParams extends Equatable {
   final int scheduleId;
   final int round;
   final String accessToken;
-  final Map<String, dynamic>? rawToken;
+  final String? rawToken;
 
   const GetExamRoomsParams({
     required this.semesterId,

@@ -3,6 +3,7 @@ import 'package:tlucalendar/core/error/failures.dart';
 import 'package:tlucalendar/core/network/network_client.dart';
 import 'package:tlucalendar/core/parser/json_parser.dart';
 import 'package:tlucalendar/features/auth/data/models/user_model.dart';
+import 'package:tlucalendar/core/native/native_parser.dart';
 
 abstract class AuthRemoteDataSource {
   Future<Map<String, dynamic>> login(String studentCode, String password);
@@ -37,15 +38,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           'username': studentCode,
           'password': password,
         },
-        options: Options(contentType: Headers.formUrlEncodedContentType),
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          responseType: ResponseType.plain,
+        ),
       );
 
       if (response.statusCode == 200) {
-        final data = response.data is String
-            ? jsonParser.parse(response.data)
-            : response.data as Map<String, dynamic>;
-
-        return data;
+        return NativeParser.parseToken(response.data as String) ?? {};
       } else {
         throw ServerFailure('Login failed: ${response.statusCode}');
       }
@@ -61,6 +61,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       final response = await client.get(
         _userEndpoint,
         options: Options(
+          responseType: ResponseType.plain,
           headers: {
             'Authorization': 'Bearer $accessToken',
             'Accept': 'application/json',
@@ -69,11 +70,13 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final data = response.data is String
-            ? jsonParser.parse(response.data)
-            : response.data as Map<String, dynamic>;
-
-        return UserModel.fromJson(data);
+        return NativeParser.parseUser(response.data as String) ??
+            const UserModel(
+              studentId: '',
+              fullName: '',
+              email: '',
+              profileImageUrl: null,
+            );
       } else {
         throw ServerFailure('Get User failed: ${response.statusCode}');
       }

@@ -62,7 +62,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       await examProvider.selectSemester(
         authProvider.accessToken!,
         semesterId,
-        authProvider.rawTokenData,
+        authProvider.rawTokenStr,
       );
     }
   }
@@ -289,7 +289,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                           examProvider.selectedSemesterId!,
                           examProvider.selectedRegisterPeriodId!,
                           examProvider.selectedExamRound,
-                          authProvider.rawTokenData,
+                          authProvider.rawTokenStr,
                         );
                       }
                     },
@@ -342,7 +342,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                         examProvider.selectedSemesterId!,
                         examProvider.selectedRegisterPeriodId!,
                         examProvider.selectedExamRound,
-                        authProvider.rawTokenData,
+                        authProvider.rawTokenStr,
                       );
                     },
                     icon: const Icon(Icons.refresh),
@@ -453,7 +453,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                             provider.selectSemester(
                               authProvider.accessToken!,
                               val,
-                              authProvider.rawTokenData,
+                              authProvider.rawTokenStr,
                             );
                           }
                         },
@@ -499,7 +499,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                               provider.selectedSemesterId!,
                               val,
                               provider.selectedExamRound,
-                              authProvider.rawTokenData,
+                              authProvider.rawTokenStr,
                             );
                           }
                         },
@@ -535,7 +535,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                                     provider.selectedSemesterId!,
                                     provider.selectedRegisterPeriodId!,
                                     round,
-                                    authProvider.rawTokenData,
+                                    authProvider.rawTokenStr,
                                   );
                                 }
                               }

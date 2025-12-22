@@ -26,7 +26,7 @@ class GetExamSchedulesUseCase
 class GetExamSchedulesParams extends Equatable {
   final int semesterId;
   final String accessToken;
-  final Map<String, dynamic>? rawToken;
+  final String? rawToken;
 
   const GetExamSchedulesParams({
     required this.semesterId,
