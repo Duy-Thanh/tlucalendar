@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tlucalendar/features/auth/data/models/user_model.dart';
+import 'package:tlucalendar/services/auto_refresh_service.dart';
 
 import 'package:tlucalendar/services/log_service.dart';
 import 'package:tlucalendar/features/auth/domain/usecases/login_usecase.dart';
@@ -123,6 +124,15 @@ class AuthProvider extends ChangeNotifier {
           notifyListeners();
 
           await _fetchUserInfo(_accessToken!);
+
+          // Trigger immediate data sync for offline usage
+          _loginProgress = 'Đang đồng bộ dữ liệu...';
+          _loginProgressPercent = 0.8;
+          notifyListeners();
+
+          // We call the service to fetch and cache Schedule & Exams
+          // This ensures that right after login, we have data.
+          await AutoRefreshService.triggerRefresh();
 
           _isLoading = false;
           notifyListeners();

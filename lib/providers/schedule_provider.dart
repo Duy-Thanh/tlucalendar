@@ -8,6 +8,7 @@ import 'package:tlucalendar/features/schedule/domain/usecases/get_course_hours_u
 import 'package:tlucalendar/features/schedule/domain/usecases/get_current_semester_usecase.dart';
 import 'package:tlucalendar/features/schedule/domain/usecases/get_schedule_usecase.dart';
 import 'package:tlucalendar/features/schedule/domain/usecases/get_school_years_usecase.dart';
+import 'package:tlucalendar/services/notification_service.dart';
 
 class ScheduleProvider extends ChangeNotifier {
   final GetScheduleUseCase getScheduleUseCase;
@@ -129,9 +130,81 @@ class ScheduleProvider extends ChangeNotifier {
     final result = await getScheduleUseCase(
       GetScheduleParams(accessToken: accessToken, semesterId: semesterId),
     );
-    result.fold((f) => _errorMessage = f.message, (c) => _courses = c);
+    result.fold((f) => _errorMessage = f.message, (c) {
+      _courses = c;
+      _scheduleNotifications();
+    });
     // _isLoading = false;
     notifyListeners();
+  }
+
+  Future<void> _scheduleNotifications() async {
+    if (_currentSemester == null || _courses.isEmpty) return;
+
+    final notificationService = NotificationService();
+    // Use cancelAll only if we want to reset.
+    // Maybe better to cancel old ones for this semester first?
+    // For now, let's assume we overwrite or just add.
+    // Duplicates are handled by ID generation in NotificationService (based on time).
+
+    // We need startDate of semester to calculate dates
+    // Assuming startDate is Monday of Week 1
+    final semesterStart = DateTime.fromMillisecondsSinceEpoch(
+      _currentSemester!.startDate,
+    );
+
+    for (var course in _courses) {
+      // Course has fromWeek, toWeek, dayOfWeek
+      // 2=Mon ... 8=Sun
+
+      // Course has fromWeek, toWeek, dayOfWeek defined as non-nullable in Entity.
+      // So we don't need to check for nulls here.
+
+      // We don't know exactly which weeks are active if it's not continuous,
+      // but the model usually implies a range.
+      // If there are gaps, the API usually returns multiple Course entries or we assume continuous for now.
+
+      for (int week = course.fromWeek; week <= course.toWeek; week++) {
+        // Calculate date for this week
+        // week 1 = 0 days offset
+        final daysOffset = (week - 1) * 7 + (course.dayOfWeek - 2);
+        final classDate = semesterStart.add(Duration(days: daysOffset));
+
+        // Set time from startCourseHour
+        // We need the hours list to get exact time string
+        // If not found, ignore
+        if (course.startCourseHour == null) continue;
+
+        final startHour = _courseHours
+            .where((h) => h.id == course.startCourseHour)
+            .firstOrNull;
+        if (startHour == null) continue;
+
+        // Parse time string "07:00"
+        final timeParts = startHour.startString.split(':');
+        if (timeParts.length < 2) continue;
+
+        final hour = int.tryParse(timeParts[0]);
+        final minute = int.tryParse(timeParts[1]);
+
+        if (hour != null && minute != null) {
+          final classDateTime = DateTime(
+            classDate.year,
+            classDate.month,
+            classDate.day,
+            hour,
+            minute,
+          );
+
+          await notificationService.scheduleClassNotifications(
+            course,
+            classDateTime,
+            course.dayOfWeek,
+            '${startHour.startString}',
+          );
+        }
+      }
+    }
   }
 
   // Get active courses for a date

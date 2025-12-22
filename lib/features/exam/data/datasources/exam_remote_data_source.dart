@@ -38,12 +38,6 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
           ? 'token=${Uri.encodeComponent(jsonEncode(rawToken))}'
           : 'token=${Uri.encodeComponent('{"access_token":"$accessToken","token_type":"bearer"}')}';
 
-      print('----- DEBUG EXAM REQUEST -----');
-      print('Entries in rawToken: ${rawToken?.length}');
-      print('Keys in rawToken: ${rawToken?.keys.toList()}');
-      print('Generated Cookie: $cookieValue');
-      print('------------------------------');
-
       final response = await client.get(
         '/api/registerperiod/find/$semesterId',
         options: Options(
@@ -100,6 +94,9 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
             ? jsonParser.parseList(response.data)
             : response.data as List<dynamic>;
 
+        if (rawList.isNotEmpty) {
+          // print('First Exam Room JSON: ${rawList.first}'); // Too big, truncated
+        }
         return rawList.map((json) => ExamRoomModel.fromJson(json)).toList();
       } else {
         throw ServerFailure(

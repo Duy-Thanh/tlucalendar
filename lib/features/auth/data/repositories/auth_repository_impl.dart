@@ -41,10 +41,25 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, User>> getCurrentUser(String accessToken) async {
     try {
       final userModel = await remoteDataSource.getCurrentUser(accessToken);
+      // Cache user
+      try {
+        // We cast/convert to UserModel if needed, but remote returns UserModel
+        await localDataSource.saveUser(userModel);
+      } catch (e) {
+        // log warning
+      }
       return Right(userModel);
-    } on Failure catch (e) {
-      return Left(e);
     } catch (e) {
+      // Try local cache on failure (network or server error)
+      try {
+        final cachedUser = await localDataSource.getUser();
+        if (cachedUser != null) {
+          return Right(cachedUser);
+        }
+      } catch (_) {}
+
+      // If no cache or error accessing cache, return original error
+      if (e is Failure) return Left(e);
       return Left(ServerFailure(e.toString()));
     }
   }

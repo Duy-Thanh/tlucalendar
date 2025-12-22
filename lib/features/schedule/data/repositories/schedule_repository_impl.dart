@@ -27,11 +27,24 @@ class ScheduleRepositoryImpl implements ScheduleRepository {
         semesterId,
         accessToken,
       );
-      // Ideally cache here: await localDataSource.cacheCourses(semesterId, courseModels);
+      // Cache the courses
+      try {
+        await localDataSource.cacheCourses(semesterId, courseModels);
+      } catch (e) {
+        // Log error but don't fail the request
+      }
       return Right(courseModels);
-    } on Failure catch (e) {
-      return Left(e);
     } catch (e) {
+      // Try local cache
+      try {
+        final localCourses = await localDataSource.getCachedCourses(semesterId);
+        if (localCourses.isNotEmpty) {
+          return Right(localCourses);
+        }
+      } catch (_) {}
+
+      // If local fails or is empty, return original error
+      if (e is Failure) return Left(e);
       return Left(ServerFailure(e.toString()));
     }
   }
@@ -42,10 +55,22 @@ class ScheduleRepositoryImpl implements ScheduleRepository {
   ) async {
     try {
       final hours = await remoteDataSource.getCourseHours(accessToken);
+      try {
+        await localDataSource.cacheCourseHours(hours);
+      } catch (_) {}
       return Right(hours);
-    } on Failure catch (e) {
-      return Left(e);
     } catch (e) {
+      // Try local cache
+      try {
+        final localHours = await localDataSource.getCachedCourseHours();
+        if (localHours.isNotEmpty) {
+          return Right(localHours);
+        }
+      } catch (_) {}
+
+      // I will skip adding fallback here for a second and add the method to DataSource first
+      // to avoid compilation error.
+      if (e is Failure) return Left(e);
       return Left(ServerFailure(e.toString()));
     }
   }

@@ -1,8 +1,11 @@
 import 'package:tlucalendar/features/exam/data/models/exam_dtos.dart' as Legacy;
 import 'package:tlucalendar/services/log_service.dart';
+import 'package:tlucalendar/services/notification_service.dart';
 import 'package:tlucalendar/features/exam/domain/usecases/get_exam_rooms_usecase.dart';
 import 'package:tlucalendar/features/exam/domain/usecases/get_exam_schedules_usecase.dart';
 import 'package:tlucalendar/features/schedule/domain/usecases/get_school_years_usecase.dart';
+import 'package:tlucalendar/features/schedule/domain/usecases/get_course_hours_usecase.dart';
+import 'package:tlucalendar/features/schedule/domain/entities/course_hour.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart'; // For ChangeNotifier
 
@@ -12,16 +15,19 @@ class ExamProvider with ChangeNotifier {
   final GetExamSchedulesUseCase getExamSchedulesUseCase;
   final GetExamRoomsUseCase getExamRoomsUseCase;
   final GetSchoolYearsUseCase getSchoolYearsUseCase;
+  final GetCourseHoursUseCase getCourseHoursUseCase;
 
   ExamProvider({
     required this.getExamSchedulesUseCase,
     required this.getExamRoomsUseCase,
     required this.getSchoolYearsUseCase,
+    required this.getCourseHoursUseCase,
   });
 
   List<Legacy.RegisterPeriod> _registerPeriods = [];
   List<Legacy.SemesterDto> _availableSemesters = [];
   List<Legacy.StudentExamRoom> _examRooms = [];
+  List<CourseHour> _courseHours = [];
   bool _isLoading = false;
   bool _isLoadingSemesters = false;
   bool _isLoadingRooms = false;
@@ -73,7 +79,12 @@ class ExamProvider with ChangeNotifier {
   Future<void> init(String accessToken) async {
     _isLoadingSemesters = true;
     notifyListeners();
+    notifyListeners();
     try {
+      // Fetch Course Hours concurrently or sequentially
+      final hoursResult = await getCourseHoursUseCase(accessToken);
+      hoursResult.fold((l) => null, (r) => _courseHours = r);
+
       final result = await getSchoolYearsUseCase(accessToken);
       result.fold(
         (l) {
@@ -189,6 +200,14 @@ class ExamProvider with ChangeNotifier {
 
           if (_registerPeriods.isNotEmpty) {
             _selectedRegisterPeriodId = _registerPeriods.first.id;
+            // Trigger fetch for the default selected period
+            fetchExamRoomDetails(
+              accessToken,
+              semesterId,
+              _selectedRegisterPeriodId!,
+              _selectedExamRound,
+              rawToken,
+            );
           } else {
             _selectedRegisterPeriodId = null;
           }
@@ -257,19 +276,9 @@ class ExamProvider with ChangeNotifier {
             examDateString: e.examDate != null
                 ? DateFormat('dd/MM/yyyy').format(e.examDate!)
                 : '',
-            examHour: Legacy.ExamHour(
-              id: 0,
-              name: e.examTime ?? '',
-              startString: e.examTime?.split('-').firstOrNull ?? '',
-              endString: e.examTime?.split('-').lastOrNull ?? '',
-              start: 0,
-              end: 0,
-              indexNumber: 0,
-              type: 0,
-              code: '',
-            ),
+            examHour: _parseExamHour(e.examTime),
             room: Legacy.Room(id: 0, name: e.roomName ?? '', code: ''),
-            numberExpectedStudent: 0,
+            numberExpectedStudent: e.numberExpectedStudent ?? 0,
           );
 
           return Legacy.StudentExamRoom(
@@ -288,7 +297,128 @@ class ExamProvider with ChangeNotifier {
       _roomErrorMessage = e.toString();
     } finally {
       _isLoadingRooms = false;
+
+      // Schedule notifications
+      if (_examRooms.isNotEmpty) {
+        final notificationService = NotificationService();
+        for (var room in _examRooms) {
+          if (room.examRoom?.examDate != null &&
+              room.examRoom?.examHour != null) {
+            // Parse start time
+            final timeStr = room.examRoom!.examHour!.startString;
+            final parts = timeStr.split(':');
+            if (parts.length >= 2) {
+              final h = int.tryParse(parts[0]);
+              final m = int.tryParse(parts[1]);
+
+              if (h != null && m != null) {
+                final date = DateTime.fromMillisecondsSinceEpoch(
+                  room.examRoom!.examDate!,
+                );
+                final examDateTime = DateTime(
+                  date.year,
+                  date.month,
+                  date.day,
+                  h,
+                  m,
+                );
+
+                notificationService.scheduleExamNotifications(
+                  room,
+                  examDateTime,
+                );
+              }
+            }
+          }
+        }
+      }
+
       notifyListeners();
     }
+  }
+
+  Legacy.ExamHour _parseExamHour(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty) {
+      return Legacy.ExamHour(
+        id: 0,
+        name: 'Chưa có',
+        startString: '',
+        endString: '',
+        start: 0,
+        end: 0,
+        indexNumber: 0,
+        type: 0,
+      );
+    }
+
+    // Expected format: "10-12" or "07:00-09:00"
+    String startStr = '';
+    String endStr = '';
+    String shiftName = timeStr; // Default to original string
+    int start = 0;
+
+    if (timeStr.contains('-')) {
+      final parts = timeStr.split('-');
+      if (parts.length >= 2) {
+        startStr = parts[0].trim();
+        endStr = parts[1].trim();
+
+        // Check if these are periods (digits only, small length)
+        if (RegExp(r'^\d{1,2}$').hasMatch(startStr)) {
+          start = int.tryParse(startStr) ?? 0;
+          int end = int.tryParse(endStr) ?? 0;
+
+          // Look up in _courseHours
+          String? realStartTime;
+          String? realEndTime;
+
+          if (_courseHours.isNotEmpty) {
+            final startHour = _courseHours
+                .where((h) => h.indexNumber == start)
+                .firstOrNull;
+            final endHour = _courseHours
+                .where((h) => h.indexNumber == end)
+                .firstOrNull;
+
+            if (startHour != null) realStartTime = startHour.startString;
+            if (endHour != null) realEndTime = endHour.endString;
+          }
+
+          if (realStartTime != null && realEndTime != null) {
+            // Found exact clock times!
+            startStr = realStartTime;
+            endStr = realEndTime;
+          } else {
+            // Fallback to "Tiết X"
+            startStr = 'Tiết $startStr';
+            endStr = 'Tiết $endStr';
+          }
+
+          // Calculate Shift (Ca thi)
+          if (start >= 1 && start <= 3)
+            shiftName = 'Ca 1 (Sáng)';
+          else if (start >= 4 && start <= 6)
+            shiftName = 'Ca 2 (Sáng)';
+          else if (start >= 7 && start <= 9)
+            shiftName = 'Ca 3 (Chiều)';
+          else if (start >= 10 && start <= 12)
+            shiftName = 'Ca 4 (Chiều)';
+          else if (start >= 13)
+            shiftName = 'Ca 5 (Tối)';
+        }
+      }
+    }
+
+    return Legacy.ExamHour(
+      id: 0,
+      name: shiftName,
+      startString: startStr,
+      endString: endStr,
+      start: start,
+      end: 0,
+      indexNumber: 0,
+      type: 0,
+      code: '',
+    );
   }
 }

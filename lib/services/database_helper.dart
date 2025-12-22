@@ -475,6 +475,77 @@ class DatabaseHelper {
     );
   }
 
+  // Save exam rooms
+  Future<void> saveExamRooms(
+    int semesterId,
+    int registerPeriodId,
+    int examRound,
+    List<Legacy.StudentExamRoom> rooms,
+  ) async {
+    final db = await database;
+    await db.delete(
+      'exam_rooms',
+      where: 'semesterId = ? AND registerPeriodId = ? AND examRound = ?',
+      whereArgs: [semesterId, registerPeriodId, examRound],
+    );
+
+    final batch = db.batch();
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    for (var room in rooms) {
+      batch.insert('exam_rooms', {
+        'semesterId': semesterId,
+        'registerPeriodId': registerPeriodId,
+        'examRound': examRound,
+        'examRoomId': room.id,
+        'status': room.status,
+        'examCode': room.examCode,
+        'examCodeNumber': room.examCodeNumber,
+        'markingCode': room.markingCode,
+        'examPeriodCode': room.examPeriodCode,
+        'subjectName': room.subjectName,
+        'studentCode': room.studentCode,
+        'roomCode': room.examRoom?.roomCode ?? '',
+        'duration': room.examRoom?.duration,
+        'examDate': room.examRoom?.examDate,
+        'examDateString': room.examRoom?.examDateString,
+        'numberExpectedStudent': room.examRoom?.numberExpectedStudent,
+        'semesterName': room.examRoom?.semesterName,
+        'courseYearName': room.examRoom?.courseYearName,
+        'registerPeriodName': room.examRoom?.registerPeriodName,
+        // Serialize nested objects if needed, or simplistic approach
+        // Only saving essential fields for now as per schema
+        'examHourJson': room.examRoom?.examHour != null
+            ? jsonEncode({
+                'id': room.examRoom!.examHour!.id,
+                'name': room.examRoom!.examHour!.name,
+                'startString': room.examRoom!.examHour!.startString,
+                'endString': room.examRoom!.examHour!.endString,
+                'code': room.examRoom!.examHour!.code,
+              })
+            : null,
+        'roomJson': room.examRoom?.room != null
+            ? jsonEncode({
+                'id': room.examRoom!.room!.id,
+                'name': room.examRoom!.room!.name,
+                'code': room.examRoom!.room!.code,
+              })
+            : null,
+        'lastUpdated': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+
+    // Update cache metadata
+    await db.insert('exam_round_cache_metadata', {
+      'semesterId': semesterId,
+      'registerPeriodId': registerPeriodId,
+      'examRound': examRound,
+      'roomCount': rooms.length,
+      'lastCached': now,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
   // Get exam rooms
   Future<List<Legacy.StudentExamRoom>> getExamRooms(
     int semesterId,

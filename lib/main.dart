@@ -13,6 +13,7 @@ import 'package:tlucalendar/screens/home_shell.dart';
 import 'package:tlucalendar/injection_container.dart' as di;
 
 import 'package:tlucalendar/services/daily_notification_service.dart';
+import 'package:tlucalendar/services/auto_refresh_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +28,11 @@ void main() async {
   tz.initializeTimeZones();
 
   // Initialize Daily Notification Service
+  // Initialize Daily Notification Service
   await DailyNotificationService.initialize();
+
+  // Initialize Auto Refresh Service
+  await AutoRefreshService.initialize();
 
   runApp(
     MultiProvider(

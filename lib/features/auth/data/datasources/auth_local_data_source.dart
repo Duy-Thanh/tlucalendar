@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tlucalendar/core/error/failures.dart';
+import 'package:tlucalendar/features/auth/data/models/user_model.dart';
+import 'package:tlucalendar/services/database_helper.dart';
 
 abstract class AuthLocalDataSource {
   Future<void> cacheAccessToken(String token);
@@ -9,14 +11,19 @@ abstract class AuthLocalDataSource {
   Future<void> saveCredentials(String studentCode, String password);
   Future<Map<String, String>> getCredentials();
   Future<void> clearCredentials();
+
+  Future<void> saveUser(UserModel user);
+  Future<UserModel?> getUser();
 }
 
 class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   final SharedPreferences sharedPreferences;
-  // Note: For production, use FlutterSecureStorage for credentials.
-  // keeping simple for refactor step 1, or use secure storage if available.
+  final DatabaseHelper databaseHelper;
 
-  AuthLocalDataSourceImpl({required this.sharedPreferences});
+  AuthLocalDataSourceImpl({
+    required this.sharedPreferences,
+    required this.databaseHelper,
+  });
 
   static const String _accessTokenKey = 'accessToken';
   static const String _studentCodeKey = 'userStudentCode';
@@ -59,5 +66,15 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   Future<void> clearCredentials() async {
     await sharedPreferences.remove(_studentCodeKey);
     await sharedPreferences.remove(_passwordKey);
+  }
+
+  @override
+  Future<void> saveUser(UserModel user) async {
+    await databaseHelper.saveUser(user);
+  }
+
+  @override
+  Future<UserModel?> getUser() async {
+    return await databaseHelper.getUser();
   }
 }

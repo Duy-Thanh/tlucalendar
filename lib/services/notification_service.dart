@@ -2,7 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:tlucalendar/services/log_service.dart';
-import 'package:tlucalendar/features/schedule/data/models/course_model.dart';
+import 'package:tlucalendar/features/schedule/domain/entities/course.dart';
 import 'package:tlucalendar/features/exam/data/models/exam_dtos.dart' as Legacy;
 
 class NotificationService {
@@ -97,7 +97,7 @@ class NotificationService {
   void _onNotificationTapped(NotificationResponse response) {}
 
   Future<void> scheduleClassNotifications(
-    CourseModel course,
+    Course course,
     DateTime classDateTime,
     int weekDay,
     String timeSlot,

@@ -12,6 +12,7 @@ class ExamRoomModel extends ExamRoom {
     super.roomBuilding,
     super.examMethod,
     super.notes,
+    super.numberExpectedStudent,
   });
 
   factory ExamRoomModel.fromJson(Map<String, dynamic> json) {
@@ -27,6 +28,7 @@ class ExamRoomModel extends ExamRoom {
     String? roomBuilding;
     String? examMethod;
     String? notes;
+    int? numberExpectedStudent;
 
     if (json['examRoom'] != null) {
       final roomData = json['examRoom'];
@@ -34,15 +36,28 @@ class ExamRoomModel extends ExamRoom {
       if (roomData['startHour'] != null &&
           roomData['startHour']['startString'] != null) {
         examTime = roomData['startHour']['startString'];
+      } else if (roomData['roomCode'] != null) {
+        // Fallback: Try to extract time from roomCode (e.g. CSE406_08-11-2025_10-12_325-A2)
+        // Look for pattern like "10-12" or "07:00-09:00"
+        final parts = roomData['roomCode'].toString().split('_');
+        for (final part in parts) {
+          if (RegExp(r'^\d{1,2}[h:]?\d*-\d{1,2}[h:]?\d*$').hasMatch(part)) {
+            examTime = part;
+            break;
+          }
+        }
       }
 
       if (roomData['room'] != null) {
         roomName = roomData['room']['name'];
-        roomBuilding = roomData['room']['building'];
+        roomBuilding = roomData['room']['building'] != null
+            ? roomData['room']['building']['name']
+            : null;
       }
 
       examMethod = roomData['examMethod']?['name'];
       notes = roomData['notes'];
+      numberExpectedStudent = roomData['numberExpectedStudent'];
     }
 
     return ExamRoomModel(
@@ -56,6 +71,7 @@ class ExamRoomModel extends ExamRoom {
       roomBuilding: roomBuilding,
       examMethod: examMethod,
       notes: notes,
+      numberExpectedStudent: numberExpectedStudent,
     );
   }
 }

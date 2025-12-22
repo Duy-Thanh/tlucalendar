@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:tlucalendar/screens/today_screen.dart';
 import 'package:tlucalendar/screens/calendar_screen.dart';
 import 'package:tlucalendar/screens/exam_schedule_screen.dart';
 import 'package:tlucalendar/screens/settings_screen.dart';
-import 'package:tlucalendar/providers/auth_provider.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});

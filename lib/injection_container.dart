@@ -26,6 +26,7 @@ import 'package:tlucalendar/features/exam/domain/usecases/get_exam_rooms_usecase
 import 'package:tlucalendar/features/exam/domain/repositories/exam_repository.dart';
 import 'package:tlucalendar/features/exam/data/repositories/exam_repository_impl.dart';
 import 'package:tlucalendar/features/exam/data/datasources/exam_remote_data_source.dart';
+import 'package:tlucalendar/features/exam/data/datasources/exam_local_data_source.dart';
 import 'package:tlucalendar/services/database_helper.dart';
 
 final sl = GetIt.instance;
@@ -50,7 +51,10 @@ Future<void> init() async {
     () => AuthRemoteDataSourceImpl(client: sl(), jsonParser: sl()),
   );
   sl.registerLazySingleton<AuthLocalDataSource>(
-    () => AuthLocalDataSourceImpl(sharedPreferences: sl()),
+    () => AuthLocalDataSourceImpl(
+      sharedPreferences: sl(),
+      databaseHelper: DatabaseHelper.instance,
+    ),
   );
 
   //! Features - Schedule
@@ -74,12 +78,16 @@ Future<void> init() async {
 
   // Repository
   sl.registerLazySingleton<ExamRepository>(
-    () => ExamRepositoryImpl(remoteDataSource: sl()),
+    () => ExamRepositoryImpl(remoteDataSource: sl(), localDataSource: sl()),
   );
 
   // Data Sources
+  // Data Sources
   sl.registerLazySingleton<ExamRemoteDataSource>(
     () => ExamRemoteDataSourceImpl(client: sl(), jsonParser: sl()),
+  );
+  sl.registerLazySingleton<ExamLocalDataSource>(
+    () => ExamLocalDataSourceImpl(databaseHelper: DatabaseHelper.instance),
   );
 
   // Data Sources
@@ -113,6 +121,7 @@ Future<void> init() async {
       getExamSchedulesUseCase: sl(),
       getExamRoomsUseCase: sl(),
       getSchoolYearsUseCase: sl(),
+      getCourseHoursUseCase: sl(),
     ),
   );
   sl.registerLazySingleton(() => ThemeProvider());

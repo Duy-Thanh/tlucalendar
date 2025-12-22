@@ -11,6 +11,7 @@ class ExamRoom extends Equatable {
   final String? roomBuilding;
   final String? examMethod; // e.g. "Vấn đáp"
   final String? notes;
+  final int? numberExpectedStudent;
 
   const ExamRoom({
     required this.id,
@@ -23,6 +24,7 @@ class ExamRoom extends Equatable {
     this.roomBuilding,
     this.examMethod,
     this.notes,
+    this.numberExpectedStudent,
   });
 
   @override
@@ -32,5 +34,6 @@ class ExamRoom extends Equatable {
     examPeriodCode,
     examDate,
     roomName,
+    numberExpectedStudent,
   ];
 }

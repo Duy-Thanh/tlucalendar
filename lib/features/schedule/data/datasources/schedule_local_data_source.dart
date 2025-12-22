@@ -1,3 +1,4 @@
+import 'package:tlucalendar/features/schedule/domain/entities/course_hour.dart';
 import 'package:tlucalendar/core/error/failures.dart';
 import 'package:tlucalendar/features/schedule/data/models/course_model.dart';
 import 'package:tlucalendar/features/schedule/data/models/school_year_model.dart';
@@ -9,6 +10,8 @@ abstract class ScheduleLocalDataSource {
   Future<void> cacheCourses(int semesterId, List<CourseModel> courses);
   Future<List<SchoolYearModel>> getCachedSchoolYears();
   Future<void> cacheSchoolYears(List<SchoolYearModel> schoolYears);
+  Future<void> cacheCourseHours(List<CourseHour> hours);
+  Future<List<CourseHour>> getCachedCourseHours();
 }
 
 class ScheduleLocalDataSourceImpl implements ScheduleLocalDataSource {
@@ -61,9 +64,6 @@ class ScheduleLocalDataSourceImpl implements ScheduleLocalDataSource {
           endDate: y.endDate,
           displayName: y.displayName,
           semesters: yearSemesters,
-          // Note: If SchoolYearModel factory/constructor doesn't take semesters,
-          // we might assume it inherits from SchoolYear which does.
-          // If this fails compile, we'll need to check SchoolYearModel definition.
         );
       }).toList();
     } catch (e) {
@@ -78,11 +78,8 @@ class ScheduleLocalDataSourceImpl implements ScheduleLocalDataSource {
 
       // Extract all semesters from the years to save them
       final allSemesters = schoolYears.expand((y) => y.semesters).map((s) {
-        // Ensure it's a SemesterModel (it should be if SchoolYearModel contains them)
-        // If s is just Semester (entity), we might need casting or conversion.
         if (s is SemesterModel) return s;
 
-        // Convert Entity -> Model if needed
         return SemesterModel(
           id: s.id,
           semesterCode: s.semesterCode,
@@ -95,6 +92,26 @@ class ScheduleLocalDataSourceImpl implements ScheduleLocalDataSource {
       }).toList();
 
       await databaseHelper.saveSemesters(allSemesters);
+    } catch (e) {
+      throw CacheFailure(e.toString());
+    }
+  }
+
+  @override
+  Future<void> cacheCourseHours(List<CourseHour> hours) async {
+    try {
+      final hourMap = {for (var h in hours) h.id: h};
+      await databaseHelper.saveCourseHours(hourMap);
+    } catch (e) {
+      throw CacheFailure(e.toString());
+    }
+  }
+
+  @override
+  Future<List<CourseHour>> getCachedCourseHours() async {
+    try {
+      final hourMap = await databaseHelper.getCourseHours();
+      return hourMap.values.toList();
     } catch (e) {
       throw CacheFailure(e.toString());
     }
