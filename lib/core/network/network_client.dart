@@ -78,7 +78,9 @@ class NetworkClient {
     }
 
     if (error.response != null) {
-      return ServerFailure('Server error: ${error.response?.statusCode}');
+      return ServerFailure(
+        'Server error: ${error.response?.statusCode}, Body: ${error.response?.data}',
+      );
     }
 
     return NetworkFailure(error.message ?? 'Unknown network error');
