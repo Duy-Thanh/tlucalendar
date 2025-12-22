@@ -68,10 +68,26 @@ class ScheduleRepositoryImpl implements ScheduleRepository {
   ) async {
     try {
       final years = await remoteDataSource.getSchoolYears(accessToken);
+      // Cache success
+      try {
+        await localDataSource.cacheSchoolYears(years);
+      } catch (e) {
+        // Logging or silent fail on cache error, don't block UI
+        // print('Cache error: $e');
+      }
       return Right(years);
-    } on Failure catch (e) {
-      return Left(e);
     } catch (e) {
+      // If remote fails, try local
+      try {
+        final localYears = await localDataSource.getCachedSchoolYears();
+        if (localYears.isNotEmpty) {
+          return Right(localYears);
+        }
+      } catch (localError) {
+        // If local also fails, ignore
+      }
+
+      if (e is Failure) return Left(e);
       return Left(ServerFailure(e.toString()));
     }
   }

@@ -48,6 +48,7 @@ app.*.map.json
 *.jks
 key.properties
 *.json
+!assets/lottie/*.json
 *.html
 output.txt
 
@@ -89,7 +90,6 @@ SEMESTER_SELECTION_FIX.md
 STUDENT_COURSE_API.md
 TYPE_MISMATCH_FIXED.md
 WEEKINDEX_BUG_FIX.md
-storage/*
 OFFLINE_MODE_FIX.md
 EXAM_SCHEDULE_SEMESTER_SELECTOR.md
 EXAM_CACHING_AND_FIX_COMPLETE.md

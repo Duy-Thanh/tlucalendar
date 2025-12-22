@@ -14,7 +14,8 @@ import 'package:tlucalendar/screens/home_shell.dart';
 import 'package:tlucalendar/injection_container.dart' as di;
 
 // Legacy services - keeping imports if they are standalone, otherwise commenting out usage if broken
-// import 'package:tlucalendar/services/download_foreground_service.dart';
+import 'package:tlucalendar/services/daily_notification_service.dart';
+import 'package:tlucalendar/services/download_foreground_service.dart';
 // import 'package:tlucalendar/services/auto_refresh_service.dart';
 
 void main() async {
@@ -29,8 +30,11 @@ void main() async {
   // Initialize timezone database
   tz.initializeTimeZones();
 
+  // Initialize Daily Notification Service (fixes Dart_LookupLibrary error)
+  await DailyNotificationService.initialize();
+
   // Non-blocking background services init (if safe)
-  // DownloadForegroundService.initForegroundTask();
+  DownloadForegroundService.initForegroundTask();
   // AutoRefreshService.initialize();
 
   runApp(
