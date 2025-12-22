@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   provider: ^6.1.5+1
-  shared_preferences: ^2.5.3
+  shared_preferences: ^2.5.4
   http: ^1.6.0
   dio: ^5.9.0
   sqflite: ^2.4.2
@@ -23,7 +23,7 @@ dependencies:
   timezone: ^0.10.1
   android_alarm_manager_plus: ^5.0.0  # For exact daily alarms
   fluttertoast: ^9.0.0  # For toast messages
-  flutter_secure_storage: ^9.2.4  # For encrypted credential storage
+  flutter_secure_storage: ^10.0.0  # For encrypted credential storage
   encrypt: ^5.0.3  # For additional encryption
   dartz: ^0.10.1
   get_it: ^9.2.0
