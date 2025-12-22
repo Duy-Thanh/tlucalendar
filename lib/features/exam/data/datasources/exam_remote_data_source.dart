@@ -5,6 +5,7 @@ import 'package:tlucalendar/core/network/network_client.dart';
 import 'package:tlucalendar/core/parser/json_parser.dart';
 import 'package:tlucalendar/features/exam/data/models/exam_room_model.dart';
 import 'package:tlucalendar/features/exam/data/models/exam_schedule_model.dart';
+import 'package:tlucalendar/core/native/native_parser.dart';
 
 abstract class ExamRemoteDataSource {
   Future<List<ExamScheduleModel>> getExamSchedules(
@@ -41,6 +42,8 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
       final response = await client.get(
         '/api/registerperiod/find/$semesterId',
         options: Options(
+          responseType:
+              ResponseType.plain, // Request raw string for Native Parser
           headers: {
             'Authorization': 'Bearer $accessToken',
             'Accept': 'application/json',
@@ -50,11 +53,8 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> rawList = response.data is String
-            ? jsonParser.parseList(response.data)
-            : response.data as List<dynamic>;
-
-        return rawList.map((json) => ExamScheduleModel.fromJson(json)).toList();
+        // response.data is String because of ResponseType.plain
+        return NativeParser.parseExamSchedules(response.data as String);
       } else {
         throw ServerFailure(
           'Get ExamSchedules failed: ${response.statusCode}, Body: ${response.data}',

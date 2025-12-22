@@ -4,6 +4,7 @@ import 'package:tlucalendar/screens/today_screen.dart';
 import 'package:tlucalendar/screens/calendar_screen.dart';
 import 'package:tlucalendar/screens/exam_schedule_screen.dart';
 import 'package:tlucalendar/screens/settings_screen.dart';
+import 'package:tlucalendar/core/native/native_parser.dart';
 
 class HomeShell extends StatefulWidget {
   const HomeShell({super.key});
@@ -44,6 +45,25 @@ class _HomeShellState extends State<HomeShell> with TickerProviderStateMixin {
         end: 1.15,
       ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutBack));
     }).toList();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        String nativeMsg = 'Native Lib not valid';
+        try {
+          final version = NativeParser.getYyjsonVersion();
+          nativeMsg = 'Native: yyjson $version';
+        } catch (e) {
+          nativeMsg = 'Native Load Error: $e';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Xin chào! $nativeMsg'),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    });
   }
 
   @override
