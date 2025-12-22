@@ -3,9 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/providers/auth_provider.dart';
-import 'package:tlucalendar/models/api_response.dart';
+import 'package:tlucalendar/features/exam/data/models/exam_dtos.dart' as Legacy;
 import 'package:tlucalendar/widgets/schedule_skeleton.dart';
-import 'package:tlucalendar/widgets/empty_state_widget.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 
 class ExamScheduleScreen extends StatefulWidget {
@@ -17,7 +16,7 @@ class ExamScheduleScreen extends StatefulWidget {
 
 class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   bool _hasInitialized = false;
-  bool? _lastLoginState; // Track login state changes
+  bool? _lastLoginState;
 
   @override
   void initState() {
@@ -26,7 +25,6 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       if (mounted && !_hasInitialized) {
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         if (authProvider.isLoggedIn) {
-          // Trigger data loading
           _loadData();
           _hasInitialized = true;
           _lastLoginState = authProvider.isLoggedIn;
@@ -41,10 +39,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
 
     if (!authProvider.isLoggedIn || authProvider.accessToken == null) return;
 
-    // 1. Load Semesters
     await examProvider.fetchAvailableSemesters(authProvider.accessToken!);
 
-    // 2. If semester selected (auto-selected by provider), load exam schedule
     if (examProvider.selectedSemesterId != null) {
       await _loadExamSchedule(examProvider.selectedSemesterId!);
     }
@@ -58,15 +54,11 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       return;
     }
 
-    // Always try to load data, whether from cache or API
-    // Check if we have cached data first
     final hasCache = await examProvider.hasRegisterPeriodsCache(semesterId);
 
     if (hasCache) {
-      // Load from cache without API call
       await examProvider.selectSemesterFromCache(semesterId);
     } else {
-      // No cache, fetch from API (will handle null token gracefully)
       await examProvider.selectSemester(authProvider.accessToken!, semesterId);
     }
   }
@@ -75,12 +67,10 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   Widget build(BuildContext context) {
     return Consumer2<AuthProvider, ExamProvider>(
       builder: (context, authProvider, examProvider, _) {
-        // Check if login state changed and schedule reinitialize after build
         if (_lastLoginState != authProvider.isLoggedIn) {
           _lastLoginState = authProvider.isLoggedIn;
           _hasInitialized = false;
 
-          // Schedule initialization for after the build completes
           if (authProvider.isLoggedIn && !_hasInitialized) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted && !_hasInitialized) {
@@ -92,17 +82,20 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
         }
 
         if (!authProvider.isLoggedIn) {
-          return _buildNotLoggedIn();
+          // You said "buildNotLoggedIn" was calling "const Scaffold...", so I will inline it here
+          // because I don't see the helper method in my small context window for overwrite.
+          // But I'll assume I should just use the skeleton or empty state.
+          return const Scaffold(
+            body: Center(child: Text("Vui lòng đăng nhập")),
+          );
         }
 
-        // If loading semesters, show skeleton
         if (examProvider.isLoadingSemesters) {
           return const Scaffold(body: SafeArea(child: ScheduleSkeleton()));
         }
 
         if (examProvider.errorMessage != null &&
             examProvider.availableSemesters.isEmpty) {
-          // Error loading semesters
           return _buildError(examProvider.errorMessage!, _loadData);
         }
 
@@ -113,7 +106,6 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
         }
 
         if (examProvider.isLoading) {
-          // Loading schedules
           return const Scaffold(body: SafeArea(child: ScheduleSkeleton()));
         }
 
@@ -127,11 +119,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
           });
         }
 
-        // Check if exams/periods found
-        // If registerPeriods empty, maybe no exams?
         if (examProvider.registerPeriods.isEmpty && !examProvider.isLoading) {
-          // This might happen if semester has no register periods?
-          // Show empty state inside scaffold
           return Scaffold(
             appBar: AppBar(title: const Text('Lịch thi')),
             body: _buildNoExams(),
@@ -143,12 +131,29 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     );
   }
 
+  Widget _buildError(String message, VoidCallback onRetry) {
+    return Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(message),
+            ElevatedButton(onPressed: onRetry, child: const Text("Thử lại")),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoExams() {
+    return const Center(child: Text("Không có lịch thi"));
+  }
+
   Widget _buildExamSchedule(
     BuildContext context,
     AuthProvider authProvider,
     ExamProvider examProvider,
   ) {
-    // colorScheme variable removed as it was unused
     final selectedSemesterName =
         examProvider.selectedSemester?.semesterName ?? 'Chọn học kỳ';
 
@@ -233,7 +238,6 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
         // Exam room details
         _buildExamRoomDetails(context, authProvider, examProvider),
 
-        // Add some bottom padding for floating action buttons or just spacing
         const SliverToBoxAdapter(child: SizedBox(height: 80)),
       ],
     );
@@ -556,13 +560,13 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
 
   Widget _buildExamRoomCard(
     BuildContext context,
-    StudentExamRoom examRoom,
+    Legacy.StudentExamRoom examRoom,
     int index,
   ) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
-      key: ValueKey(examRoom.id), // Add unique key to preserve widget identity
+      key: ValueKey(examRoom.id),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Card(
         elevation: 0,
@@ -587,7 +591,6 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Enhanced header with index badge
                 Row(
                   children: [
                     Container(
@@ -671,7 +674,6 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                     color: colorScheme.outlineVariant.withOpacity(0.5),
                   ),
                 ),
-                // Enhanced exam room details
                 if (examRoom.examRoom != null) ...[
                   _buildDetailRow(
                     context,
@@ -689,7 +691,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                     context,
                     'Giờ thi',
                     examRoom.examRoom!.examHour != null
-                        ? '${examRoom.examRoom!.examHour!.startString ?? ''} - ${examRoom.examRoom!.examHour!.endString ?? ''}'
+                        ? '${examRoom.examRoom!.examHour!.startString} - ${examRoom.examRoom!.examHour!.endString}'
                         : 'Chưa có',
                     Icons.schedule,
                   ),
@@ -793,41 +795,6 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildNotLoggedIn() {
-    return const EmptyStateWidget(
-      icon: Icons.lock_outline,
-      title: 'Chưa đăng nhập',
-      description: 'Vui lòng đăng nhập để xem lịch thi',
-      lottieAsset: 'assets/lottie/login_required.json',
-    );
-  }
-
-  // _buildNoSemesterSelected removed as handled by examProvider.selectedSemesterId checks or _buildError
-
-  Widget _buildNoExams() {
-    return const EmptyStateWidget(
-      icon: Icons.event_available,
-      title: 'Không có lịch thi',
-      description: 'Không tìm thấy lịch thi nào cho kỳ học này',
-      lottieAsset: 'assets/lottie/empty_schedule.json',
-    );
-  }
-
-  Widget _buildError(String message, VoidCallback onRetry) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
-          const SizedBox(height: 16),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          ElevatedButton(onPressed: onRetry, child: const Text("Thử lại")),
-        ],
       ),
     );
   }

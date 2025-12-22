@@ -1,15 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:tlucalendar/models/schedule.dart';
+import 'package:tlucalendar/features/schedule/data/models/course_model.dart';
+import 'package:tlucalendar/features/schedule/domain/entities/course_hour.dart';
 
 class ScheduleCard extends StatelessWidget {
-  final Schedule schedule;
+  final CourseModel course;
+  final CourseHour? startHour;
+  final CourseHour? endHour;
   final VoidCallback? onTap;
 
-  const ScheduleCard({super.key, required this.schedule, this.onTap});
+  const ScheduleCard({
+    super.key,
+    required this.course,
+    this.startHour,
+    this.endHour,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    // Format times if available
+    final startTimeStr = startHour?.startString ?? '??:??';
+    final endTimeStr = endHour?.endString ?? '??:??';
+
+    // Parse hours/minutes for the large display if possible
+    String hourDisplay = '--';
+    String minuteDisplay = '--';
+
+    if (startHour != null) {
+      final parts = startHour!.startString.split(':');
+      if (parts.length == 2) {
+        hourDisplay = parts[0];
+        minuteDisplay = parts[1];
+      }
+    }
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -24,8 +49,8 @@ class ScheduleCard extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                colorScheme.primaryContainer.withValues(alpha: 0.85),
-                colorScheme.primaryContainer.withValues(alpha: 0.75),
+                colorScheme.primaryContainer.withOpacity(0.85),
+                colorScheme.primaryContainer.withOpacity(0.75),
               ],
             ),
           ),
@@ -37,14 +62,10 @@ class ScheduleCard extends StatelessWidget {
                 // ⏰ TIME - Left Side (Compact & Highlighted)
                 Container(
                   decoration: BoxDecoration(
-                    color: colorScheme.onPrimaryContainer.withValues(
-                      alpha: 0.1,
-                    ),
+                    color: colorScheme.onPrimaryContainer.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: colorScheme.onPrimaryContainer.withValues(
-                        alpha: 0.2,
-                      ),
+                      color: colorScheme.onPrimaryContainer.withOpacity(0.2),
                       width: 1.5,
                     ),
                   ),
@@ -60,10 +81,7 @@ class ScheduleCard extends StatelessWidget {
                         text: TextSpan(
                           children: [
                             TextSpan(
-                              text: schedule.startTime.hour.toString().padLeft(
-                                2,
-                                '0',
-                              ),
+                              text: hourDisplay,
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.w900,
@@ -81,9 +99,7 @@ class ScheduleCard extends StatelessWidget {
                                   ),
                             ),
                             TextSpan(
-                              text: schedule.startTime.minute
-                                  .toString()
-                                  .padLeft(2, '0'),
+                              text: minuteDisplay,
                               style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(
                                     fontWeight: FontWeight.w900,
@@ -100,17 +116,17 @@ class ScheduleCard extends StatelessWidget {
                         child: Container(
                           height: 0.8,
                           width: 28,
-                          color: colorScheme.onPrimaryContainer.withValues(
-                            alpha: 0.2,
+                          color: colorScheme.onPrimaryContainer.withOpacity(
+                            0.2,
                           ),
                         ),
                       ),
                       // End time - compact
                       Text(
-                        'đến ${schedule.endTime.hour.toString().padLeft(2, '0')}:${schedule.endTime.minute.toString().padLeft(2, '0')}',
+                        'đến $endTimeStr',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onPrimaryContainer.withValues(
-                            alpha: 0.7,
+                          color: colorScheme.onPrimaryContainer.withOpacity(
+                            0.7,
                           ),
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
@@ -128,7 +144,7 @@ class ScheduleCard extends StatelessWidget {
                     children: [
                       // Course name - single line
                       Text(
-                        schedule.course.name,
+                        course.courseName,
                         style: Theme.of(context).textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: colorScheme.onPrimaryContainer,
@@ -143,11 +159,11 @@ class ScheduleCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            schedule.course.code,
+                            course.courseCode,
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(
                                   color: colorScheme.onPrimaryContainer
-                                      .withValues(alpha: 0.65),
+                                      .withOpacity(0.65),
                                   fontWeight: FontWeight.w500,
                                   fontSize: 12,
                                 ),
@@ -157,18 +173,18 @@ class ScheduleCard extends StatelessWidget {
                           Icon(
                             Icons.location_on,
                             size: 13,
-                            color: colorScheme.onPrimaryContainer.withValues(
-                              alpha: 0.6,
+                            color: colorScheme.onPrimaryContainer.withOpacity(
+                              0.6,
                             ),
                           ),
                           const SizedBox(width: 2),
                           Expanded(
                             child: Text(
-                              schedule.course.classroom,
+                              course.room,
                               style: Theme.of(context).textTheme.labelSmall
                                   ?.copyWith(
                                     color: colorScheme.onPrimaryContainer
-                                        .withValues(alpha: 0.65),
+                                        .withOpacity(0.65),
                                     fontWeight: FontWeight.w500,
                                     fontSize: 12,
                                   ),

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tlucalendar/models/user.dart';
+import 'package:tlucalendar/features/auth/data/models/user_model.dart';
 
 import 'package:tlucalendar/services/log_service.dart';
 import 'package:tlucalendar/features/auth/domain/usecases/login_usecase.dart';
@@ -13,7 +13,7 @@ class AuthProvider extends ChangeNotifier {
   AuthProvider({required this.loginUseCase, required this.getUserUseCase});
 
   // State
-  User? _currentUser;
+  UserModel? _currentUser;
 
   late SharedPreferences _prefs;
   final _log = LogService();
@@ -29,7 +29,7 @@ class AuthProvider extends ChangeNotifier {
   static const String _accessTokenKey = 'accessToken';
 
   // Getters
-  User? get currentUser => _currentUser;
+  UserModel? get currentUser => _currentUser;
   bool get isLoggedIn => _isLoggedIn;
   String? get accessToken => _accessToken;
   bool get isLoading => _isLoading;
@@ -59,7 +59,7 @@ class AuthProvider extends ChangeNotifier {
         (f) => _log.log('Failed to fetch user info: ${f.message}'),
         (u) {
           // Map Domain User to Model User
-          _currentUser = User(
+          _currentUser = UserModel(
             studentId: u.studentId,
             fullName: u.fullName,
             email: u.email,

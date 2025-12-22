@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:tlucalendar/models/api_response.dart';
+import 'package:tlucalendar/features/exam/data/models/exam_dtos.dart' as Legacy;
 import 'package:tlucalendar/services/log_service.dart';
 import 'package:tlucalendar/features/exam/domain/usecases/get_exam_rooms_usecase.dart';
 import 'package:tlucalendar/features/exam/domain/usecases/get_exam_schedules_usecase.dart';
 import 'package:tlucalendar/features/schedule/domain/usecases/get_school_years_usecase.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/foundation.dart'; // For ChangeNotifier
 
 class ExamProvider with ChangeNotifier {
   final _log = LogService();
@@ -19,23 +19,22 @@ class ExamProvider with ChangeNotifier {
     required this.getSchoolYearsUseCase,
   });
 
-  List<RegisterPeriod> _registerPeriods = [];
-  List<Semester> _availableSemesters = [];
-  List<StudentExamRoom> _examRooms = [];
+  List<Legacy.RegisterPeriod> _registerPeriods = [];
+  List<Legacy.SemesterDto> _availableSemesters = [];
+  List<Legacy.StudentExamRoom> _examRooms = [];
   bool _isLoading = false;
   bool _isLoadingSemesters = false;
   bool _isLoadingRooms = false;
   String? _errorMessage;
   String? _roomErrorMessage;
 
-  // Selected filters
   int? _selectedRegisterPeriodId;
   int? _selectedSemesterId;
   int _selectedExamRound = 1;
 
-  List<RegisterPeriod> get registerPeriods => _registerPeriods;
-  List<Semester> get availableSemesters => _availableSemesters;
-  List<StudentExamRoom> get examRooms => _examRooms;
+  List<Legacy.RegisterPeriod> get registerPeriods => _registerPeriods;
+  List<Legacy.SemesterDto> get availableSemesters => _availableSemesters;
+  List<Legacy.StudentExamRoom> get examRooms => _examRooms;
   bool get isLoading => _isLoading;
   bool get isLoadingSemesters => _isLoadingSemesters;
   bool get isLoadingRooms => _isLoadingRooms;
@@ -45,10 +44,7 @@ class ExamProvider with ChangeNotifier {
   int? get selectedSemesterId => _selectedSemesterId;
   int get selectedExamRound => _selectedExamRound;
 
-  // Legacy accessor for UI compatibility
-
-  /// Get the currently selected register period
-  RegisterPeriod? get selectedRegisterPeriod {
+  Legacy.RegisterPeriod? get selectedRegisterPeriod {
     if (_selectedRegisterPeriodId == null) return null;
     try {
       return _registerPeriods.firstWhere(
@@ -59,8 +55,7 @@ class ExamProvider with ChangeNotifier {
     }
   }
 
-  /// Get the currently selected semester
-  Semester? get selectedSemester {
+  Legacy.SemesterDto? get selectedSemester {
     if (_selectedSemesterId == null) return null;
     try {
       return _availableSemesters.firstWhere(
@@ -71,12 +66,10 @@ class ExamProvider with ChangeNotifier {
     }
   }
 
-  /// Alias for init to match UI expectation
   Future<void> fetchAvailableSemesters(String accessToken) async {
     await init(accessToken);
   }
 
-  /// Initialize: Load semesters
   Future<void> init(String accessToken) async {
     _isLoadingSemesters = true;
     notifyListeners();
@@ -94,23 +87,19 @@ class ExamProvider with ChangeNotifier {
           _availableSemesters = [];
           for (var year in r) {
             for (var sem in year.semesters) {
-              // Map Domain Semester -> API Semester
               _availableSemesters.add(
-                Semester(
+                Legacy.SemesterDto(
                   id: sem.id,
                   semesterCode: sem.semesterCode,
                   semesterName: sem.semesterName,
                   startDate: sem.startDate,
                   endDate: sem.endDate,
                   isCurrent: sem.isCurrent,
-                  ordinalNumbers: sem.ordinalNumbers,
-                  semesterRegisterPeriods:
-                      [], // Empty list as we don't use this nested data
+                  semesterRegisterPeriods: [],
                 ),
               );
             }
           }
-          // Sort semesters if needed
           if (_availableSemesters.isNotEmpty) {
             final current = _availableSemesters
                 .where((s) => s.isCurrent)
@@ -140,7 +129,6 @@ class ExamProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Select a semester and fetch its exam schedules (Register Periods)
   Future<void> selectSemester(String accessToken, int semesterId) async {
     if (_selectedSemesterId == semesterId && _registerPeriods.isNotEmpty) {
       return;
@@ -169,10 +157,9 @@ class ExamProvider with ChangeNotifier {
           );
         },
         (r) {
-          // Create a placeholder semester object for the mapping
           final currentSem =
               selectedSemester ??
-              Semester(
+              Legacy.SemesterDto(
                 id: semesterId,
                 semesterCode: '',
                 semesterName: '',
@@ -184,14 +171,12 @@ class ExamProvider with ChangeNotifier {
 
           _registerPeriods = r
               .map(
-                (e) => RegisterPeriod(
+                (e) => Legacy.RegisterPeriod(
                   id: e.id,
                   name: e.name,
                   displayOrder: e.displayOrder,
                   voided: e.voided,
                   semester: currentSem,
-                  // Passing empty examPeriods list because the Entity.ExamSchedule contains
-                  // definitions, not courses. The UI only uses this list for the dropdown.
                   examPeriods: [],
                 ),
               )
@@ -222,7 +207,6 @@ class ExamProvider with ChangeNotifier {
     if (_selectedRegisterPeriodId != periodId) {
       _selectedRegisterPeriodId = periodId;
       notifyListeners();
-      // Auto-fetch exams when period is selected
       fetchExamRoomDetails(accessToken, semesterId, periodId, round);
     }
   }
@@ -236,7 +220,6 @@ class ExamProvider with ChangeNotifier {
 
   void setExamRound(int round) => selectExamRound(round);
 
-  /// Fetch list of exams (StudentExamRoom) for the student
   Future<void> fetchExamRoomDetails(
     String accessToken,
     int semesterId,
@@ -259,32 +242,37 @@ class ExamProvider with ChangeNotifier {
 
       result.fold((l) => _roomErrorMessage = l.message, (r) {
         _examRooms = r.map((e) {
-          // Create nested ExamRoomDetail
-          final detail = ExamRoomDetail(
-            id: 0, // Entity doesn't have Detail ID?
+          final detail = Legacy.ExamRoomDetail(
+            id: 0,
             roomCode: e.roomName ?? '',
             examDate: e.examDate?.millisecondsSinceEpoch,
             examDateString: e.examDate != null
                 ? DateFormat('dd/MM/yyyy').format(e.examDate!)
                 : '',
-            examHour: ExamHour(
+            examHour: Legacy.ExamHour(
               id: 0,
-              name: e.examTime, // Using string as name
-              startString: e.examTime?.split('-').firstOrNull,
-              endString: e.examTime?.split('-').lastOrNull,
+              name: e.examTime ?? '',
+              startString: e.examTime?.split('-').firstOrNull ?? '',
+              endString: e.examTime?.split('-').lastOrNull ?? '',
+              start: 0,
+              end: 0,
+              indexNumber: 0,
+              type: 0,
+              code: '',
             ),
-            room: Room(id: 0, name: e.roomName ?? '', code: ''),
-            numberExpectedStudent: 0, // Entity missing this
+            room: Legacy.Room(id: 0, name: e.roomName ?? '', code: ''),
+            numberExpectedStudent: 0,
           );
 
-          return StudentExamRoom(
+          return Legacy.StudentExamRoom(
             id: e.id,
             status: 0,
             examPeriodCode: e.examPeriodCode,
             subjectName: e.subjectName,
             studentCode: e.studentCode,
+            examRound: 0,
             examRoom: detail,
-            examCode: null, // SBD missing in Entity
+            examCode: null,
           );
         }).toList();
       });

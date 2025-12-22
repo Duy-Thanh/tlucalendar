@@ -47,7 +47,9 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
 
         return rawList.map((json) => ExamScheduleModel.fromJson(json)).toList();
       } else {
-        throw ServerFailure('Get ExamSchedules failed: ${response.statusCode}');
+        throw ServerFailure(
+          'Get ExamSchedules failed: ${response.statusCode}, Body: ${response.data}',
+        );
       }
     } catch (e) {
       throw ServerFailure(e.toString());
@@ -79,7 +81,9 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
 
         return rawList.map((json) => ExamRoomModel.fromJson(json)).toList();
       } else {
-        throw ServerFailure('Get ExamRooms failed: ${response.statusCode}');
+        throw ServerFailure(
+          'Get ExamRooms failed: ${response.statusCode}, Body: ${response.data}',
+        );
       }
     } catch (e) {
       throw ServerFailure(e.toString());

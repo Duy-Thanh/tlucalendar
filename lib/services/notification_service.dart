@@ -1,8 +1,9 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest_all.dart' as tz;
-import 'package:tlucalendar/models/api_response.dart';
 import 'package:tlucalendar/services/log_service.dart';
+import 'package:tlucalendar/features/schedule/data/models/course_model.dart';
+import 'package:tlucalendar/features/exam/data/models/exam_dtos.dart' as Legacy;
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -15,18 +16,16 @@ class NotificationService {
 
   bool _initialized = false;
 
-  /// Initialize the notification service
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // Initialize timezone database
     tz.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('Asia/Bangkok')); // Vietnam timezone
+    tz.setLocalLocation(tz.getLocation('Asia/Bangkok'));
 
-    // Android initialization settings
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
 
-    // iOS initialization settings
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -43,27 +42,29 @@ class NotificationService {
       onDidReceiveNotificationResponse: _onNotificationTapped,
     );
 
-    // Request permissions for Android 13+
     await _requestPermissions();
 
     _initialized = true;
   }
 
-  /// Request notification permissions (required for Android 13+)
   Future<bool> _requestPermissions() async {
     bool granted = false;
-    
-    final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    
+
+    final androidPlugin = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
     if (androidPlugin != null) {
       final result = await androidPlugin.requestNotificationsPermission();
       granted = result ?? false;
     }
 
-    final iosPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
-    
+    final iosPlugin = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+
     if (iosPlugin != null) {
       final result = await iosPlugin.requestPermissions(
         alert: true,
@@ -72,52 +73,45 @@ class NotificationService {
       );
       granted = result ?? false;
     }
-    
+
     return granted;
   }
 
-  /// Check if notification permissions are granted
   Future<bool> areNotificationsEnabled() async {
-    final androidPlugin = _notificationsPlugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
-    
+    final androidPlugin = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
     if (androidPlugin != null) {
       final result = await androidPlugin.areNotificationsEnabled();
       return result ?? false;
     }
-
-    // For iOS, we can't reliably check, assume true if initialized
     return _initialized;
   }
 
-  /// Request permissions again (for when user wants to enable after denying)
   Future<bool> requestPermissions() async {
     return await _requestPermissions();
   }
 
-  /// Handle notification tap
-  void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap - you can navigate to specific screen here
-// Removed log
-  }
+  void _onNotificationTapped(NotificationResponse response) {}
 
-  /// Schedule notifications for a class (1 hour, 30 min, 15 min before)
   Future<void> scheduleClassNotifications(
-    StudentCourseSubject course,
+    CourseModel course,
     DateTime classDateTime,
     int weekDay,
     String timeSlot,
   ) async {
     if (!_initialized) await initialize();
 
-    // Only schedule if the class is in the future
     final now = DateTime.now();
     if (classDateTime.isBefore(now)) return;
 
     final subjectName = course.courseName;
-    final baseId = '${course.id}_${weekDay}_${classDateTime.millisecondsSinceEpoch}'.hashCode;
+    final baseId =
+        '${course.id}_${weekDay}_${classDateTime.millisecondsSinceEpoch}'
+            .hashCode;
 
-    // 1 hour before
     final oneHourBefore = classDateTime.subtract(const Duration(hours: 1));
     if (oneHourBefore.isAfter(now)) {
       await _scheduleNotification(
@@ -129,7 +123,6 @@ class NotificationService {
       );
     }
 
-    // 30 minutes before
     final thirtyMinBefore = classDateTime.subtract(const Duration(minutes: 30));
     if (thirtyMinBefore.isAfter(now)) {
       await _scheduleNotification(
@@ -141,8 +134,9 @@ class NotificationService {
       );
     }
 
-    // 15 minutes before
-    final fifteenMinBefore = classDateTime.subtract(const Duration(minutes: 15));
+    final fifteenMinBefore = classDateTime.subtract(
+      const Duration(minutes: 15),
+    );
     if (fifteenMinBefore.isAfter(now)) {
       await _scheduleNotification(
         id: baseId + 3,
@@ -154,59 +148,57 @@ class NotificationService {
     }
   }
 
-  /// Schedule notifications for an exam (1 hour, 30 min, 15 min before)
   Future<void> scheduleExamNotifications(
-    StudentExamRoom examRoom,
+    Legacy.StudentExamRoom examRoom,
     DateTime examDateTime,
   ) async {
     if (!_initialized) await initialize();
 
-    // Only schedule if the exam is in the future
     final now = DateTime.now();
     if (examDateTime.isBefore(now)) return;
 
     final subjectName = examRoom.subjectName;
     final examCode = examRoom.examCode ?? '';
-    final baseId = '${examRoom.id}_${examDateTime.millisecondsSinceEpoch}'.hashCode;
+    final baseId =
+        '${examRoom.id}_${examDateTime.millisecondsSinceEpoch}'.hashCode;
 
-    // 1 hour before
     final oneHourBefore = examDateTime.subtract(const Duration(hours: 1));
     if (oneHourBefore.isAfter(now)) {
       await _scheduleNotification(
         id: baseId + 1,
         title: 'Sắp đến giờ thi!',
-        body: 'Còn 1 giờ nữa là đến giờ thi môn: $subjectName${examCode.isNotEmpty ? ' ($examCode)' : ''}!',
+        body:
+            'Còn 1 giờ nữa là đến giờ thi môn: $subjectName${examCode.isNotEmpty ? ' ($examCode)' : ''}!',
         scheduledDate: oneHourBefore,
         payload: 'exam_${examRoom.id}_1h',
       );
     }
 
-    // 30 minutes before
     final thirtyMinBefore = examDateTime.subtract(const Duration(minutes: 30));
     if (thirtyMinBefore.isAfter(now)) {
       await _scheduleNotification(
         id: baseId + 2,
         title: 'Sắp đến giờ thi!',
-        body: 'Còn 30 phút nữa là đến giờ thi môn: $subjectName${examCode.isNotEmpty ? ' ($examCode)' : ''}!',
+        body:
+            'Còn 30 phút nữa là đến giờ thi môn: $subjectName${examCode.isNotEmpty ? ' ($examCode)' : ''}!',
         scheduledDate: thirtyMinBefore,
         payload: 'exam_${examRoom.id}_30m',
       );
     }
 
-    // 15 minutes before
     final fifteenMinBefore = examDateTime.subtract(const Duration(minutes: 15));
     if (fifteenMinBefore.isAfter(now)) {
       await _scheduleNotification(
         id: baseId + 3,
         title: 'Sắp đến giờ thi!',
-        body: 'Còn 15 phút nữa là đến giờ thi môn: $subjectName${examCode.isNotEmpty ? ' ($examCode)' : ''}!',
+        body:
+            'Còn 15 phút nữa là đến giờ thi môn: $subjectName${examCode.isNotEmpty ? ' ($examCode)' : ''}!',
         scheduledDate: fifteenMinBefore,
         payload: 'exam_${examRoom.id}_15m',
       );
     }
   }
 
-  /// Schedule a single notification
   Future<void> _scheduleNotification({
     required int id,
     required String title,
@@ -214,26 +206,21 @@ class NotificationService {
     required DateTime scheduledDate,
     String? payload,
   }) async {
-    // Validate the scheduled date to prevent year 32099 bug
     final now = DateTime.now();
-    final maxYear = now.year + 10; // Maximum 10 years in future
-    
+    final maxYear = now.year + 10;
+
     if (scheduledDate.year > maxYear || scheduledDate.year < 2020) {
-      _log.log('Invalid scheduled date: $scheduledDate (year: ${scheduledDate.year})', level: LogLevel.warning);
-      _log.log('Notification NOT scheduled - date out of valid range', level: LogLevel.warning);
+      _log.log(
+        'Invalid scheduled date: $scheduledDate',
+        level: LogLevel.warning,
+      );
       return;
     }
-    
-    // Don't schedule if already passed
+
     if (scheduledDate.isBefore(now)) {
-// Removed log
       return;
     }
-    
-    // Log notification scheduling
-// Removed log
-// Removed log
-    
+
     const androidDetails = AndroidNotificationDetails(
       'class_exam_reminders',
       'Nhắc nhở lịch học và lịch thi',
@@ -257,8 +244,7 @@ class NotificationService {
     );
 
     final tzScheduledDate = tz.TZDateTime.from(scheduledDate, tz.local);
-// Removed log
-    
+
     await _notificationsPlugin.zonedSchedule(
       id,
       title,
@@ -268,26 +254,20 @@ class NotificationService {
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
       payload: payload,
     );
-    
-// Removed log
   }
 
-  /// Cancel a specific notification
   Future<void> cancelNotification(int id) async {
     await _notificationsPlugin.cancel(id);
   }
 
-  /// Cancel all notifications
   Future<void> cancelAllNotifications() async {
     await _notificationsPlugin.cancelAll();
   }
 
-  /// Get pending notifications
   Future<List<PendingNotificationRequest>> getPendingNotifications() async {
     return await _notificationsPlugin.pendingNotificationRequests();
   }
 
-  /// Show immediate notification (for testing)
   Future<void> showImmediateNotification({
     required int id,
     required String title,

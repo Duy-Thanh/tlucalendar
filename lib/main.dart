@@ -10,13 +10,9 @@ import 'package:tlucalendar/providers/exam_provider.dart';
 
 import 'package:tlucalendar/theme/app_theme.dart';
 import 'package:tlucalendar/screens/home_shell.dart';
-// Ensure this exists or use home_shell logic
 import 'package:tlucalendar/injection_container.dart' as di;
 
-// Legacy services - keeping imports if they are standalone, otherwise commenting out usage if broken
 import 'package:tlucalendar/services/daily_notification_service.dart';
-import 'package:tlucalendar/services/download_foreground_service.dart';
-// import 'package:tlucalendar/services/auto_refresh_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,12 +26,8 @@ void main() async {
   // Initialize timezone database
   tz.initializeTimeZones();
 
-  // Initialize Daily Notification Service (fixes Dart_LookupLibrary error)
+  // Initialize Daily Notification Service
   await DailyNotificationService.initialize();
-
-  // Non-blocking background services init (if safe)
-  DownloadForegroundService.initForegroundTask();
-  // AutoRefreshService.initialize();
 
   runApp(
     MultiProvider(
@@ -97,13 +89,8 @@ class _AppInitializerState extends State<AppInitializer> {
         context,
         listen: false,
       );
-      // Fire and forget or await?
-      // Better to await to avoid empty screen flash, or just fire.
-      // Given Clean usage, we might want to just let HomeShell load data.
-      // But init(accessToken) is needed.
       scheduleProvider.init(authProvider.accessToken!);
 
-      // Similarly for ExamProvider if needed, or let screens handle it.
       final examProvider = Provider.of<ExamProvider>(context, listen: false);
       examProvider.init(authProvider.accessToken!);
     }
@@ -122,7 +109,6 @@ class _AppInitializerState extends State<AppInitializer> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // Redirect logic
     // HomeShell handles auth state display, so just go there.
     return const HomeShell();
   }
