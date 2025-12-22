@@ -2,6 +2,8 @@ import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:tlucalendar/features/exam/data/models/exam_schedule_model.dart';
+import 'package:tlucalendar/features/exam/data/models/exam_room_model.dart';
+import 'package:tlucalendar/features/exam/domain/entities/exam_period.dart';
 
 // --- FFI Structs matching C++ ---
 
@@ -58,11 +60,48 @@ final class ExamScheduleResult extends Struct {
   external Pointer<Utf8> errorMessage;
 }
 
+final class ExamRoomNative extends Struct {
+  @Int32()
+  external int id;
+
+  external Pointer<Utf8> subjectName;
+  external Pointer<Utf8> examPeriodCode;
+  external Pointer<Utf8> examCode;
+  external Pointer<Utf8> studentCode;
+
+  @Int64()
+  external int examDate;
+
+  external Pointer<Utf8> examTime;
+  external Pointer<Utf8> roomName;
+  external Pointer<Utf8> roomBuilding;
+  external Pointer<Utf8> examMethod;
+  external Pointer<Utf8> notes;
+
+  @Int32()
+  external int numberExpectedStudent;
+}
+
+final class ExamRoomResult extends Struct {
+  @Int32()
+  external int count;
+
+  external Pointer<ExamRoomNative> rooms;
+
+  external Pointer<Utf8> errorMessage;
+}
+
 // --- Function Signatures ---
 
 typedef ParseExamDetailsFunc =
     Pointer<ExamScheduleResult> Function(Pointer<Utf8>);
 typedef ParseExamDetails = Pointer<ExamScheduleResult> Function(Pointer<Utf8>);
+
+typedef ParseExamRoomsFunc = Pointer<ExamRoomResult> Function(Pointer<Utf8>);
+typedef ParseExamRooms = Pointer<ExamRoomResult> Function(Pointer<Utf8>);
+
+typedef FreeExamRoomResultFunc = Void Function(Pointer<ExamRoomResult>);
+typedef FreeExamRoomResult = void Function(Pointer<ExamRoomResult>);
 
 typedef FreeResultFunc = Void Function(Pointer<ExamScheduleResult>);
 typedef FreeResult = void Function(Pointer<ExamScheduleResult>);
@@ -94,6 +133,87 @@ class NativeParser {
       return func().toDartString();
     } catch (e) {
       return 'Error: $e';
+    }
+  }
+
+  static List<ExamRoomModel> parseExamRooms(String jsonStr) {
+    if (jsonStr.isEmpty) return [];
+    try {
+      final func = _library.lookupFunction<ParseExamRoomsFunc, ParseExamRooms>(
+        'parse_exam_rooms',
+      );
+      final freeFunc = _library
+          .lookupFunction<FreeExamRoomResultFunc, FreeExamRoomResult>(
+            'free_exam_room_result',
+          );
+
+      final jsonPtr = jsonStr.toNativeUtf8();
+      final resultPtr = func(jsonPtr);
+      malloc.free(jsonPtr);
+
+      if (resultPtr == nullptr) {
+        print("Native parseExamRooms returned null");
+        return [];
+      }
+
+      final result = resultPtr.ref;
+      if (result.errorMessage != nullptr) {
+        print(
+          "Native Parser Error (ExamRooms): ${result.errorMessage.toDartString()}",
+        );
+        freeFunc(resultPtr);
+        return [];
+      }
+
+      final List<ExamRoomModel> list = [];
+      final count = result.count;
+      final roomsPtr = result.rooms;
+
+      for (int i = 0; i < count; i++) {
+        final rNative = roomsPtr[i];
+        list.add(
+          ExamRoomModel(
+            id: rNative.id,
+            subjectName: rNative.subjectName != nullptr
+                ? rNative.subjectName.toDartString()
+                : '',
+            examPeriodCode: rNative.examPeriodCode != nullptr
+                ? rNative.examPeriodCode.toDartString()
+                : '',
+            examCode: rNative.examCode != nullptr
+                ? rNative.examCode.toDartString()
+                : null,
+            studentCode: rNative.studentCode != nullptr
+                ? rNative.studentCode.toDartString()
+                : null,
+            examDate: rNative.examDate > 0
+                ? DateTime.fromMillisecondsSinceEpoch(rNative.examDate)
+                : null,
+            examTime: rNative.examTime != nullptr
+                ? rNative.examTime.toDartString()
+                : null,
+            roomName: rNative.roomName != nullptr
+                ? rNative.roomName.toDartString()
+                : null,
+            roomBuilding: rNative.roomBuilding != nullptr
+                ? rNative.roomBuilding.toDartString()
+                : null,
+            examMethod: rNative.examMethod != nullptr
+                ? rNative.examMethod.toDartString()
+                : null,
+            notes: rNative.notes != nullptr
+                ? rNative.notes.toDartString()
+                : null,
+            numberExpectedStudent: rNative.numberExpectedStudent,
+          ),
+        );
+      }
+
+      freeFunc(resultPtr);
+      return list;
+    } catch (e) {
+      print("Native Logic Error (ExamRooms): $e");
+      return [];
     }
   }
 

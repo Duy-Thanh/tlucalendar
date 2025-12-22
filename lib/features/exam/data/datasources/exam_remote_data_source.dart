@@ -81,6 +81,7 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
       final response = await client.get(
         '/api/semestersubjectexamroom/getListRoomByStudentByLoginUser/$semesterId/$scheduleId/$round',
         options: Options(
+          responseType: ResponseType.plain,
           headers: {
             'Authorization': 'Bearer $accessToken',
             'Accept': 'application/json',
@@ -90,14 +91,8 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        final List<dynamic> rawList = response.data is String
-            ? jsonParser.parseList(response.data)
-            : response.data as List<dynamic>;
-
-        if (rawList.isNotEmpty) {
-          // print('First Exam Room JSON: ${rawList.first}'); // Too big, truncated
-        }
-        return rawList.map((json) => ExamRoomModel.fromJson(json)).toList();
+        // response.data is string
+        return NativeParser.parseExamRooms(response.data as String);
       } else {
         throw ServerFailure(
           'Get ExamRooms failed: ${response.statusCode}, Body: ${response.data}',
