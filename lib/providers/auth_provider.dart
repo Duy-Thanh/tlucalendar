@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tlucalendar/features/auth/data/models/user_model.dart';
@@ -19,6 +20,7 @@ class AuthProvider extends ChangeNotifier {
   final _log = LogService();
   bool _isLoggedIn = false;
   String? _accessToken;
+  Map<String, dynamic>? _rawTokenData;
 
   // Login progress tracking
   String _loginProgress = '';
@@ -32,6 +34,7 @@ class AuthProvider extends ChangeNotifier {
   UserModel? get currentUser => _currentUser;
   bool get isLoggedIn => _isLoggedIn;
   String? get accessToken => _accessToken;
+  Map<String, dynamic>? get rawTokenData => _rawTokenData;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
@@ -45,8 +48,17 @@ class AuthProvider extends ChangeNotifier {
 
     // Check if logged in
     final accessToken = _prefs.getString(_accessTokenKey);
+    final rawTokenJson = _prefs.getString('rawToken');
+
     if (accessToken != null) {
       _accessToken = accessToken;
+      if (rawTokenJson != null) {
+        try {
+          _rawTokenData = jsonDecode(rawTokenJson) as Map<String, dynamic>;
+        } catch (e) {
+          _log.log('Error decoding rawToken: $e');
+        }
+      }
       _isLoggedIn = true;
       _fetchUserInfo(accessToken);
     }
@@ -93,10 +105,17 @@ class AuthProvider extends ChangeNotifier {
           notifyListeners();
           return false;
         },
-        (token) async {
-          _accessToken = token;
+        (tokenData) async {
+          _accessToken = tokenData['access_token'];
+          _rawTokenData = tokenData;
           _isLoggedIn = true;
           await _prefs.setString(_accessTokenKey, _accessToken!);
+          await _prefs.setString('rawToken', jsonEncode(tokenData));
+          // Save other token fields if needed, or serialize the whole map
+          // For simplicity, we just keep it in memory. If app restarts, we might lose refresh_token
+          // if we don't save it. For now, let's just make it work for the session.
+
+          // Ideally: await _prefs.setString('rawToken', jsonEncode(tokenData));
 
           // Fetch User Info
           _loginProgress = 'Đang lấy thông tin sinh viên...';
@@ -123,6 +142,8 @@ class AuthProvider extends ChangeNotifier {
     _isLoggedIn = false;
     _currentUser = null;
     await _prefs.remove(_accessTokenKey);
+    await _prefs.remove('rawToken');
+    _rawTokenData = null;
     notifyListeners();
   }
 }

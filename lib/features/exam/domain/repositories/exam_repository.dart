@@ -8,6 +8,7 @@ abstract class ExamRepository {
   Future<Either<Failure, List<ExamSchedule>>> getExamSchedules(
     int semesterId,
     String accessToken,
+    Map<String, dynamic>? rawToken,
   );
 
   /// Get list of exam rooms for a specific schedule and round
@@ -16,5 +17,6 @@ abstract class ExamRepository {
     required int scheduleId, // registerPeriodId
     required int round,
     required String accessToken,
+    Map<String, dynamic>? rawToken,
   });
 }

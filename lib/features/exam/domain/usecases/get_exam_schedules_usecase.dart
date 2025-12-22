@@ -18,6 +18,7 @@ class GetExamSchedulesUseCase
     return await repository.getExamSchedules(
       params.semesterId,
       params.accessToken,
+      params.rawToken,
     );
   }
 }
@@ -25,12 +26,18 @@ class GetExamSchedulesUseCase
 class GetExamSchedulesParams extends Equatable {
   final int semesterId;
   final String accessToken;
+  final Map<String, dynamic>? rawToken;
 
   const GetExamSchedulesParams({
     required this.semesterId,
     required this.accessToken,
+    this.rawToken,
   });
 
   @override
-  List<Object> get props => [semesterId, accessToken];
+  List<Object> get props => [
+    semesterId,
+    accessToken,
+    if (rawToken != null) rawToken!,
+  ];
 }

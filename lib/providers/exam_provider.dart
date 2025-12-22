@@ -129,7 +129,11 @@ class ExamProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> selectSemester(String accessToken, int semesterId) async {
+  Future<void> selectSemester(
+    String accessToken,
+    int semesterId,
+    Map<String, dynamic>? rawToken,
+  ) async {
     if (_selectedSemesterId == semesterId && _registerPeriods.isNotEmpty) {
       return;
     }
@@ -145,6 +149,7 @@ class ExamProvider with ChangeNotifier {
         GetExamSchedulesParams(
           semesterId: semesterId,
           accessToken: accessToken,
+          rawToken: rawToken,
         ),
       );
 
@@ -203,11 +208,12 @@ class ExamProvider with ChangeNotifier {
     int semesterId,
     int periodId,
     int round,
+    Map<String, dynamic>? rawToken,
   ) {
     if (_selectedRegisterPeriodId != periodId) {
       _selectedRegisterPeriodId = periodId;
       notifyListeners();
-      fetchExamRoomDetails(accessToken, semesterId, periodId, round);
+      fetchExamRoomDetails(accessToken, semesterId, periodId, round, rawToken);
     }
   }
 
@@ -225,6 +231,7 @@ class ExamProvider with ChangeNotifier {
     int semesterId,
     int scheduleId,
     int round,
+    Map<String, dynamic>? rawToken,
   ) async {
     _isLoadingRooms = true;
     _roomErrorMessage = null;
@@ -237,6 +244,7 @@ class ExamProvider with ChangeNotifier {
           scheduleId: scheduleId,
           round: round,
           accessToken: accessToken,
+          rawToken: rawToken,
         ),
       );
 

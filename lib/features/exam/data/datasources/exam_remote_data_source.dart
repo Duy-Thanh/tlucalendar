@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:tlucalendar/core/error/failures.dart';
 import 'package:tlucalendar/core/network/network_client.dart';
@@ -9,12 +10,14 @@ abstract class ExamRemoteDataSource {
   Future<List<ExamScheduleModel>> getExamSchedules(
     int semesterId,
     String accessToken,
+    Map<String, dynamic>? rawToken,
   );
   Future<List<ExamRoomModel>> getExamRooms({
     required int semesterId,
     required int scheduleId, // registerPeriodId
     required int round,
     required String accessToken,
+    Map<String, dynamic>? rawToken,
   });
 }
 
@@ -28,14 +31,26 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
   Future<List<ExamScheduleModel>> getExamSchedules(
     int semesterId,
     String accessToken,
+    Map<String, dynamic>? rawToken,
   ) async {
     try {
+      final cookieValue = rawToken != null
+          ? 'token=${Uri.encodeComponent(jsonEncode(rawToken))}'
+          : 'token=${Uri.encodeComponent('{"access_token":"$accessToken","token_type":"bearer"}')}';
+
+      print('----- DEBUG EXAM REQUEST -----');
+      print('Entries in rawToken: ${rawToken?.length}');
+      print('Keys in rawToken: ${rawToken?.keys.toList()}');
+      print('Generated Cookie: $cookieValue');
+      print('------------------------------');
+
       final response = await client.get(
-        '/api/semestersubjectexamroom/getListRegisterPeriod/$semesterId',
+        '/api/registerperiod/find/$semesterId',
         options: Options(
           headers: {
             'Authorization': 'Bearer $accessToken',
             'Accept': 'application/json',
+            'Cookie': cookieValue,
           },
         ),
       );
@@ -62,14 +77,20 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
     required int scheduleId,
     required int round,
     required String accessToken,
+    Map<String, dynamic>? rawToken,
   }) async {
     try {
+      final cookieValue = rawToken != null
+          ? 'token=${Uri.encodeComponent(jsonEncode(rawToken))}'
+          : 'token=${Uri.encodeComponent('{"access_token":"$accessToken","token_type":"bearer"}')}';
+
       final response = await client.get(
         '/api/semestersubjectexamroom/getListRoomByStudentByLoginUser/$semesterId/$scheduleId/$round',
         options: Options(
           headers: {
             'Authorization': 'Bearer $accessToken',
             'Accept': 'application/json',
+            'Cookie': cookieValue,
           },
         ),
       );

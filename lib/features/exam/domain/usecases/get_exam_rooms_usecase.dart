@@ -20,6 +20,7 @@ class GetExamRoomsUseCase
       scheduleId: params.scheduleId,
       round: params.round,
       accessToken: params.accessToken,
+      rawToken: params.rawToken,
     );
   }
 }
@@ -29,14 +30,22 @@ class GetExamRoomsParams extends Equatable {
   final int scheduleId;
   final int round;
   final String accessToken;
+  final Map<String, dynamic>? rawToken;
 
   const GetExamRoomsParams({
     required this.semesterId,
     required this.scheduleId,
     required this.round,
     required this.accessToken,
+    this.rawToken,
   });
 
   @override
-  List<Object> get props => [semesterId, scheduleId, round, accessToken];
+  List<Object> get props => [
+    semesterId,
+    scheduleId,
+    round,
+    accessToken,
+    if (rawToken != null) rawToken!,
+  ];
 }

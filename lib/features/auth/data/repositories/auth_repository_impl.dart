@@ -15,15 +15,21 @@ class AuthRepositoryImpl implements AuthRepository {
   });
 
   @override
-  Future<Either<Failure, String>> login(
+  Future<Either<Failure, Map<String, dynamic>>> login(
     String studentCode,
     String password,
   ) async {
     try {
-      final token = await remoteDataSource.login(studentCode, password);
-      await localDataSource.cacheAccessToken(token);
+      final tokenData = await remoteDataSource.login(studentCode, password);
+      final accessToken = tokenData['access_token'] ?? '';
+      await localDataSource.cacheAccessToken(accessToken);
+
+      // We might want to cache other tokens if needed, but for now just access_token
+      // to keep existing logic working.
+      // But we pass the FULL map back.
+
       await localDataSource.saveCredentials(studentCode, password);
-      return Right(token);
+      return Right(tokenData);
     } on Failure catch (e) {
       return Left(e);
     } catch (e) {

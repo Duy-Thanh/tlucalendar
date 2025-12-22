@@ -4,13 +4,13 @@ import 'package:tlucalendar/core/error/failures.dart';
 import 'package:tlucalendar/core/usecases/usecase.dart';
 import 'package:tlucalendar/features/auth/domain/repositories/auth_repository.dart';
 
-class LoginUseCase implements UseCase<String, LoginParams> {
+class LoginUseCase implements UseCase<Map<String, dynamic>, LoginParams> {
   final AuthRepository repository;
 
   LoginUseCase(this.repository);
 
   @override
-  Future<Either<Failure, String>> call(LoginParams params) async {
+  Future<Either<Failure, Map<String, dynamic>>> call(LoginParams params) async {
     return await repository.login(params.studentCode, params.password);
   }
 }

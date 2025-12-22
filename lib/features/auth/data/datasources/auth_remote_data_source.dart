@@ -5,7 +5,7 @@ import 'package:tlucalendar/core/parser/json_parser.dart';
 import 'package:tlucalendar/features/auth/data/models/user_model.dart';
 
 abstract class AuthRemoteDataSource {
-  Future<String> login(String studentCode, String password);
+  Future<Map<String, dynamic>> login(String studentCode, String password);
   Future<UserModel> getCurrentUser(String accessToken);
 }
 
@@ -22,7 +22,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   static const String _grantType = 'password';
 
   @override
-  Future<String> login(String studentCode, String password) async {
+  Future<Map<String, dynamic>> login(
+    String studentCode,
+    String password,
+  ) async {
     try {
       // Use form-urlencoded for token endpoint
       final response = await client.post(
@@ -42,7 +45,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
             ? jsonParser.parse(response.data)
             : response.data as Map<String, dynamic>;
 
-        return data['access_token'] ?? '';
+        return data;
       } else {
         throw ServerFailure('Login failed: ${response.statusCode}');
       }

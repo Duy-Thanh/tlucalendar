@@ -14,11 +14,13 @@ class ExamRepositoryImpl implements ExamRepository {
   Future<Either<Failure, List<ExamSchedule>>> getExamSchedules(
     int semesterId,
     String accessToken,
+    Map<String, dynamic>? rawToken,
   ) async {
     try {
       final result = await remoteDataSource.getExamSchedules(
         semesterId,
         accessToken,
+        rawToken,
       );
       return Right(result);
     } catch (e) {
@@ -32,6 +34,7 @@ class ExamRepositoryImpl implements ExamRepository {
     required int scheduleId,
     required int round,
     required String accessToken,
+    Map<String, dynamic>? rawToken,
   }) async {
     try {
       final result = await remoteDataSource.getExamRooms(
@@ -39,6 +42,7 @@ class ExamRepositoryImpl implements ExamRepository {
         scheduleId: scheduleId,
         round: round,
         accessToken: accessToken,
+        rawToken: rawToken,
       );
       return Right(result);
     } catch (e) {

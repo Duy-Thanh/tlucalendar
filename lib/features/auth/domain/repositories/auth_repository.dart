@@ -4,7 +4,10 @@ import 'package:tlucalendar/features/auth/domain/entities/user.dart';
 
 abstract class AuthRepository {
   /// Login with student code and password. Returns access token.
-  Future<Either<Failure, String>> login(String studentCode, String password);
+  Future<Either<Failure, Map<String, dynamic>>> login(
+    String studentCode,
+    String password,
+  );
 
   /// Get current user details using access token
   Future<Either<Failure, User>> getCurrentUser(String accessToken);

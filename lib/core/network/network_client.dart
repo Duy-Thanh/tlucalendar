@@ -14,6 +14,12 @@ class NetworkClient {
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
         validateStatus: (status) => status != null && status < 500,
+        headers: {
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://sinhvien1.tlu.edu.vn/',
+          'Accept': 'application/json, text/plain, */*',
+        },
       ),
     );
 
