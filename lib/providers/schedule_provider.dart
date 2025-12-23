@@ -140,10 +140,14 @@ class ScheduleProvider extends ChangeNotifier {
   }
 
   Future<void> _scheduleNotifications() async {
+    // delay to avoid blocking immediate UI updates
+    await Future.delayed(Duration.zero);
+
     if (_currentSemester == null || _courses.isEmpty) return;
 
     final notificationService = NotificationService();
-    // Clear all previous notifications to avoid duplicates (especially mixed old/new logic)
+
+    // Clear all previous notifications
     await notificationService.cancelAllNotifications();
 
     // Optimized Native Notification Generation
@@ -157,8 +161,15 @@ class ScheduleProvider extends ChangeNotifier {
       print("Native Notifications returned empty! Cache might be missing.");
     }
 
+    // Batch processing to prevent UI freezer (Davey)
+    int count = 0;
     for (var n in notifications) {
       await notificationService.scheduleNativeClassNotification(n);
+      count++;
+      // Yield every 20 items to let UI breathe
+      if (count % 20 == 0) {
+        await Future.delayed(const Duration(milliseconds: 10));
+      }
     }
   }
 

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart'; // for compute
 import 'package:tlucalendar/core/error/failures.dart';
 import 'package:tlucalendar/core/network/network_client.dart';
 
@@ -38,8 +39,8 @@ class ScheduleRemoteDataSourceImpl implements ScheduleRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        // Native Parser handles "expansion" (flattening timetables) automatically
-        return NativeParser.parseCourses(response.data as String);
+        // Run Native Parsing in a separate Isolate to avoid Main Thread GC Jank
+        return compute(NativeParser.parseCourses, response.data as String);
       } else {
         throw ServerFailure('Get Courses failed: ${response.statusCode}');
       }
@@ -63,7 +64,8 @@ class ScheduleRemoteDataSourceImpl implements ScheduleRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        return NativeParser.parseCourseHours(response.data as String);
+        // Run Native Parsing in a separate Isolate
+        return compute(NativeParser.parseCourseHours, response.data as String);
       } else {
         throw ServerFailure('Get CourseHours failed: ${response.statusCode}');
       }
@@ -87,7 +89,8 @@ class ScheduleRemoteDataSourceImpl implements ScheduleRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        return NativeParser.parseSchoolYears(response.data as String);
+        // Run Native Parsing in a separate Isolate
+        return compute(NativeParser.parseSchoolYears, response.data as String);
       } else {
         throw ServerFailure('Get SchoolYears failed: ${response.statusCode}');
       }
@@ -111,7 +114,16 @@ class ScheduleRemoteDataSourceImpl implements ScheduleRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        return NativeParser.parseSemester(response.data as String) ??
+        // Run Native Parsing in a separate Isolate
+        // Note: parseSemester returns nullable, so we handle it inside wrapper if needed,
+        // but compute works with function returning nullable too.
+        // However, parseSemester returns SemesterResult? or Model?
+        // It currently returns SemesterModel?.
+        final result = await compute(
+          NativeParser.parseSemester,
+          response.data as String,
+        );
+        return result ??
             SemesterModel(
               id: 0,
               semesterCode: '',
