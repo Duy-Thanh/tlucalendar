@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:tlucalendar/core/native/native_parser.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/course.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/course_hour.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/school_year.dart';
@@ -142,68 +143,22 @@ class ScheduleProvider extends ChangeNotifier {
     if (_currentSemester == null || _courses.isEmpty) return;
 
     final notificationService = NotificationService();
-    // Use cancelAll only if we want to reset.
-    // Maybe better to cancel old ones for this semester first?
-    // For now, let's assume we overwrite or just add.
-    // Duplicates are handled by ID generation in NotificationService (based on time).
+    // Clear all previous notifications to avoid duplicates (especially mixed old/new logic)
+    await notificationService.cancelAllNotifications();
 
-    // We need startDate of semester to calculate dates
-    // Assuming startDate is Monday of Week 1
-    final semesterStart = DateTime.fromMillisecondsSinceEpoch(
+    // Optimized Native Notification Generation
+    if (_currentSemester == null) return;
+
+    final notifications = NativeParser.generateNotifications(
       _currentSemester!.startDate,
     );
 
-    for (var course in _courses) {
-      // Course has fromWeek, toWeek, dayOfWeek
-      // 2=Mon ... 8=Sun
+    if (notifications.isEmpty && _courses.isNotEmpty) {
+      print("Native Notifications returned empty! Cache might be missing.");
+    }
 
-      // Course has fromWeek, toWeek, dayOfWeek defined as non-nullable in Entity.
-      // So we don't need to check for nulls here.
-
-      // We don't know exactly which weeks are active if it's not continuous,
-      // but the model usually implies a range.
-      // If there are gaps, the API usually returns multiple Course entries or we assume continuous for now.
-
-      for (int week = course.fromWeek; week <= course.toWeek; week++) {
-        // Calculate date for this week
-        // week 1 = 0 days offset
-        final daysOffset = (week - 1) * 7 + (course.dayOfWeek - 2);
-        final classDate = semesterStart.add(Duration(days: daysOffset));
-
-        // Set time from startCourseHour
-        // We need the hours list to get exact time string
-        // If not found, ignore
-        if (course.startCourseHour == null) continue;
-
-        final startHour = _courseHours
-            .where((h) => h.id == course.startCourseHour)
-            .firstOrNull;
-        if (startHour == null) continue;
-
-        // Parse time string "07:00"
-        final timeParts = startHour.startString.split(':');
-        if (timeParts.length < 2) continue;
-
-        final hour = int.tryParse(timeParts[0]);
-        final minute = int.tryParse(timeParts[1]);
-
-        if (hour != null && minute != null) {
-          final classDateTime = DateTime(
-            classDate.year,
-            classDate.month,
-            classDate.day,
-            hour,
-            minute,
-          );
-
-          await notificationService.scheduleClassNotifications(
-            course,
-            classDateTime,
-            course.dayOfWeek,
-            '${startHour.startString}',
-          );
-        }
-      }
+    for (var n in notifications) {
+      await notificationService.scheduleNativeClassNotification(n);
     }
   }
 

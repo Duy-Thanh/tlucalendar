@@ -148,6 +148,91 @@ class NotificationService {
     }
   }
 
+  // Optimized method for Native C++ Notifications
+  Future<void> scheduleNativeClassNotification(
+    // We use dynamic or import the model, but usually better to import.
+    // For now, let's pass fields or use the model if imports allow.
+    // Since NotificationService is low level, we might not want to import NativeParser types if it causes cycles?
+    // NativeParser is in core, NotificationService in services. Core -> Services? No.
+    // usually Services -> Core. So we can import NativeParser.
+    dynamic
+    model, // using dynamic to avoid import duplication issues if any, or just fields
+  ) async {
+    if (!_initialized) await initialize();
+
+    final classDateTime = DateTime.fromMillisecondsSinceEpoch(
+      model.triggerTime,
+    );
+    final now = DateTime.now();
+    if (classDateTime.isBefore(now)) return;
+
+    final subjectName =
+        model.title; // Adjusted: Native model title has "Lịch học: " prefix?
+    // C++: "Lịch học: %s"
+    // Dart existing: "Sắp đến giờ học môn: $subjectName"
+    // We should probably just pass the raw Subject Name from C++ if we want to match exact text?
+    // Or just use the C++ title as is.
+    // C++ Body: "Phòng: %s | Giờ: %s"
+
+    // Let's use the C++ provided Title/Body directly for the notification content?
+    // But the current logic adds "Còn 1 giờ nữa...".
+    // If we want exact parity, C++ should return just the data.
+    // But C++ returned formatted strings.
+    // Let's just use the C++ title/body for the notification "Body" or "Title".
+
+    // Current Native Impl:
+    // Title: "Lịch học: Data Structures"
+    // Body: "Phòng: B1 | Giờ: 07:00"
+
+    // Desired Notification:
+    // Title: "Sắp đến giờ học!"
+    // Body: "Còn ... môn Data Structures"
+
+    // Since C++ strings are already formatted, we might just use them.
+    // "Lịch học: Data Structures" is a good Title.
+    // Body: "Phòng: B1... (Còn 1h)"
+
+    // Let's stick to the C++ strings for simplicity and speed.
+    // We can append " - Còn 1h" to the body.
+
+    final baseId = model.id;
+
+    final oneHourBefore = classDateTime.subtract(const Duration(hours: 1));
+    if (oneHourBefore.isAfter(now)) {
+      await _scheduleNotification(
+        id: baseId + 1,
+        title: model.title,
+        body: '${model.body} (Còn 1 giờ)',
+        scheduledDate: oneHourBefore,
+        payload: 'native_class_${model.id}',
+      );
+    }
+
+    final thirtyMinBefore = classDateTime.subtract(const Duration(minutes: 30));
+    if (thirtyMinBefore.isAfter(now)) {
+      await _scheduleNotification(
+        id: baseId + 2,
+        title: model.title,
+        body: '${model.body} (Còn 30 phút)',
+        scheduledDate: thirtyMinBefore,
+        payload: 'native_class_${model.id}',
+      );
+    }
+
+    final fifteenMinBefore = classDateTime.subtract(
+      const Duration(minutes: 15),
+    );
+    if (fifteenMinBefore.isAfter(now)) {
+      await _scheduleNotification(
+        id: baseId + 3,
+        title: model.title,
+        body: '${model.body} (Còn 15 phút)',
+        scheduledDate: fifteenMinBefore,
+        payload: 'native_class_${model.id}',
+      );
+    }
+  }
+
   Future<void> scheduleExamNotifications(
     Legacy.StudentExamRoom examRoom,
     DateTime examDateTime,

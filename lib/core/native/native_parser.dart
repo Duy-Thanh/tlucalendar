@@ -235,6 +235,37 @@ final class TokenResponseResult extends Struct {
   external Pointer<Utf8> errorMessage;
 }
 
+// --- Notification Structs ---
+final class NotificationNative extends Struct {
+  @Int64()
+  external int triggerTime;
+  external Pointer<Utf8> title;
+  external Pointer<Utf8> body;
+  @Int32()
+  external int id; // Unique ID
+}
+
+final class NotificationResult extends Struct {
+  @Int32()
+  external int count;
+  external Pointer<NotificationNative> notifications;
+  external Pointer<Utf8> errorMessage;
+}
+
+class NotificationNativeModel {
+  final int id;
+  final int triggerTime;
+  final String title;
+  final String body;
+
+  NotificationNativeModel({
+    required this.id,
+    required this.triggerTime,
+    required this.title,
+    required this.body,
+  });
+}
+
 // --- Function Signatures ---
 
 typedef ParseExamDetailsFunc =
@@ -308,6 +339,15 @@ class NativeParser {
     return _lib!;
   }
 
+  // --- Cache Native Logic ---
+  static String? _cachedCoursesJson;
+  static String? _cachedHoursJson;
+
+  static void clearCache() {
+    _cachedCoursesJson = null;
+    _cachedHoursJson = null;
+  }
+
   static String getYyjsonVersion() {
     try {
       final func = _library.lookupFunction<GetVersionFunc, GetVersion>(
@@ -319,8 +359,86 @@ class NativeParser {
     }
   }
 
+  // --- Notification Binding ---
+  static List<NotificationNativeModel> generateNotifications(
+    int semesterStartMillis,
+  ) {
+    if (_cachedCoursesJson == null || _cachedHoursJson == null) {
+      print("Native Notif: Missing cached JSONs");
+      return [];
+    }
+    final coursesJson = _cachedCoursesJson!;
+    final hoursJson = _cachedHoursJson!;
+    if (coursesJson.isEmpty || hoursJson.isEmpty) return [];
+
+    try {
+      final func = _library
+          .lookupFunction<
+            Pointer<NotificationResult> Function(
+              Pointer<Utf8>,
+              Pointer<Utf8>,
+              Int64,
+            ),
+            Pointer<NotificationResult> Function(
+              Pointer<Utf8>,
+              Pointer<Utf8>,
+              int,
+            )
+          >('generate_notifications');
+
+      final freeFunc = _library
+          .lookupFunction<
+            Void Function(Pointer<NotificationResult>),
+            void Function(Pointer<NotificationResult>)
+          >('free_notification_result');
+
+      final cPtr = coursesJson.toNativeUtf8();
+      final hPtr = hoursJson.toNativeUtf8();
+
+      Pointer<NotificationResult>? resultPtr;
+      try {
+        resultPtr = func(cPtr, hPtr, semesterStartMillis);
+
+        if (resultPtr == nullptr) return [];
+
+        final result = resultPtr.ref;
+        if (result.errorMessage != nullptr) {
+          print("Native Notif Error: ${result.errorMessage.toDartString()}");
+          freeFunc(resultPtr);
+          return [];
+        }
+
+        final List<NotificationNativeModel> list = [];
+        final count = result.count;
+        final items = result.notifications;
+
+        for (int i = 0; i < count; i++) {
+          final item = items[i];
+          list.add(
+            NotificationNativeModel(
+              id: item.id,
+              triggerTime: item.triggerTime,
+              title: item.title != nullptr ? item.title.toDartString() : '',
+              body: item.body != nullptr ? item.body.toDartString() : '',
+            ),
+          );
+        }
+
+        freeFunc(resultPtr);
+        return list;
+      } finally {
+        malloc.free(cPtr);
+        malloc.free(hPtr);
+      }
+    } catch (e) {
+      print("Native Logic Error (Notif): $e");
+      return [];
+    }
+  }
+
   static List<CourseModel> parseCourses(String jsonStr) {
     if (jsonStr.isEmpty) return [];
+    _cachedCoursesJson = jsonStr; // Cache input
     try {
       final func = _library.lookupFunction<ParseCoursesFunc, ParseCourses>(
         'parse_courses',
@@ -580,6 +698,7 @@ class NativeParser {
 
   static List<CourseHour> parseCourseHours(String jsonStr) {
     if (jsonStr.isEmpty) return [];
+    _cachedHoursJson = jsonStr; // Cache input
     try {
       final func = _library
           .lookupFunction<ParseCourseHoursFunc, ParseCourseHours>(

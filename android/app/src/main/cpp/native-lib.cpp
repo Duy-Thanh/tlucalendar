@@ -39,6 +39,20 @@ extern "C" {
         char* errorMessage; // Null if success
     };
 
+    // --- Notification Structs ---
+    struct NotificationNative {
+        long long triggerTime;
+        char* title;
+        char* body;
+        int id; // Unique ID for notification
+    };
+
+    struct NotificationResult {
+        int count;
+        struct NotificationNative* notifications;
+        char* errorMessage;
+    };
+
     // --- Helper Functions ---
     
     char* safe_strdup(const char* s) {
@@ -71,6 +85,20 @@ extern "C" {
                 }
             }
             free(result->schedules);
+        }
+        free(result->errorMessage);
+        free(result);
+    }
+
+    __attribute__((visibility("default"))) __attribute__((used))
+    void free_notification_result(struct NotificationResult* result) {
+        if (!result) return;
+        if (result->notifications) {
+            for(int i=0; i<result->count; i++) {
+                free(result->notifications[i].title);
+                free(result->notifications[i].body);
+            }
+            free(result->notifications);
         }
         free(result->errorMessage);
         free(result);
@@ -572,7 +600,7 @@ extern "C" {
                        c->campus = (char*)yyjson_get_str(yyjson_obj_get(timetable, "campus"));
                   }
              } else {
-                 if (current_idx < total_count) {
+                if (current_idx < total_count) {
                     struct CourseNative* c = &result->courses[current_idx++];
                     c->id = id;
                     c->courseCode = subjectCode;
@@ -604,6 +632,176 @@ extern "C" {
         }
         
         yyjson_doc_free(doc);
+        return result;
+    }
+
+    // --- Native Notification Generator ---
+    
+    // Helper to format string safely
+    char* format_string(const char* format, ...) {
+        va_list args;
+        va_start(args, format);
+        int len = vsnprintf(nullptr, 0, format, args);
+        va_end(args);
+        if (len < 0) return nullptr;
+        
+        char* buf = (char*)malloc(len + 1);
+        if (!buf) return nullptr;
+        
+        va_start(args, format);
+        vsnprintf(buf, len + 1, format, args);
+        va_end(args);
+        return buf;
+    }
+
+    struct TempHour {
+        int id;
+        int h;
+        int m;
+        char* str;
+    };
+
+    __attribute__((visibility("default"))) __attribute__((used))
+    struct NotificationResult* generate_notifications(
+        const char* courses_json,
+        const char* hours_json,
+        long long semester_start_millis
+    ) {
+        struct NotificationResult* result = (struct NotificationResult*)calloc(1, sizeof(struct NotificationResult));
+        
+        if (!courses_json || !hours_json) {
+             result->errorMessage = strdup("Invalid input JSONs");
+             return result;
+        }
+
+        yyjson_doc *docCourses = yyjson_read_opts((char*)courses_json, strlen(courses_json), YYJSON_READ_INSITU | YYJSON_READ_STOP_WHEN_DONE, NULL, NULL);
+        yyjson_doc *docHours = yyjson_read(hours_json, strlen(hours_json), 0);
+        
+        if (!docCourses || !docHours) {
+            result->errorMessage = strdup("Failed to parse JSONs");
+            if (docCourses) yyjson_doc_free(docCourses);
+            if (docHours) yyjson_doc_free(docHours);
+            return result;
+        }
+        
+        yyjson_val *hRoot = yyjson_doc_get_root(docHours);
+        yyjson_val *hContent = hRoot;
+        if (yyjson_is_obj(hRoot)) hContent = yyjson_obj_get(hRoot, "content");
+        
+        size_t hCount = yyjson_arr_size(hContent);
+        struct TempHour* tempHours = (struct TempHour*)calloc(hCount, sizeof(struct TempHour));
+        
+        size_t h_idx, h_max;
+        yyjson_val *hItem;
+        yyjson_arr_foreach(hContent, h_idx, h_max, hItem) {
+             tempHours[h_idx].id = get_json_int(yyjson_obj_get(hItem, "id"));
+             const char* s = yyjson_get_str(yyjson_obj_get(hItem, "startString"));
+             if (s) {
+                 tempHours[h_idx].str = (char*)s;
+                 sscanf(s, "%d:%d", &tempHours[h_idx].h, &tempHours[h_idx].m);
+             }
+        }
+        
+        size_t total_notifs = 0;
+        
+        yyjson_val *cRoot = yyjson_doc_get_root(docCourses);
+        size_t c_idx, c_max;
+        yyjson_val *cItem;
+        
+        auto count_weeks = [](int from, int to) {
+            if (to < from) return 0;
+            return to - from + 1;
+        };
+
+        yyjson_arr_foreach(cRoot, c_idx, c_max, cItem) {
+             yyjson_val *courseSubject = yyjson_obj_get(cItem, "courseSubject");
+             if (!courseSubject) continue;
+             
+             yyjson_val *timetables = yyjson_obj_get(courseSubject, "timetables");
+             if (yyjson_is_arr(timetables)) {
+                 size_t t_idx, t_max;
+                 yyjson_val *timetable;
+                 yyjson_arr_foreach(timetables, t_idx, t_max, timetable) {
+                      int from = get_json_int(yyjson_obj_get(timetable, "fromWeek"));
+                      int to = get_json_int(yyjson_obj_get(timetable, "toWeek"));
+                      total_notifs += count_weeks(from, to);
+                 }
+             }
+        }
+        
+        result->count = (int)total_notifs;
+        result->notifications = (struct NotificationNative*)calloc(result->count, sizeof(struct NotificationNative));
+        
+        size_t current_n_idx = 0;
+        
+        yyjson_arr_foreach(cRoot, c_idx, c_max, cItem) {
+             yyjson_val *courseSubject = yyjson_obj_get(cItem, "courseSubject");
+             if (!courseSubject) continue;
+             
+             const char* subjectName = yyjson_get_str(yyjson_obj_get(cItem, "subjectName"));
+             if (!subjectName) subjectName = yyjson_get_str(yyjson_obj_get(cItem, "courseName"));
+             
+             yyjson_val *timetables = yyjson_obj_get(courseSubject, "timetables");
+             if (yyjson_is_arr(timetables)) {
+                 size_t t_idx, t_max;
+                 yyjson_val *timetable;
+                 yyjson_arr_foreach(timetables, t_idx, t_max, timetable) {
+                      if (current_n_idx >= total_notifs) break;
+                      
+                      int from = get_json_int(yyjson_obj_get(timetable, "fromWeek"));
+                      int to = get_json_int(yyjson_obj_get(timetable, "toWeek"));
+                      int dayOfWeek = get_json_int(yyjson_obj_get(timetable, "weekIndex")); 
+                      
+                      yyjson_val* roomVal = yyjson_obj_get(timetable, "room");
+                      const char* roomName = "Unknown";
+                      if (roomVal) {
+                          if (yyjson_is_obj(roomVal)) roomName = yyjson_get_str(yyjson_obj_get(roomVal, "name"));
+                          else if (yyjson_is_str(roomVal)) roomName = yyjson_get_str(roomVal);
+                      }
+                      
+                      int startHourId = 0;
+                      yyjson_val* startHourObj = yyjson_obj_get(timetable, "startHour");
+                      if (startHourObj && yyjson_is_obj(startHourObj)) startHourId = get_json_int(yyjson_obj_get(startHourObj, "id"));
+                      else startHourId = get_json_int(yyjson_obj_get(timetable, "startTime"));
+
+                      int hh = 0, mm = 0;
+                      const char* timeStr = "00:00";
+                      bool timeFound = false;
+                      for(size_t i=0; i<hCount; i++) {
+                          if (tempHours[i].id == startHourId) {
+                              hh = tempHours[i].h;
+                              mm = tempHours[i].m;
+                              timeStr = tempHours[i].str;
+                              timeFound = true;
+                              break;
+                          }
+                      }
+                      
+                      if (!timeFound) continue;
+
+                      for (int w = from; w <= to; w++) {
+                           if (current_n_idx >= total_notifs) break;
+                           
+                           int days_offset = (w - 1) * 7 + (dayOfWeek - 2);
+                           
+                           long long target_date_millis = semester_start_millis + (long long)days_offset * 86400000LL;
+                           
+                           long long trigger_time = target_date_millis + (long long)hh * 3600000LL + (long long)mm * 60000LL;
+                           
+                           struct NotificationNative* n = &result->notifications[current_n_idx++];
+                           n->triggerTime = trigger_time;
+                           n->id = (int)((trigger_time / 1000) % 2147483647); 
+                           
+                           n->title = format_string("Lịch học: %s", subjectName);
+                           n->body = format_string("Phòng: %s | Giờ: %s", roomName, timeStr);
+                      }
+                 }
+             }
+        }
+        
+        free(tempHours);
+        yyjson_doc_free(docHours);
+        yyjson_doc_free(docCourses);
         return result;
     }
 
