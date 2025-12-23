@@ -365,36 +365,44 @@ class _TodayScreenState extends State<TodayScreen> {
                                   : colorScheme.outline,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              course.room.isNotEmpty
-                                  ? course.room
-                                  : 'Chưa có phòng',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: status == _CourseStatus.current
-                                        ? contentColor.withOpacity(0.9)
-                                        : colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                            const Spacer(),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
+                            Expanded(
                               child: Text(
-                                course.courseCode,
-                                style: Theme.of(context).textTheme.bodySmall
+                                course.room.isNotEmpty
+                                    ? course.room
+                                    : 'Chưa có phòng',
+                                style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(
                                       color: status == _CourseStatus.current
-                                          ? contentColor.withOpacity(0.7)
-                                          : colorScheme.outline,
-                                      fontSize: 10,
+                                          ? contentColor.withOpacity(0.9)
+                                          : colorScheme.onSurfaceVariant,
                                     ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 100),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  course.courseCode,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: status == _CourseStatus.current
+                                            ? contentColor.withOpacity(0.7)
+                                            : colorScheme.outline,
+                                        fontSize: 10,
+                                      ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
                               ),
                             ),
                           ],

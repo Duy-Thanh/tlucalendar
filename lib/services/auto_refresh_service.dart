@@ -11,6 +11,7 @@ import 'package:tlucalendar/services/log_service.dart';
 import 'package:tlucalendar/features/exam/data/datasources/exam_remote_data_source.dart';
 import 'package:tlucalendar/features/exam/data/datasources/exam_local_data_source.dart';
 
+@pragma('vm:entry-point')
 class AutoRefreshService {
   static const int _alarmId = 1; // Unique ID for auto-refresh
   static final _log = LogService();
@@ -40,6 +41,15 @@ class AutoRefreshService {
   // Public method to trigger refresh manually (e.g., after login)
   static Future<void> triggerRefresh() async {
     await _performAutoRefresh();
+  }
+
+  // Cancel periodic refresh
+  static Future<void> cancelPeriodicRefresh() async {
+    if (Platform.isAndroid) {
+      await AndroidAlarmManager.cancel(_alarmId);
+      final log = LogService();
+      log.log('Auto-refresh cancelled');
+    }
   }
 
   // Background task

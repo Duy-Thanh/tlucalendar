@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/auth_provider.dart';
 import 'package:tlucalendar/providers/schedule_provider.dart';
+import 'package:tlucalendar/providers/settings_provider.dart';
 import 'package:tlucalendar/screens/login_screen.dart';
 import 'package:tlucalendar/screens/logs_screen.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
@@ -193,16 +194,135 @@ class SettingsScreen extends StatelessWidget {
         ),
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Center(
-              child: Text(
-                'Cài đặt thông báo đang được nâng cấp',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.outline,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Text(
+              'Thông báo',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Consumer<SettingsProvider>(
+            builder: (context, settings, _) {
+              return Card(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    children: [
+                      // Auto Refresh Switch
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Tự động làm mới',
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                Text(
+                                  'Đồng bộ dữ liệu nền (mỗi 6h)',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: settings.autoRefreshEnabled,
+                            onChanged: (value) {
+                              settings.setAutoRefresh(value);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Daily Notification Switch
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Thông báo hàng ngày',
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                                Text(
+                                  'Nhắc lịch học/thi sáng sớm',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: settings.dailyNotificationEnabled,
+                            onChanged: (value) {
+                              settings.setDailyNotification(value);
+                            },
+                          ),
+                        ],
+                      ),
+                      // Time Picker (only if enabled)
+                      if (settings.dailyNotificationEnabled) ...[
+                        const Divider(height: 24),
+                        InkWell(
+                          onTap: () async {
+                            final TimeOfDay? picked = await showTimePicker(
+                              context: context,
+                              initialTime: settings.dailyNotificationTime,
+                            );
+                            if (picked != null) {
+                              settings.setDailyNotificationTime(picked);
+                            }
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Thời gian thông báo',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    settings.dailyNotificationTime.format(
+                                      context,
+                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
         SliverToBoxAdapter(

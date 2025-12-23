@@ -7,6 +7,7 @@ import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/auth_provider.dart';
 import 'package:tlucalendar/providers/schedule_provider.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
+import 'package:tlucalendar/providers/settings_provider.dart';
 
 import 'package:tlucalendar/theme/app_theme.dart';
 import 'package:tlucalendar/screens/home_shell.dart';
@@ -41,6 +42,9 @@ void main() async {
         ChangeNotifierProvider(create: (_) => di.sl<AuthProvider>()),
         ChangeNotifierProvider(create: (_) => di.sl<ScheduleProvider>()),
         ChangeNotifierProvider(create: (_) => di.sl<ExamProvider>()),
+        ChangeNotifierProvider(
+          create: (_) => di.sl<SettingsProvider>()..init(),
+        ),
       ],
       child: const MyApp(),
     ),

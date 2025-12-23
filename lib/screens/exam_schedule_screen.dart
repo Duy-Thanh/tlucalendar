@@ -682,7 +682,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                     context,
                     'Ca thi',
                     examRoom.examRoom!.examHour?.name ?? 'Chưa có',
-                    Icons.access_time,
+                    Icons.layers_outlined,
                   ),
                   _buildDetailRow(
                     context,

@@ -10,6 +10,7 @@ import 'package:tlucalendar/providers/auth_provider.dart';
 import 'package:tlucalendar/providers/schedule_provider.dart';
 import 'package:tlucalendar/providers/exam_provider.dart';
 import 'package:tlucalendar/providers/theme_provider.dart';
+import 'package:tlucalendar/providers/settings_provider.dart';
 
 import 'package:tlucalendar/features/auth/domain/usecases/login_usecase.dart';
 import 'package:tlucalendar/features/auth/domain/usecases/get_user_usecase.dart';
@@ -124,4 +125,5 @@ Future<void> init() async {
     ),
   );
   sl.registerLazySingleton(() => ThemeProvider());
+  sl.registerLazySingleton(() => SettingsProvider());
 }
