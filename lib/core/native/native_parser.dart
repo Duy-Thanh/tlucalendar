@@ -331,74 +331,83 @@ class NativeParser {
           );
 
       final jsonPtr = jsonStr.toNativeUtf8();
-      final resultPtr = func(jsonPtr);
-      malloc.free(jsonPtr);
+      Pointer<CourseResult>? resultPtr;
+      try {
+        resultPtr = func(jsonPtr);
 
-      if (resultPtr == nullptr) {
-        return [];
-      }
+        if (resultPtr == nullptr) {
+          return [];
+        }
 
-      final result = resultPtr.ref;
-      if (result.errorMessage != nullptr) {
-        print(
-          "Native Parser Error (Courses): ${result.errorMessage.toDartString()}",
-        );
+        final result = resultPtr.ref;
+        if (result.errorMessage != nullptr) {
+          print(
+            "Native Parser Error (Courses): ${result.errorMessage.toDartString()}",
+          );
+          // Free result but strings are owned by jsonPtr so safe.
+          // errorMessage is strdup'd so C++ frees it.
+          freeFunc(resultPtr);
+          return [];
+        }
+
+        final List<CourseModel> list = [];
+        final count = result.count;
+        final coursesPtr = result.courses;
+
+        // Iterate and copy strings to Dart heap (Zero-Copy ends here)
+        for (int i = 0; i < count; i++) {
+          final cNative = coursesPtr[i];
+          list.add(
+            CourseModel(
+              id: cNative.id,
+              courseCode: cNative.courseCode != nullptr
+                  ? cNative.courseCode.toDartString()
+                  : '',
+              courseName: cNative.courseName != nullptr
+                  ? cNative.courseName.toDartString()
+                  : '',
+              classCode: cNative.classCode != nullptr
+                  ? cNative.classCode.toDartString()
+                  : '',
+              className: cNative.className != nullptr
+                  ? cNative.className.toDartString()
+                  : '',
+              dayOfWeek: cNative.dayOfWeek,
+              startCourseHour: cNative.startCourseHour,
+              endCourseHour: cNative.endCourseHour,
+              room: cNative.room != nullptr ? cNative.room.toDartString() : '',
+              building: cNative.building != nullptr
+                  ? cNative.building.toDartString()
+                  : '',
+              campus: cNative.campus != nullptr
+                  ? cNative.campus.toDartString()
+                  : '',
+              credits: cNative.credits,
+              startDate: cNative.startDate,
+              endDate: cNative.endDate,
+              fromWeek: cNative.fromWeek,
+              toWeek: cNative.toWeek,
+              lecturerName: cNative.lecturerName != nullptr
+                  ? cNative.lecturerName.toDartString()
+                  : null,
+              lecturerEmail: cNative.lecturerEmail != nullptr
+                  ? cNative.lecturerEmail.toDartString()
+                  : null,
+              status: cNative.status != nullptr
+                  ? cNative.status.toDartString()
+                  : 'N/A',
+              grade: cNative.hasGrade ? cNative.grade : null,
+            ),
+          );
+        }
+
         freeFunc(resultPtr);
-        return [];
+        return list;
+      } finally {
+        // Free JSON source buffer LAST.
+        // C++ native strings were pointing into this buffer.
+        malloc.free(jsonPtr);
       }
-
-      final List<CourseModel> list = [];
-      final count = result.count;
-      final coursesPtr = result.courses;
-
-      for (int i = 0; i < count; i++) {
-        final cNative = coursesPtr[i];
-        list.add(
-          CourseModel(
-            id: cNative.id,
-            courseCode: cNative.courseCode != nullptr
-                ? cNative.courseCode.toDartString()
-                : '',
-            courseName: cNative.courseName != nullptr
-                ? cNative.courseName.toDartString()
-                : '',
-            classCode: cNative.classCode != nullptr
-                ? cNative.classCode.toDartString()
-                : '',
-            className: cNative.className != nullptr
-                ? cNative.className.toDartString()
-                : '',
-            dayOfWeek: cNative.dayOfWeek,
-            startCourseHour: cNative.startCourseHour,
-            endCourseHour: cNative.endCourseHour,
-            room: cNative.room != nullptr ? cNative.room.toDartString() : '',
-            building: cNative.building != nullptr
-                ? cNative.building.toDartString()
-                : '',
-            campus: cNative.campus != nullptr
-                ? cNative.campus.toDartString()
-                : '',
-            credits: cNative.credits,
-            startDate: cNative.startDate,
-            endDate: cNative.endDate,
-            fromWeek: cNative.fromWeek,
-            toWeek: cNative.toWeek,
-            lecturerName: cNative.lecturerName != nullptr
-                ? cNative.lecturerName.toDartString()
-                : null,
-            lecturerEmail: cNative.lecturerEmail != nullptr
-                ? cNative.lecturerEmail.toDartString()
-                : null,
-            status: cNative.status != nullptr
-                ? cNative.status.toDartString()
-                : 'N/A',
-            grade: cNative.hasGrade ? cNative.grade : null,
-          ),
-        );
-      }
-
-      freeFunc(resultPtr);
-      return list;
     } catch (e) {
       print("Native Logic Error (Courses): $e");
       return [];

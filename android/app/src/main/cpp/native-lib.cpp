@@ -1,6 +1,6 @@
 #include <jni.h>
 #include <string>
-#include <vector>
+
 #include <cstring>
 #include "yyjson.h"
 
@@ -184,58 +184,74 @@ extern "C" {
          free(result);
     }
     
-    // --- Helper for Time Parsing ---
+    // --- Helper for Time Parsing (Thread-Safe Replacement for strtok) ---
     // Tries to extract "HH:mm-HH:mm" or "HH-HH" from roomCode
     // Example: "CSE406_08-11-2025_10-12_325-A2" -> "10-12"
     // Example: "SomeCode_Date_07:00-09:00_Room" -> "07:00-09:00"
     char* extract_time_from_room_code(const char* roomCode) {
         if (!roomCode) return nullptr;
         
-        // We will tokenize by '_'
-        char* copy = strdup(roomCode);
-        char* token = strtok(copy, "_");
-        while (token != nullptr) {
-            // Check if token looks like time range
-            // Pattern: start with digit, contains dash '-', maybe colon ':'
-            // Minimal check: digit...-digit...
-            
-            int len = strlen(token);
-            if (len >= 3) { // min "1-2"
-                bool hasDash = false;
-                bool firstIsDigit = (token[0] >= '0' && token[0] <= '9');
-                
-                if (firstIsDigit) {
-                     for(int i=0; i<len; i++) {
-                         if (token[i] == '-') {
-                             hasDash = true;
-                             break;
-                         }
-                     }
+        // Manual parsing to avoid strtok (not thread-safe)
+        const char* p = roomCode;
+        const char* start = p;
+        
+        while (*p != '\0') {
+            if (*p == '_') {
+                // Token found: [start, p)
+                size_t len = p - start;
+                if (len >= 3) { // Potential time range
+                   bool hasDash = false;
+                   bool firstIsDigit = (start[0] >= '0' && start[0] <= '9');
+                   int dashCount = 0;
+                   if (firstIsDigit) {
+                       for(size_t i=0; i<len; i++) {
+                           if (start[i] == '-') {
+                               hasDash = true;
+                               dashCount++;
+                           }
+                       }
+                   }
+                   
+                   // Heuristic: 1 dash = Time (10-12), 2 dashes = Date (08-11-2025)
+                   if (hasDash && firstIsDigit && dashCount == 1) {
+                        char* result = (char*)malloc(len + 1);
+                        if (result) {
+                            memcpy(result, start, len);
+                            result[len] = '\0';
+                            return result;
+                        }
+                   }
                 }
                 
-                // Refined check: ensure it's not a date (Dates usually have 2 dashes like dd-mm-yyyy, or 2 slashes)
-                // Time usually has 1 dash connecting two time points. 
-                // But dates in this system might be "08-11-2025".
-                // Let's count dashes.
-                if (hasDash && firstIsDigit) {
-                    int dashCount = 0;
-                     for(int i=0; i<len; i++) {
-                         if (token[i] == '-') dashCount++;
-                     }
-                     
-                     // If it has 1 dash, it's likely a time range (10-12 or 07:00-09:00).
-                     // If it has 2 dashes, it's likely a date (08-11-2025).
-                     if (dashCount == 1) {
-                         char* result = strdup(token);
-                         free(copy);
-                         return result;
-                     }
-                }
+                start = p + 1; // Next token starts after '_'
             }
-            token = strtok(nullptr, "_");
+            p++;
         }
         
-        free(copy);
+        // Check last token
+        size_t len = p - start;
+        if (len >= 3) {
+            bool hasDash = false;
+            bool firstIsDigit = (start[0] >= '0' && start[0] <= '9');
+            int dashCount = 0;
+             if (firstIsDigit) {
+               for(size_t i=0; i<len; i++) {
+                   if (start[i] == '-') {
+                       hasDash = true;
+                       dashCount++;
+                   }
+               }
+           }
+           if (hasDash && firstIsDigit && dashCount == 1) {
+                char* result = (char*)malloc(len + 1);
+                if (result) {
+                    memcpy(result, start, len);
+                    result[len] = '\0';
+                    return result;
+                }
+           }
+        }
+        
         return nullptr;
     }
 
@@ -383,19 +399,7 @@ extern "C" {
     void free_course_result(struct CourseResult* result) {
          if (!result) return;
          if (result->courses) {
-             for (int i = 0; i < result->count; ++i) {
-                 struct CourseNative* course = &result->courses[i];
-                 free(course->courseCode);
-                 free(course->courseName);
-                 free(course->classCode);
-                 free(course->className);
-                 free(course->room);
-                 free(course->building);
-                 free(course->campus);
-                 free(course->lecturerName);
-                 free(course->lecturerEmail);
-                 free(course->status);
-             }
+             // Strings are borrowed from JSON buffer (Zero-Copy), so do NOT free them.
              free(result->courses);
          }
          free(result->errorMessage);
@@ -411,7 +415,9 @@ extern "C" {
             return result;
         }
 
-        yyjson_doc *doc = yyjson_read(json_str, strlen(json_str), 0);
+        // Use INSITU flag for Zero-Copy: Modifies input string in-place.
+        // We cast away const because we know Dart allocated this buffer for us to use.
+        yyjson_doc *doc = yyjson_read_opts((char*)json_str, strlen(json_str), YYJSON_READ_INSITU | YYJSON_READ_STOP_WHEN_DONE, NULL, NULL);
         if (!doc) {
             result->errorMessage = strdup("Failed to parse JSON");
             return result;
@@ -421,31 +427,53 @@ extern "C" {
         if (!yyjson_is_arr(root)) {
              result->errorMessage = strdup("Root is not an array");
              yyjson_doc_free(doc);
+             // Note: In Insitu mode, freeing doc does not touch the input buffer content (strings remain valid)
              return result;
         }
         
-        // Count total needed size (accounting for expansion)
-        // This requires a pre-pass or dynamic resizing.
-        // For simplicity/performance balance: Vector then copy, or optimistic?
-        // Let's use std::vector for intermediate storage since we are in C++.
-        std::vector<struct CourseNative> tempCourses;
-        tempCourses.reserve(yyjson_arr_size(root)); // At least as many as root items
-
+        // Pass 1: Count total items needed
+        size_t total_count = 0;
         size_t idx, max;
         yyjson_val *item;
+        
+        yyjson_arr_foreach(root, idx, max, item) {
+             yyjson_val *courseSubject = yyjson_obj_get(item, "courseSubject");
+             if (courseSubject) {
+                 yyjson_val *timetables = yyjson_obj_get(courseSubject, "timetables");
+                 if (yyjson_is_arr(timetables) && yyjson_arr_size(timetables) > 0) {
+                     total_count += yyjson_arr_size(timetables);
+                 } else {
+                     total_count++; // Fallback single item
+                 }
+             } else {
+                 total_count++; // Fallback single item
+             }
+        }
+        
+        // Allocate exact memory
+        result->count = (int)total_count;
+        if (result->count > 0) {
+            result->courses = (struct CourseNative*)calloc(result->count, sizeof(struct CourseNative));
+        }
+
+        // Pass 2: Fill data
+        size_t current_idx = 0;
         yyjson_arr_foreach(root, idx, max, item) {
              // Extract shared data from item
              int id = get_json_int(yyjson_obj_get(item, "id"));
-             const char* subjectName = yyjson_get_str(yyjson_obj_get(item, "subjectName"));
-             if (!subjectName) subjectName = yyjson_get_str(yyjson_obj_get(item, "courseName"));
              
-             const char* subjectCode = yyjson_get_str(yyjson_obj_get(item, "subjectCode"));
-             if (!subjectCode) subjectCode = yyjson_get_str(yyjson_obj_get(item, "courseCode"));
+             // Prioritize subjectName, fallback to courseName
+             // ZERO-COPY: Direct pointer assignment
+             char* subjectName = (char*)yyjson_get_str(yyjson_obj_get(item, "subjectName"));
+             if (!subjectName) subjectName = (char*)yyjson_get_str(yyjson_obj_get(item, "courseName"));
+             
+             char* subjectCode = (char*)yyjson_get_str(yyjson_obj_get(item, "subjectCode"));
+             if (!subjectCode) subjectCode = (char*)yyjson_get_str(yyjson_obj_get(item, "courseCode"));
              
              int credits = get_json_int(yyjson_obj_get(item, "numberOfCredit"));
              if (credits == 0) credits = get_json_int(yyjson_obj_get(item, "credits"));
              
-             const char* status = yyjson_get_str(yyjson_obj_get(item, "status"));
+             char* status = (char*)yyjson_get_str(yyjson_obj_get(item, "status"));
              
              double grade = 0.0;
              bool hasGrade = false;
@@ -456,33 +484,32 @@ extern "C" {
              }
 
              yyjson_val *courseSubject = yyjson_obj_get(item, "courseSubject");
+             
              if (!courseSubject) {
-                 // Push 1 item with minimal info if no courseSubject? Or skip?
-                 // Usually valid items have courseSubject.
-                 // Let's treat it as single item if no expansion possible.
-                 struct CourseNative c;
-                 memset(&c, 0, sizeof(c));
-                 c.id = id;
-                 c.courseCode = safe_strdup(subjectCode);
-                 c.courseName = safe_strdup(subjectName);
-                 c.credits = credits;
-                 c.status = safe_strdup(status);
-                 c.hasGrade = hasGrade;
-                 c.grade = grade;
-                 tempCourses.push_back(c);
+                 // Push 1 item with minimal info
+                 if (current_idx < total_count) {
+                    struct CourseNative* c = &result->courses[current_idx++];
+                    c->id = id;
+                    c->courseCode = subjectCode;
+                    c->courseName = subjectName;
+                    c->credits = credits;
+                    c->status = status;
+                    c->hasGrade = hasGrade;
+                    c->grade = grade;
+                 }
                  continue;
              }
              
              // Extract courseSubject specific data
-             const char* classCode = yyjson_get_str(yyjson_obj_get(courseSubject, "classCode"));
-             const char* className = yyjson_get_str(yyjson_obj_get(courseSubject, "className"));
+             char* classCode = (char*)yyjson_get_str(yyjson_obj_get(courseSubject, "classCode"));
+             char* className = (char*)yyjson_get_str(yyjson_obj_get(courseSubject, "className"));
              
-             const char* lecturerName = nullptr;
-             const char* lecturerEmail = nullptr;
+             char* lecturerName = nullptr;
+             char* lecturerEmail = nullptr;
              yyjson_val *lecturer = yyjson_obj_get(courseSubject, "lecturer");
              if (lecturer && yyjson_is_obj(lecturer)) {
-                  lecturerName = yyjson_get_str(yyjson_obj_get(lecturer, "name"));
-                  lecturerEmail = yyjson_get_str(yyjson_obj_get(lecturer, "email"));
+                  lecturerName = (char*)yyjson_get_str(yyjson_obj_get(lecturer, "name"));
+                  lecturerEmail = (char*)yyjson_get_str(yyjson_obj_get(lecturer, "email"));
              }
 
              yyjson_val *timetables = yyjson_obj_get(courseSubject, "timetables");
@@ -491,117 +518,92 @@ extern "C" {
                   size_t t_idx, t_max;
                   yyjson_val *timetable;
                   yyjson_arr_foreach(timetables, t_idx, t_max, timetable) {
-                       struct CourseNative c;
-                       memset(&c, 0, sizeof(c));
+                       if (current_idx >= total_count) break;
+                       struct CourseNative* c = &result->courses[current_idx++];
                        
                        // Copy shared info
-                       c.id = id;
-                       c.courseCode = safe_strdup(subjectCode);
-                       c.courseName = safe_strdup(subjectName);
-                       c.credits = credits;
-                       c.status = safe_strdup(status);
-                       c.hasGrade = hasGrade;
-                       c.grade = grade;
+                       c->id = id;
+                       c->courseCode = subjectCode;
+                       c->courseName = subjectName;
+                       c->credits = credits;
+                       c->status = status;
+                       c->hasGrade = hasGrade;
+                       c->grade = grade;
                        
-                       c.classCode = safe_strdup(classCode);
-                       c.className = safe_strdup(className);
-                       c.lecturerName = safe_strdup(lecturerName);
-                       c.lecturerEmail = safe_strdup(lecturerEmail);
+                       c->classCode = classCode;
+                       c->className = className;
+                       c->lecturerName = lecturerName;
+                       c->lecturerEmail = lecturerEmail;
                        
                        // Timetable specific
-                       c.dayOfWeek = get_json_int(yyjson_obj_get(timetable, "weekIndex"));
-                       c.fromWeek = get_json_int(yyjson_obj_get(timetable, "fromWeek"));
-                       c.toWeek = get_json_int(yyjson_obj_get(timetable, "toWeek"));
-                       c.startDate = get_json_int64(yyjson_obj_get(timetable, "startDate"));
-                       c.endDate = get_json_int64(yyjson_obj_get(timetable, "endDate"));
+                       c->dayOfWeek = get_json_int(yyjson_obj_get(timetable, "weekIndex"));
+                       c->fromWeek = get_json_int(yyjson_obj_get(timetable, "fromWeek"));
+                       c->toWeek = get_json_int(yyjson_obj_get(timetable, "toWeek"));
+                       c->startDate = get_json_int64(yyjson_obj_get(timetable, "startDate"));
+                       c->endDate = get_json_int64(yyjson_obj_get(timetable, "endDate"));
                        
                        // Start/End Hour logic
                        yyjson_val* startHour = yyjson_obj_get(timetable, "startHour");
-                       if (startHour && yyjson_is_obj(startHour)) c.startCourseHour = get_json_int(yyjson_obj_get(startHour, "id"));
-                       else c.startCourseHour = get_json_int(yyjson_obj_get(timetable, "startTime")); // fallback
+                       if (startHour && yyjson_is_obj(startHour)) c->startCourseHour = get_json_int(yyjson_obj_get(startHour, "id"));
+                       else c->startCourseHour = get_json_int(yyjson_obj_get(timetable, "startTime")); // fallback
                        
                        yyjson_val* endHour = yyjson_obj_get(timetable, "endHour");
-                       if (endHour && yyjson_is_obj(endHour)) c.endCourseHour = get_json_int(yyjson_obj_get(endHour, "id"));
-                       else c.endCourseHour = get_json_int(yyjson_obj_get(timetable, "endTime")); // fallback
+                       if (endHour && yyjson_is_obj(endHour)) c->endCourseHour = get_json_int(yyjson_obj_get(endHour, "id"));
+                       else c->endCourseHour = get_json_int(yyjson_obj_get(timetable, "endTime")); // fallback
                        
                        // Room logic
                        yyjson_val* roomVal = yyjson_obj_get(timetable, "room");
                        if (roomVal) {
                            if (yyjson_is_obj(roomVal)) {
-                               c.room = safe_strdup(yyjson_get_str(yyjson_obj_get(roomVal, "name")));
-                               // building inside room?
+                               c->room = (char*)yyjson_get_str(yyjson_obj_get(roomVal, "name"));
                                yyjson_val* b = yyjson_obj_get(roomVal, "building");
-                               if(b && yyjson_is_obj(b)) c.building = safe_strdup(yyjson_get_str(yyjson_obj_get(b, "name")));
-                               else if (b && yyjson_is_str(b)) c.building = safe_strdup(yyjson_get_str(b)); // sometimes simple string
+                               if(b && yyjson_is_obj(b)) c->building = (char*)yyjson_get_str(yyjson_obj_get(b, "name"));
+                               else if (b && yyjson_is_str(b)) c->building = (char*)yyjson_get_str(b);
                            } else if (yyjson_is_str(roomVal)) {
-                               c.room = safe_strdup(yyjson_get_str(roomVal));
+                               c->room = (char*)yyjson_get_str(roomVal);
                            }
                        }
                        
-                       if (!c.building) {
-                            // try direct building field
+                       if (!c->building) {
                             yyjson_val* b = yyjson_obj_get(timetable, "building");
-                             if (b && yyjson_is_str(b)) c.building = safe_strdup(yyjson_get_str(b));
+                             if (b && yyjson_is_str(b)) c->building = (char*)yyjson_get_str(b);
                        }
                        
-                       c.campus = safe_strdup(yyjson_get_str(yyjson_obj_get(timetable, "campus")));
-
-                       tempCourses.push_back(c);
+                       c->campus = (char*)yyjson_get_str(yyjson_obj_get(timetable, "campus"));
                   }
              } else {
-                  // No timetables or empty. Add as single item with defaults/fallbacks?
-                  // Logic in Dart was: if empty, still add it? Or try fallbacks?
-                  // Assuming basic addition.
-                 struct CourseNative c;
-                 memset(&c, 0, sizeof(c));
-                 c.id = id;
-                 c.courseCode = safe_strdup(subjectCode);
-                 c.courseName = safe_strdup(subjectName);
-                 c.credits = credits;
-                 c.status = safe_strdup(status);
-                 c.hasGrade = hasGrade;
-                 c.grade = grade;
-                 c.classCode = safe_strdup(classCode);
-                 c.className = safe_strdup(className);
-                 c.lecturerName = safe_strdup(lecturerName);
-                 c.lecturerEmail = safe_strdup(lecturerEmail);
-                 
-                 // Fallback simple fields if they exist at courseSubject level
-                 c.dayOfWeek = get_json_int(yyjson_obj_get(courseSubject, "dayOfWeek"));
-                 
-                 yyjson_val* startHour = yyjson_obj_get(courseSubject, "startCourseHour");
-                 if(startHour && yyjson_is_obj(startHour)) c.startCourseHour = get_json_int(yyjson_obj_get(startHour, "id"));
-                 else if (startHour) c.startCourseHour = get_json_int(startHour);
+                 if (current_idx < total_count) {
+                    struct CourseNative* c = &result->courses[current_idx++];
+                    c->id = id;
+                    c->courseCode = subjectCode;
+                    c->courseName = subjectName;
+                    c->credits = credits;
+                    c->status = status;
+                    c->hasGrade = hasGrade;
+                    c->grade = grade;
+                    c->classCode = classCode;
+                    c->className = className;
+                    c->lecturerName = lecturerName;
+                    c->lecturerEmail = lecturerEmail;
+                    
+                    // Fallback simple fields if they exist at courseSubject level
+                    c->dayOfWeek = get_json_int(yyjson_obj_get(courseSubject, "dayOfWeek"));
+                    
+                    yyjson_val* startHour = yyjson_obj_get(courseSubject, "startCourseHour");
+                    if(startHour && yyjson_is_obj(startHour)) c->startCourseHour = get_json_int(yyjson_obj_get(startHour, "id"));
+                    else if (startHour) c->startCourseHour = get_json_int(startHour);
 
-                 yyjson_val* endHour = yyjson_obj_get(courseSubject, "endCourseHour");
-                 if(endHour && yyjson_is_obj(endHour)) c.endCourseHour = get_json_int(yyjson_obj_get(endHour, "id"));
-                 else if (endHour) c.endCourseHour = get_json_int(endHour);
-                 
-                 yyjson_val* roomVal = yyjson_obj_get(courseSubject, "room");
-                 if(roomVal && yyjson_is_str(roomVal)) c.room = safe_strdup(yyjson_get_str(roomVal));
-
-                 tempCourses.push_back(c);
+                    yyjson_val* endHour = yyjson_obj_get(courseSubject, "endCourseHour");
+                    if(endHour && yyjson_is_obj(endHour)) c->endCourseHour = get_json_int(yyjson_obj_get(endHour, "id"));
+                    else if (endHour) c->endCourseHour = get_json_int(endHour);
+                    
+                    yyjson_val* roomVal = yyjson_obj_get(courseSubject, "room");
+                    if(roomVal && yyjson_is_str(roomVal)) c->room = (char*)yyjson_get_str(roomVal);
+                 }
              }
         }
         
         yyjson_doc_free(doc);
-        
-        // Convert vector to result array
-        result->count = (int)tempCourses.size();
-        if (result->count > 0) {
-            result->courses = (struct CourseNative*)calloc(result->count, sizeof(struct CourseNative));
-            // Start copying. Be careful with ownership.
-            // Since elements in tempCourses used strdup, they own the memory.
-            // We can memcpy the structs shallowly, as the pointers inside are what matter.
-            // But if std::vector reallocates/destructs, it might free them? 
-            // C structs don't have destructors, but std::vector usage of C structs is POD?
-            // Yes, C structs are POD. 
-            // So we can just copy them over.
-            for(int i=0; i<result->count; i++) {
-                result->courses[i] = tempCourses[i];
-            }
-        }
-        
         return result;
     }
 
