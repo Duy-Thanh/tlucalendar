@@ -1,8 +1,9 @@
 import 'dart:io' show Platform;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-import 'package:sqflite/sqflite.dart';
+import 'package:sqlite3/sqlite3.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:tlucalendar/services/log_service.dart';
 
@@ -19,9 +20,9 @@ class DailyNotificationService {
   static Future<void> initialize() async {
     if (Platform.isAndroid) {
       await AndroidAlarmManager.initialize();
-// Removed log
+      // Removed log
     } else if (Platform.isIOS) {
-// Removed log
+      // Removed log
     }
   }
 
@@ -29,16 +30,16 @@ class DailyNotificationService {
   static Future<void> scheduleDailyCheck({int hour = 7, int minute = 0}) async {
     final now = DateTime.now();
     var scheduledDate = DateTime(now.year, now.month, now.day, hour, minute);
-    
+
     if (scheduledDate.isBefore(now)) {
       // If time already passed today, schedule for tomorrow
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-// Removed log
-// Removed log
-// Removed log
-    
+    // Removed log
+    // Removed log
+    // Removed log
+
     if (Platform.isAndroid) {
       // Android: Use AlarmManager for exact timing
       await AndroidAlarmManager.periodic(
@@ -50,49 +51,56 @@ class DailyNotificationService {
         wakeup: true, // Wake up device if sleeping
         rescheduleOnReboot: true, // Reschedule after device reboot
       );
-// Removed log
+      // Removed log
     } else if (Platform.isIOS) {
       // iOS: Use scheduled notifications with daily repeat
       await _scheduleIOSDailyNotification(hour: hour, minute: minute);
-// Removed log
+      // Removed log
     }
 
-// Removed log
+    // Removed log
   }
 
   /// Cancel daily check
   static Future<void> cancelDailyCheck() async {
     if (Platform.isAndroid) {
       await AndroidAlarmManager.cancel(_alarmId);
-      _log.log('Android: Daily notification check cancelled', level: LogLevel.warning);
+      _log.log(
+        'Android: Daily notification check cancelled',
+        level: LogLevel.warning,
+      );
     } else if (Platform.isIOS) {
       final notificationsPlugin = FlutterLocalNotificationsPlugin();
       await notificationsPlugin.cancel(_iosNotificationId);
-      _log.log('iOS: Daily notification check cancelled', level: LogLevel.warning);
+      _log.log(
+        'iOS: Daily notification check cancelled',
+        level: LogLevel.warning,
+      );
     }
   }
 
   /// Manually trigger daily check (for testing)
   static Future<void> triggerManualCheck() async {
-// Removed log
+    // Removed log
     await _performDailyCheck();
   }
 
   /// Schedule iOS daily notification using native scheduled notifications
-  static Future<void> _scheduleIOSDailyNotification({int hour = 7, int minute = 0}) async {
+  static Future<void> _scheduleIOSDailyNotification({
+    int hour = 7,
+    int minute = 0,
+  }) async {
     final notificationsPlugin = FlutterLocalNotificationsPlugin();
-    
+
     // iOS initialization with proper settings
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    
-    const initSettings = InitializationSettings(
-      iOS: iosSettings,
-    );
-    
+
+    const initSettings = InitializationSettings(iOS: iosSettings);
+
     await notificationsPlugin.initialize(initSettings);
 
     // Schedule daily notification
@@ -109,10 +117,11 @@ class DailyNotificationService {
         ),
       ),
       androidScheduleMode: AndroidScheduleMode.exact,
-      matchDateTimeComponents: DateTimeComponents.time, // Repeat daily at same time
+      matchDateTimeComponents:
+          DateTimeComponents.time, // Repeat daily at same time
     );
 
-// Removed log
+    // Removed log
   }
 
   /// Helper to get next instance of a specific time
@@ -126,11 +135,11 @@ class DailyNotificationService {
       hour,
       minute,
     );
-    
+
     if (scheduledDate.isBefore(now)) {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
-    
+
     return scheduledDate;
   }
 
@@ -161,33 +170,34 @@ Future<void> _performDailyCheck() async {
   final todayStart = DateTime(today.year, today.month, today.day);
   final todayEnd = todayStart.add(const Duration(days: 1));
 
-  // Open database
-  final dbPath = await getDatabasesPath();
-  final database = await openDatabase(
-    join(dbPath, 'tlu_calendar.db'),
-    readOnly: true,
-  );
+  // Open database (sqlite3 FFI)
+  final docsDir = await getApplicationDocumentsDirectory();
+  final dbPath = join(docsDir.path, 'tlu_calendar.db');
+
+  // Ensure we can open it
+  final database = sqlite3.open(dbPath, mode: OpenMode.readOnly);
 
   // Check for classes today
   // Convert Dart's weekday (1=Monday, 7=Sunday) to API format (2=Monday, 8=Sunday)
   final apiDayOfWeek = today.weekday == 7 ? 8 : today.weekday + 1;
-  
+
   // Get current semester ID
-  final currentSemesterResult = await database.rawQuery('''
+  final currentSemesterResult = database.select('''
     SELECT id FROM semesters WHERE isCurrent = 1 LIMIT 1
   ''');
-  
-  final int? currentSemesterId = currentSemesterResult.isNotEmpty 
+
+  final int? currentSemesterId = currentSemesterResult.isNotEmpty
       ? currentSemesterResult.first['id'] as int?
       : null;
-  
+
   if (currentSemesterId == null) {
     log.log('[Background] No current semester found', level: LogLevel.warning);
-    await database.close();
+    database.dispose();
     return;
   }
-  
-  final classes = await database.rawQuery('''
+
+  final classes = database.select(
+    '''
     SELECT DISTINCT 
       sc.courseName, 
       ch_start.startString, 
@@ -200,51 +210,86 @@ Future<void> _performDailyCheck() async {
       AND sc.fromWeek <= ?
       AND sc.toWeek >= ?
     ORDER BY ch_start.startString
-  ''', [
-    currentSemesterId, // Only current semester
-    apiDayOfWeek, // Use API format: 2=Mon, 3=Tue, ..., 8=Sun
-    _getCurrentWeekNumber(today),
-    _getCurrentWeekNumber(today),
-  ]);
+  ''',
+    [
+      currentSemesterId, // Only current semester
+      apiDayOfWeek, // Use API format: 2=Mon, 3=Tue, ..., 8=Sun
+      _getCurrentWeekNumber(today),
+      _getCurrentWeekNumber(today),
+    ],
+  );
 
   // Check for exams today
-  final exams = await database.rawQuery('''
+  final exams = database.select(
+    '''
     SELECT DISTINCT subjectName, examDateString, roomCode
     FROM exam_rooms
     WHERE semesterId = ?
       AND examDate >= ?
       AND examDate < ?
     ORDER BY examDate
-  ''', [
-    currentSemesterId, // Only current semester
-    todayStart.millisecondsSinceEpoch,
-    todayEnd.millisecondsSinceEpoch,
-  ]);
+  ''',
+    [
+      currentSemesterId, // Only current semester
+      todayStart.millisecondsSinceEpoch,
+      todayEnd.millisecondsSinceEpoch,
+    ],
+  );
 
-  await database.close();
+  database.dispose();
 
   // Filter out past classes (only show upcoming ones)
   final currentTime = today;
-  final upcomingClasses = classes.where((cls) {
+  // Convert ResultSet to list of maps for ease of use
+  final classList = classes
+      .map(
+        (r) => {
+          'courseName': r['courseName'],
+          'startString': r['startString'],
+          'endString': r['endString'],
+        },
+      )
+      .toList();
+
+  final upcomingClasses = classList.where((cls) {
     try {
       final startTime = cls['startString'] as String;
       final parts = startTime.split(':');
       if (parts.length >= 2) {
         final hour = int.parse(parts[0]);
         final minute = int.parse(parts[1]);
-        final classDateTime = DateTime(today.year, today.month, today.day, hour, minute);
-        
+        final classDateTime = DateTime(
+          today.year,
+          today.month,
+          today.day,
+          hour,
+          minute,
+        );
+
         // Keep class if it starts in the future (or within 15 minutes - already started but not too late)
-        return classDateTime.isAfter(currentTime.subtract(const Duration(minutes: 15)));
+        return classDateTime.isAfter(
+          currentTime.subtract(const Duration(minutes: 15)),
+        );
       }
       return true; // Keep if can't parse time
     } catch (e) {
       return true; // Keep if error parsing
     }
   }).toList();
-  
-  // Filter out past exams (exams already in the query are for today, just check if time passed)
-  final upcomingExams = exams; // Exams are usually all-day events, keep all for today
+
+  // Convert exams ResultSet to list of maps
+  final examList = exams
+      .map(
+        (r) => {
+          'subjectName': r['subjectName'],
+          'examDateString': r['examDateString'],
+          'roomCode': r['roomCode'],
+        },
+      )
+      .toList();
+
+  final upcomingExams =
+      examList; // Exams are usually all-day events, keep all for today
 
   // Send notification if there's anything scheduled
   if (upcomingClasses.isNotEmpty || upcomingExams.isNotEmpty) {
@@ -288,12 +333,14 @@ Future<void> _sendDailySummaryNotification(
 
   // Build big text style for expanded notification
   final bigText = StringBuffer();
-  
+
   if (classes.isNotEmpty) {
     bigText.writeln('📚 Lớp học:');
     for (var i = 0; i < classes.length && i < 5; i++) {
       final cls = classes[i];
-      bigText.writeln('  • Tiết ${cls['startString']}-${cls['endString']}: ${cls['courseName']}');
+      bigText.writeln(
+        '  • Tiết ${cls['startString']}-${cls['endString']}: ${cls['courseName']}',
+      );
     }
     if (classes.length > 5) {
       bigText.writeln('  ... và ${classes.length - 5} lớp khác');
@@ -334,7 +381,7 @@ Future<void> _sendDailySummaryNotification(
   );
 
   final log = LogService();
-// Removed log
+  // Removed log
 }
 
 /// Calculate current week number
