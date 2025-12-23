@@ -422,7 +422,7 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       Text(
                         // 24 characters only
-                        '75b5ef01d54d13f7aae00d42',
+                        'd46b36baee4c71e239b3eb16',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
