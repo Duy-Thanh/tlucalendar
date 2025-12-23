@@ -9,6 +9,7 @@ import 'package:tlucalendar/features/schedule/domain/entities/course_hour.dart';
 import 'package:tlucalendar/features/schedule/data/models/school_year_model.dart';
 import 'package:tlucalendar/features/schedule/data/models/semester_model.dart';
 
+//
 abstract class ScheduleRemoteDataSource {
   Future<List<CourseModel>> getCourses(int semesterId, String accessToken);
   Future<List<CourseHour>> getCourseHours(String accessToken);
