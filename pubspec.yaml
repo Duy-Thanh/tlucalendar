@@ -1,7 +1,7 @@
 name: tlucalendar
 description: "TLU Calendar for TLU students - free, open source, no ads"
 publish_to: 'none'
-version: 2025.12.22
+version: 2025.12.25
 
 environment:
   sdk: ^3.10.4

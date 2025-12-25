@@ -15,6 +15,7 @@ import 'package:tlucalendar/injection_container.dart' as di;
 
 import 'package:tlucalendar/services/daily_notification_service.dart';
 import 'package:tlucalendar/services/auto_refresh_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +31,23 @@ void main() async {
 
   // Initialize Daily Notification Service
   await DailyNotificationService.initialize();
-  await DailyNotificationService.scheduleDailyCheck(hour: 7, minute: 0);
+  await DailyNotificationService.requestPermissions();
+
+  // Load saved settings for notification time
+  final prefs = await SharedPreferences.getInstance();
+  final notifEnabled = prefs.getBool('setting_daily_notif') ?? true;
+  final notifHour = prefs.getInt('setting_daily_notif_hour') ?? 7;
+  final notifMinute = prefs.getInt('setting_daily_notif_minute') ?? 0;
+
+  if (notifEnabled) {
+    await DailyNotificationService.scheduleDailyCheck(
+      hour: notifHour,
+      minute: notifMinute,
+    );
+  } else {
+    // Ensure cancellation if disabled
+    await DailyNotificationService.cancelDailyCheck();
+  }
 
   // Initialize Auto Refresh Service
   await AutoRefreshService.initialize();

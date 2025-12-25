@@ -158,7 +158,9 @@ class ScheduleProvider extends ChangeNotifier {
     );
 
     if (notifications.isEmpty && _courses.isNotEmpty) {
-      print("Native Notifications returned empty! Cache might be missing.");
+      print("Native Notifications returned empty! Using Dart fallback.");
+      await _scheduleDartNotifications(notificationService);
+      return;
     }
 
     // Batch processing to prevent UI freezer (Davey)
@@ -169,6 +171,72 @@ class ScheduleProvider extends ChangeNotifier {
       // Yield every 20 items to let UI breathe
       if (count % 20 == 0) {
         await Future.delayed(const Duration(milliseconds: 10));
+      }
+    }
+  }
+
+  Future<void> _scheduleDartNotifications(
+    NotificationService notificationService,
+  ) async {
+    if (_courseHours.isEmpty) return; // Need course hours to know times
+
+    int count = 0;
+    for (var course in _courses) {
+      // Find start hour
+      final startHourObj = _courseHours.firstWhere(
+        (h) => h.id == course.startCourseHour,
+        orElse: () => _courseHours.first, // Fallback?
+      );
+
+      // Parse start time "07:00"
+      final timeParts = startHourObj.startString.split(':');
+      if (timeParts.length < 2) continue;
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+
+      // Calculate dates for this course
+
+      final semesterStart = DateTime.fromMillisecondsSinceEpoch(
+        _currentSemester!.startDate,
+      );
+
+      // Iterate weeks
+      for (int w = course.fromWeek; w <= course.toWeek; w++) {
+        // Calculate date relative to Semester Start
+        // Week 1 starts at startDate.
+        // Week w starts at startDate + (w-1)*7 days.
+        // Then add (dayOfWeek - 2) days. (Mon=2 -> add 0).
+
+        final weekStart = semesterStart.add(Duration(days: (w - 1) * 7));
+        // TLU dayOfWeek: 2=Mon ... 8=Sun.
+        // Dart DateTime: 1=Mon ... 7=Sun.
+        // weekStart is usually Monday? Assumed.
+        // We need to align with specific day.
+
+        // Let's assume startDate is Monday of Week 1.
+
+        final offsetDays = course.dayOfWeek - 2; // 2->0, 3->1...
+        final classDate = weekStart.add(Duration(days: offsetDays));
+
+        // Combine with time
+        final classDateTime = DateTime(
+          classDate.year,
+          classDate.month,
+          classDate.day,
+          hour,
+          minute,
+        );
+
+        await notificationService.scheduleClassNotifications(
+          course,
+          classDateTime,
+          course.dayOfWeek,
+          "${startHourObj.startString}-${startHourObj.endString}",
+        );
+
+        count++;
+        if (count % 20 == 0)
+          await Future.delayed(const Duration(milliseconds: 5));
       }
     }
   }

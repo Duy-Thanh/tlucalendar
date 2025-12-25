@@ -90,101 +90,199 @@ class _CalendarScreenState extends State<CalendarScreen> {
           }
         }
       },
-      child: Column(
-        children: [
-          TableCalendar<Course>(
-            firstDay: DateTime(2020),
-            lastDay: DateTime(2030),
-            focusedDay: _focusedDay,
-            calendarFormat: _calendarFormat,
-            // Disable internal vertical swipe to avoid conflict with our custom gesture detector
-            availableGestures: AvailableGestures.horizontalSwipe,
-            availableCalendarFormats: const {
-              CalendarFormat.month: 'Tháng',
-              CalendarFormat.week: 'Tuần',
-            },
-            headerStyle: HeaderStyle(
-              titleCentered: true,
-              formatButtonVisible: false,
-              titleTextStyle: const TextStyle(
-                fontSize: 17.0,
-                fontWeight: FontWeight.bold,
-              ),
-              leftChevronIcon: Icon(
-                Icons.chevron_left,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              rightChevronIcon: Icon(
-                Icons.chevron_right,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
-            onDaySelected: _onDaySelected,
-            onPageChanged: (focusedDay) {
-              _focusedDay = focusedDay;
-            },
-            eventLoader: (day) => _getEventsForDay(day, scheduleProvider),
-            calendarStyle: CalendarStyle(
-              markerDecoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-              todayDecoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-                shape: BoxShape.circle,
-              ),
-              selectedDecoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                shape: BoxShape.circle,
-              ),
-            ),
-            onFormatChanged: (format) {
-              if (_calendarFormat != format) {
-                setState(() {
-                  _calendarFormat = format;
-                });
-              }
-            },
-          ),
-          // Handle drag handle indicator - Make it tappable and swipable
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _calendarFormat = _calendarFormat == CalendarFormat.month
-                    ? CalendarFormat.week
-                    : CalendarFormat.month;
-              });
-            },
-            onVerticalDragEnd: (details) {
-              // Redundant but ensures handle captures swipes explicitly
-              if (details.primaryVelocity! < 0) {
-                if (_calendarFormat != CalendarFormat.week) {
-                  setState(() => _calendarFormat = CalendarFormat.week);
-                }
-              } else if (details.primaryVelocity! > 0) {
-                if (_calendarFormat != CalendarFormat.month) {
-                  setState(() => _calendarFormat = CalendarFormat.month);
-                }
-              }
-            },
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Center(
-                child: Container(
-                  height: 4,
-                  width: 40,
+      child: Card(
+        margin: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+        elevation: 8,
+        shadowColor: Theme.of(context).shadowColor.withOpacity(0.5),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            TableCalendar<Course>(
+              firstDay: DateTime(2020),
+              lastDay: DateTime(2030),
+              focusedDay: _focusedDay,
+              calendarFormat: _calendarFormat,
+              availableGestures: AvailableGestures.horizontalSwipe,
+              availableCalendarFormats: const {
+                CalendarFormat.month: 'Tháng',
+                CalendarFormat.week: 'Tuần',
+              },
+              rowHeight: 48, // Increased from 42 for breathability
+              daysOfWeekHeight: 24, // Slightly taller header
+              headerStyle: HeaderStyle(
+                titleCentered: true,
+                formatButtonVisible: false,
+                titleTextStyle: Theme.of(context).textTheme.titleLarge!
+                    .copyWith(
+                      fontWeight: FontWeight.w900,
+                      color: Theme.of(context).colorScheme.primary,
+                      fontSize: 20, // Restore larger size
+                    ),
+                leftChevronIcon: Container(
+                  padding: const EdgeInsets.all(8), // Restore padding
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(2),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.chevron_left_rounded,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    size: 22,
+                  ),
+                ),
+                rightChevronIcon: Container(
+                  padding: const EdgeInsets.all(8), // Restore padding
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.chevron_right_rounded,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    size: 22,
+                  ),
+                ),
+                headerMargin: const EdgeInsets.only(
+                  bottom: 12.0,
+                  top: 8.0,
+                  left: 8,
+                  right: 8,
+                ),
+              ),
+              selectedDayPredicate: (day) => isSameDay(_selectedDate, day),
+              onDaySelected: _onDaySelected,
+              onPageChanged: (focusedDay) {
+                _focusedDay = focusedDay;
+              },
+              eventLoader: (day) => _getEventsForDay(day, scheduleProvider),
+              calendarStyle: const CalendarStyle(
+                outsideDaysVisible: false,
+                weekendTextStyle: TextStyle(
+                  color: Colors.blue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14, // Restore font size
+                ),
+                defaultTextStyle: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14, // Restore font size
+                ),
+                selectedDecoration: BoxDecoration(
+                  color: Color(0xFFFF8A65),
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.all(
+                    Radius.circular(16),
+                  ), // Rounder
+                  boxShadow: [
+                    BoxShadow(
+                      color: Color(0x66FF8A65),
+                      blurRadius: 12, // Softer shadow
+                      offset: Offset(0, 4),
+                      spreadRadius: 2, // "Excessive" glow
+                    ),
+                  ],
+                ),
+                todayDecoration: BoxDecoration(
+                  color: Colors.blueAccent,
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.all(Radius.circular(16)),
+                ),
+                defaultDecoration: BoxDecoration(
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+                weekendDecoration: BoxDecoration(
+                  shape: BoxShape.rectangle,
+                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                ),
+                cellMargin: EdgeInsets.all(6), // More spacing between cells
+              ),
+              calendarBuilders: CalendarBuilders(
+                markerBuilder: (context, day, events) {
+                  if (events.isEmpty) return null;
+                  return Positioned(
+                    right: 1,
+                    bottom: 1,
+                    child: Container(
+                      width: 16,
+                      height: 16,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF7C4DFF), // Deep Purple Accent
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        '${events.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              onFormatChanged: (format) {
+                if (_calendarFormat != format) {
+                  setState(() {
+                    _calendarFormat = format;
+                  });
+                }
+              },
+            ),
+
+            // Handle drag handle indicator
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _calendarFormat = _calendarFormat == CalendarFormat.month
+                      ? CalendarFormat.week
+                      : CalendarFormat.month;
+                });
+              },
+              onVerticalDragEnd: (details) {
+                if (details.primaryVelocity! < 0) {
+                  if (_calendarFormat != CalendarFormat.week) {
+                    setState(() => _calendarFormat = CalendarFormat.week);
+                  }
+                } else if (details.primaryVelocity! > 0) {
+                  if (_calendarFormat != CalendarFormat.month) {
+                    setState(() => _calendarFormat = CalendarFormat.month);
+                  }
+                }
+              },
+              behavior: HitTestBehavior.opaque,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                ), // Reduced padding
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHigh.withOpacity(0.5),
+                ),
+                child: Center(
+                  child: Container(
+                    height: 4, // Thinner handle
+                    width: 32, // Smaller handle width
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.outline.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -231,31 +329,44 @@ class _CalendarScreenState extends State<CalendarScreen> {
         return InkWell(
           onTap: () =>
               _showSemesterPicker(context, scheduleProvider, authProvider),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.calendar_month,
+                  Icons.calendar_month_rounded,
                   color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  size: 20,
+                  size: 22,
                 ),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
                     selectedSemester?.semesterName ?? 'Chọn học kỳ',
-                    style: TextStyle(
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
                       fontWeight: FontWeight.bold,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.arrow_drop_down_rounded,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  size: 24,
                 ),
               ],
             ),
@@ -377,91 +488,200 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     final timeRange = '$startTime - $endTime';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outlineVariant.withOpacity(0.5),
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            // Show details
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        timeRange,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
-                            ),
+    return Card(
+      margin: const EdgeInsets.only(
+        bottom: 12,
+        left: 16,
+        right: 16,
+      ), // Compact margin
+      elevation: 4,
+      shadowColor: Theme.of(context).shadowColor.withOpacity(0.3),
+      surfaceTintColor: Theme.of(context).colorScheme.surfaceTint,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ), // Compact radius
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () {},
+        child: Padding(
+          padding: const EdgeInsets.all(16), // Compact padding
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      timeRange,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSecondaryContainer,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        course.room,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  course.courseName,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.person, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text(
-                      course.lecturerName ?? 'Chưa cập nhật',
-                      style: TextStyle(color: Colors.grey[600]),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      course.room,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Calculate status
+              Builder(
+                builder: (context) {
+                  bool isPast = false;
+                  bool isCurrent = false;
+                  final now = DateTime.now();
+                  final isToday = isSameDay(_selectedDate, now);
+
+                  if (_selectedDate.isBefore(
+                    DateTime(now.year, now.month, now.day),
+                  )) {
+                    isPast = true;
+                  } else if (isToday) {
+                    final sHourObj = scheduleProvider.courseHours
+                        .where((h) => h.indexNumber == course.startCourseHour)
+                        .firstOrNull;
+                    final eHourObj = scheduleProvider.courseHours
+                        .where((h) => h.indexNumber == course.endCourseHour)
+                        .firstOrNull;
+
+                    if (sHourObj != null && eHourObj != null) {
+                      final startParts = sHourObj.startString.split(':');
+                      final endParts = eHourObj.endString.split(':');
+                      final startTime = DateTime(
+                        now.year,
+                        now.month,
+                        now.day,
+                        int.parse(startParts[0]),
+                        int.parse(startParts[1]),
+                      );
+                      final endTime = DateTime(
+                        now.year,
+                        now.month,
+                        now.day,
+                        int.parse(endParts[0]),
+                        int.parse(endParts[1]),
+                      );
+
+                      if (now.isAfter(endTime)) {
+                        isPast = true;
+                      } else if (now.isAfter(startTime) &&
+                          now.isBefore(endTime)) {
+                        isCurrent = true;
+                      }
+                    }
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          course.courseName,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                // Smaller title
+                                fontWeight: FontWeight.bold,
+                                height: 1.2,
+                              ),
+                        ),
+                      ),
+                      if (isCurrent)
+                        Container(
+                          margin: const EdgeInsets.only(left: 6, top: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Đang học',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  fontSize: 10,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onPrimary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        )
+                      else if (isPast)
+                        Container(
+                          margin: const EdgeInsets.only(left: 6, top: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.secondaryContainer.withOpacity(0.5),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Đã học',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  fontSize: 10,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSecondaryContainer,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 10,
+                    backgroundColor: Theme.of(
+                      context,
+                    ).colorScheme.tertiaryContainer,
+                    child: Icon(
+                      Icons.person,
+                      size: 12,
+                      color: Theme.of(context).colorScheme.onTertiaryContainer,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    course.lecturerName ?? 'Chưa cập nhật',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

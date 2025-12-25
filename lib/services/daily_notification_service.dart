@@ -6,10 +6,11 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:tlucalendar/services/log_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Service for sending daily reminders about classes and exams
 /// Platform-specific implementation:
-/// - Android: Uses AlarmManager for exact timing (even when app is closed)
+/// - Android: Uses AlarmManager for exact timing (Rescheduling OneShot)
 /// - iOS: Uses scheduled notifications (native iOS scheduling)
 class DailyNotificationService {
   static const int _alarmId = 0; // Unique ID for the daily alarm (Android)
@@ -20,9 +21,55 @@ class DailyNotificationService {
   static Future<void> initialize() async {
     if (Platform.isAndroid) {
       await AndroidAlarmManager.initialize();
-      // Removed log
+      await _createNotificationChannel();
+    }
+  }
+
+  /// Request necessary permissions (Notification & Exact Alarm)
+  static Future<void> requestPermissions() async {
+    if (Platform.isAndroid) {
+      final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      final androidImplementation = flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+
+      if (androidImplementation != null) {
+        await androidImplementation.requestNotificationsPermission();
+      }
     } else if (Platform.isIOS) {
-      // Removed log
+      final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      final iosImplementation = flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin
+          >();
+      if (iosImplementation != null) {
+        await iosImplementation.requestPermissions(
+          alert: true,
+          badge: true,
+          sound: true,
+        );
+      }
+    }
+  }
+
+  /// Create the notification channel explicitly
+  static Future<void> _createNotificationChannel() async {
+    final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    final androidImplementation = flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
+    if (androidImplementation != null) {
+      const channel = AndroidNotificationChannel(
+        'daily_summary', // id
+        'Thông báo hàng ngày', // title
+        description: 'Nhắc nhở lịch học và thi mỗi ngày',
+        importance: Importance.high,
+        playSound: true,
+      );
+      await androidImplementation.createNotificationChannel(channel);
     }
   }
 
@@ -36,29 +83,24 @@ class DailyNotificationService {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    // Removed log
-    // Removed log
-    // Removed log
-
     if (Platform.isAndroid) {
-      // Android: Use AlarmManager for exact timing
-      await AndroidAlarmManager.periodic(
-        const Duration(days: 1), // Repeat every day
+      // Android: Use OneShot + Reschedule for reliable exact timing
+      await AndroidAlarmManager.cancel(
+        _alarmId,
+      ); // Cancel previous just in case
+      await AndroidAlarmManager.oneShotAt(
+        scheduledDate,
         _alarmId,
         _performDailyCheck,
-        startAt: scheduledDate,
-        exact: true, // Use exact alarm for precise timing
-        wakeup: true, // Wake up device if sleeping
-        rescheduleOnReboot: true, // Reschedule after device reboot
+        exact: true,
+        wakeup: true,
+        rescheduleOnReboot: true,
       );
-      // Removed log
+      _log.log('Android: Daily check scheduled at $scheduledDate (OneShot)');
     } else if (Platform.isIOS) {
       // iOS: Use scheduled notifications with daily repeat
       await _scheduleIOSDailyNotification(hour: hour, minute: minute);
-      // Removed log
     }
-
-    // Removed log
   }
 
   /// Cancel daily check
@@ -81,7 +123,6 @@ class DailyNotificationService {
 
   /// Manually trigger daily check (for testing)
   static Future<void> triggerManualCheck() async {
-    // Removed log
     await _performDailyCheck();
   }
 
@@ -120,8 +161,6 @@ class DailyNotificationService {
       matchDateTimeComponents:
           DateTimeComponents.time, // Repeat daily at same time
     );
-
-    // Removed log
   }
 
   /// Helper to get next instance of a specific time
@@ -142,13 +181,6 @@ class DailyNotificationService {
 
     return scheduledDate;
   }
-
-  /// Check if there's a daily task scheduled
-  static Future<bool> isDailyCheckScheduled() async {
-    // AlarmManager doesn't provide a direct way to check
-    // We'll rely on SharedPreferences in the actual implementation
-    return true; // Placeholder
-  }
 }
 
 /// Perform the daily schedule check
@@ -157,6 +189,47 @@ class DailyNotificationService {
 Future<void> _performDailyCheck() async {
   final log = LogService();
 
+  // 1. Reschedule next alarm immediately (to ensure chain continues)
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool('setting_daily_notif') ?? true;
+
+    if (enabled) {
+      final hour = prefs.getInt('setting_daily_notif_hour') ?? 7;
+      final minute = prefs.getInt('setting_daily_notif_minute') ?? 0;
+
+      final now = DateTime.now();
+      // Schedule for TOMORROW at specific time
+      // Logic: This task runs AT the scheduled time (e.g. 7:00 today).
+      // So we want to schedule for 7:00 tomorrow.
+      var nextRun = DateTime(now.year, now.month, now.day, hour, minute);
+
+      // If we are currently executing, it's likely around the target time.
+      // Make sure we schedule for FUTURE (tomorrow).
+      if (nextRun.isBefore(now.add(const Duration(minutes: 1)))) {
+        nextRun = nextRun.add(const Duration(days: 1));
+      }
+
+      await AndroidAlarmManager.oneShotAt(
+        nextRun,
+        0, // _alarmId
+        _performDailyCheck,
+        exact: true,
+        wakeup: true,
+        rescheduleOnReboot: true,
+      );
+      log.log('[Background] Rescheduled daily check for $nextRun');
+    } else {
+      log.log('[Background] Daily check disabled, not rescheduling.');
+    }
+  } catch (e) {
+    log.log(
+      '[Background] Failed to reschedule daily check: $e',
+      level: LogLevel.error,
+    );
+  }
+
+  // 2. Perform actual check logic
   // Initialize notification plugin
   final FlutterLocalNotificationsPlugin notificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -181,20 +254,33 @@ Future<void> _performDailyCheck() async {
   // Convert Dart's weekday (1=Monday, 7=Sunday) to API format (2=Monday, 8=Sunday)
   final apiDayOfWeek = today.weekday == 7 ? 8 : today.weekday + 1;
 
-  // Get current semester ID
+  // Get current semester ID and Start Date
   final currentSemesterResult = database.select('''
-    SELECT id FROM semesters WHERE isCurrent = 1 LIMIT 1
+    SELECT id, startDate FROM semesters WHERE isCurrent = 1 LIMIT 1
   ''');
 
-  final int? currentSemesterId = currentSemesterResult.isNotEmpty
-      ? currentSemesterResult.first['id'] as int?
-      : null;
+  final int? currentSemesterId;
+  final DateTime? semesterStartDate;
 
-  if (currentSemesterId == null) {
+  if (currentSemesterResult.isNotEmpty) {
+    currentSemesterId = currentSemesterResult.first['id'] as int;
+    final startMillis = currentSemesterResult.first['startDate'] as int;
+    semesterStartDate = DateTime.fromMillisecondsSinceEpoch(startMillis);
+  } else {
+    currentSemesterId = null;
+    semesterStartDate = null;
+  }
+
+  if (currentSemesterId == null || semesterStartDate == null) {
     log.log('[Background] No current semester found', level: LogLevel.warning);
     database.dispose();
     return;
   }
+
+  final currentWeek = _getCurrentWeekNumber(today, semesterStartDate);
+  log.log(
+    '[Background] Today: $today, SemesterStart: $semesterStartDate, Week: $currentWeek',
+  );
 
   final classes = database.select(
     '''
@@ -214,8 +300,8 @@ Future<void> _performDailyCheck() async {
     [
       currentSemesterId, // Only current semester
       apiDayOfWeek, // Use API format: 2=Mon, 3=Tue, ..., 8=Sun
-      _getCurrentWeekNumber(today),
-      _getCurrentWeekNumber(today),
+      currentWeek,
+      currentWeek,
     ],
   );
 
@@ -238,8 +324,6 @@ Future<void> _performDailyCheck() async {
 
   database.dispose();
 
-  // Filter out past classes (only show upcoming ones)
-  final currentTime = today;
   // Convert ResultSet to list of maps for ease of use
   final classList = classes
       .map(
@@ -250,32 +334,6 @@ Future<void> _performDailyCheck() async {
         },
       )
       .toList();
-
-  final upcomingClasses = classList.where((cls) {
-    try {
-      final startTime = cls['startString'] as String;
-      final parts = startTime.split(':');
-      if (parts.length >= 2) {
-        final hour = int.parse(parts[0]);
-        final minute = int.parse(parts[1]);
-        final classDateTime = DateTime(
-          today.year,
-          today.month,
-          today.day,
-          hour,
-          minute,
-        );
-
-        // Keep class if it starts in the future (or within 15 minutes - already started but not too late)
-        return classDateTime.isAfter(
-          currentTime.subtract(const Duration(minutes: 15)),
-        );
-      }
-      return true; // Keep if can't parse time
-    } catch (e) {
-      return true; // Keep if error parsing
-    }
-  }).toList();
 
   // Convert exams ResultSet to list of maps
   final examList = exams
@@ -288,6 +346,8 @@ Future<void> _performDailyCheck() async {
       )
       .toList();
 
+  final upcomingClasses =
+      classList; // Show all classes for the day, not just future ones
   final upcomingExams =
       examList; // Exams are usually all-day events, keep all for today
 
@@ -381,21 +441,24 @@ Future<void> _sendDailySummaryNotification(
   );
 
   final log = LogService();
-  // Removed log
+  log.log('Sent daily notification: $title');
 }
 
 /// Calculate current week number
-int _getCurrentWeekNumber(DateTime date) {
-  // This is a simplified version - adjust based on your semester structure
-  // Assuming semester starts in September
-  final semesterStart = DateTime(date.year, 9, 1);
+int _getCurrentWeekNumber(DateTime date, DateTime semesterStart) {
   if (date.isBefore(semesterStart)) {
-    // Previous semester (started in February)
-    final prevSemesterStart = DateTime(date.year, 2, 1);
-    final difference = date.difference(prevSemesterStart);
-    return (difference.inDays / 7).floor() + 1;
-  } else {
-    final difference = date.difference(semesterStart);
-    return (difference.inDays / 7).floor() + 1;
+    // If date is BEFORE semester start, it likely belongs to previous semester?
+    // Or it's break time.
+    // If we assume standard logic:
+    // Return negative or 0?
+    // For now, let's just return 1 if close, or calculate backward.
+    // However, our SQL query is `fromWeek <= ? AND toWeek >= ?`.
+    // If we return 0, and course is 1-15, 0 <= 15 is true. But 1 <= 0 is false.
+    // Classes usually start week 1.
+    return 1;
   }
+
+  // Calculate difference in days
+  final difference = date.difference(semesterStart).inDays;
+  return (difference / 7).floor() + 1;
 }
