@@ -39,7 +39,8 @@ class ScheduleRepositoryImpl implements ScheduleRepository {
       try {
         final localCourses = await localDataSource.getCachedCourses(semesterId);
         if (localCourses.isNotEmpty) {
-          return Right(localCourses);
+          // Return cached data as a Failure (so Provider knows it's stale)
+          return Left(CachedDataFailure(localCourses));
         }
       } catch (_) {}
 
@@ -64,12 +65,11 @@ class ScheduleRepositoryImpl implements ScheduleRepository {
       try {
         final localHours = await localDataSource.getCachedCourseHours();
         if (localHours.isNotEmpty) {
-          return Right(localHours);
+          // Return cached data as a Failure
+          return Left(CachedDataFailure(localHours));
         }
       } catch (_) {}
 
-      // I will skip adding fallback here for a second and add the method to DataSource first
-      // to avoid compilation error.
       if (e is Failure) return Left(e);
       return Left(ServerFailure(e.toString()));
     }
@@ -106,7 +106,8 @@ class ScheduleRepositoryImpl implements ScheduleRepository {
       try {
         final localYears = await localDataSource.getCachedSchoolYears();
         if (localYears.isNotEmpty) {
-          return Right(localYears);
+          // Return cached data as a Failure
+          return Left(CachedDataFailure(localYears));
         }
       } catch (localError) {
         // If local also fails, ignore

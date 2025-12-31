@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:tlucalendar/core/error/failures.dart';
 import 'package:tlucalendar/core/native/native_parser.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/course.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/course_hour.dart';
@@ -30,6 +31,7 @@ class ScheduleProvider extends ChangeNotifier {
   List<CourseHour> _courseHours = [];
   Semester? _currentSemester;
 
+  bool _isOfflineMode = false;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -42,11 +44,13 @@ class ScheduleProvider extends ChangeNotifier {
       _currentSemester; // Alias for UI if needed, or implement distinct selection
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  bool get isOfflineMode => _isOfflineMode;
 
   // Init Data
   Future<void> init(String accessToken) async {
     _isLoading = true;
     _errorMessage = null;
+    _isOfflineMode = false;
     notifyListeners();
 
     try {
@@ -55,54 +59,76 @@ class ScheduleProvider extends ChangeNotifier {
 
       await yearsResult.fold(
         (failure) async {
-          _errorMessage = failure.message;
+          if (failure is CachedDataFailure<List<SchoolYear>>) {
+            _isOfflineMode = true;
+            // Continue with cached data
+            _processSchoolYears(failure.data);
+          } else {
+            _errorMessage = failure.message;
+          }
         },
         (years) async {
-          _schoolYears = years;
-          // Sort years by startDate ascending (oldest first, newest last)
-          // This ensures that .last returns the most recent year/semester
-          _schoolYears.sort((a, b) => a.startDate.compareTo(b.startDate));
-
-          // 2. Determine Current Semester
-          // Flatten semesters to find current
-          Semester? foundCurrent;
-          for (var y in years) {
-            for (var s in y.semesters) {
-              if (s.isCurrent) {
-                foundCurrent = s;
-                break;
-              }
-            }
-          }
-          // Default to last if no current
-          if (foundCurrent == null &&
-              years.isNotEmpty &&
-              years.last.semesters.isNotEmpty) {
-            foundCurrent = years.last.semesters.last;
-          }
-
-          _currentSemester = foundCurrent;
-
-          // 3. Fetch Course Hours (needed for UI time display)
-          final hoursResult = await getCourseHoursUseCase(accessToken);
-          hoursResult.fold((l) => null, (r) => _courseHours = r);
-
-          // 4. If we have a current semester, load its schedule
-          if (_currentSemester != null) {
-            await loadSchedule(accessToken, _currentSemester!.id);
-          }
+          _processSchoolYears(years);
         },
       );
+
+      // 3. Fetch Course Hours (needed for UI time display)
+      await _fetchCourseHours(accessToken);
+
+      // 4. If we have a current semester, load its schedule
+      if (_currentSemester != null) {
+        await loadSchedule(accessToken, _currentSemester!.id);
+      }
     } catch (e) {
       _errorMessage = e.toString();
     } finally {
-      // Don't modify isLoading inside finally if we want to show loading during loadSchedule?
-      // loadSchedule will handle its own notification but let's just unset here if we haven't
-      // But loadSchedule might still be running if we awaited it? Yes.
-      // So false here is correct.
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _processSchoolYears(List<SchoolYear> years) async {
+    _schoolYears = years;
+    _schoolYears.sort((a, b) => a.startDate.compareTo(b.startDate));
+
+    // 2. Determine Current Semester
+    Semester? foundCurrent;
+    for (var y in years) {
+      for (var s in y.semesters) {
+        if (s.isCurrent) {
+          foundCurrent = s;
+          break;
+        }
+      }
+    }
+
+    if (foundCurrent == null &&
+        years.isNotEmpty &&
+        years.last.semesters.isNotEmpty) {
+      foundCurrent = years.last.semesters.last;
+    }
+
+    _currentSemester = foundCurrent;
+  }
+
+  Future<void> _fetchCourseHours(String accessToken) async {
+    final hoursResult = await getCourseHoursUseCase(accessToken);
+    hoursResult.fold(
+      (failure) {
+        if (failure is CachedDataFailure<List<CourseHour>>) {
+          _courseHours = failure.data;
+          // If we fallback to cache for hours, it effectively means we are partially offline.
+          // But since the main indicator is School Years, we just quietly use this data properly.
+          debugPrint('Using cached Course Hours due to: ${failure.message}');
+        } else {
+          // Non-blocking failure for auxiliary data
+          debugPrint('Failed to fetch Course Hours: ${failure.message}');
+        }
+      },
+      (hours) {
+        _courseHours = hours;
+      },
+    );
   }
 
   Future<void> selectSemester(String accessToken, int semesterId) async {
@@ -123,19 +149,31 @@ class ScheduleProvider extends ChangeNotifier {
   }
 
   Future<void> loadSchedule(String accessToken, int semesterId) async {
-    // Don't set global isLoading, maybe add local loading state if needed
-    // Or set it if this is user initiated
-    // _isLoading = true;
-    // notifyListeners();
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
 
     final result = await getScheduleUseCase(
       GetScheduleParams(accessToken: accessToken, semesterId: semesterId),
     );
-    result.fold((f) => _errorMessage = f.message, (c) {
-      _courses = c;
-      _scheduleNotifications();
-    });
-    // _isLoading = false;
+
+    result.fold(
+      (f) {
+        if (f is CachedDataFailure<List<Course>>) {
+          _isOfflineMode = true;
+          _courses = f.data;
+          _scheduleNotifications();
+        } else {
+          _errorMessage = f.message;
+        }
+      },
+      (c) {
+        _isOfflineMode = false;
+        _courses = c;
+        _scheduleNotifications();
+      },
+    );
+    _isLoading = false;
     notifyListeners();
   }
 
@@ -158,7 +196,7 @@ class ScheduleProvider extends ChangeNotifier {
     );
 
     if (notifications.isEmpty && _courses.isNotEmpty) {
-      print("Native Notifications returned empty! Using Dart fallback.");
+      debugPrint("Native Notifications returned empty! Using Dart fallback.");
       await _scheduleDartNotifications(notificationService);
       return;
     }

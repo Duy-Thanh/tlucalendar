@@ -45,6 +45,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen for offline mode changes to ensure SnackBar is shown
+    // We can use a post-frame callback or simple Consumer check inside body.
+    // However, showing SnackBar from build is tricky.
+    // Let's use a banner or indicator instead of SnackBar which is cleaner.
+
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
@@ -52,6 +57,42 @@ class _CalendarScreenState extends State<CalendarScreen> {
           children: [
             // Custom Header
             _buildHeader(context),
+
+            // Offline Indicator
+            Consumer<ScheduleProvider>(
+              builder: (context, provider, _) {
+                if (provider.isOfflineMode) {
+                  return Container(
+                    width: double.infinity,
+                    color: Colors.orange.shade100,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 16,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.cloud_off,
+                          size: 16,
+                          color: Colors.orange.shade800,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Mất kết nối. Đang hiển thị lịch đã lưu.',
+                          style: TextStyle(
+                            color: Colors.orange.shade900,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
 
             // Collapsible Calendar
             Consumer<ScheduleProvider>(
@@ -69,6 +110,28 @@ class _CalendarScreenState extends State<CalendarScreen> {
       ),
     );
   }
+
+  // ... [Keep _buildTableCalendar and _buildHeader as is] ...
+
+  // Re-verify _buildTableCalendar is not removed.
+  // Wait, I am replacing the whole build method and below.
+  // I need to be careful not to delete _buildTableCalendar.
+  // The replace range is line 47 to 689 (End of file basically).
+  // I should selectively replace `build` and `_buildCourseList`.
+  // Or I can replace the whole file content? No, risky.
+
+  // Let's replace just `build` first.
+
+  // I will target `build` method specifically.
+
+  // Actually, I can implement a `_RetryButton` logic in `_buildCourseList`.
+
+  // Let's split this into smaller edits.
+
+  // 1. Update `build` to include Offline Banner.
+  // 2. Update `_buildCourseList` to include error handling.
+
+  // Canceling this big replacement. Proceeding with smaller chunks.
 
   Widget _buildTableCalendar(
     BuildContext context,
@@ -448,6 +511,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
           return const ScheduleSkeleton();
         }
 
+        if (scheduleProvider.errorMessage != null &&
+            scheduleProvider.courses.isEmpty) {
+          return _buildErrorState(context, scheduleProvider);
+        }
+
         final courses = scheduleProvider.getActiveCourses(_selectedDate);
 
         if (courses.isEmpty) {
@@ -457,14 +525,106 @@ class _CalendarScreenState extends State<CalendarScreen> {
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: courses.length,
-          itemBuilder: (context, index) {
-            return _buildCourseCard(context, courses[index], scheduleProvider);
+        return RefreshIndicator(
+          onRefresh: () async {
+            // Pull to refresh logic
+            final auth = context.read<AuthProvider>();
+            if (auth.accessToken != null &&
+                scheduleProvider.currentSemester != null) {
+              await scheduleProvider.loadSchedule(
+                auth.accessToken!,
+                scheduleProvider.currentSemester!.id,
+              );
+            }
           },
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: courses.length,
+            itemBuilder: (context, index) {
+              return _buildCourseCard(
+                context,
+                courses[index],
+                scheduleProvider,
+              );
+            },
+          ),
         );
       },
+    );
+  }
+
+  // Cooldown state for retry
+  bool _isRetryOnCooldown = false;
+
+  Widget _buildErrorState(BuildContext context, ScheduleProvider provider) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Úi! Có lỗi rồi!',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.error,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              provider.errorMessage ?? 'Không thể tải lịch học',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _isRetryOnCooldown
+                  ? null
+                  : () async {
+                      if (_isRetryOnCooldown) return;
+
+                      // Start cooldown
+                      setState(() => _isRetryOnCooldown = true);
+
+                      // Trigger retry
+                      final auth = context.read<AuthProvider>();
+                      if (auth.accessToken != null &&
+                          provider.currentSemester != null) {
+                        await provider.loadSchedule(
+                          auth.accessToken!,
+                          provider.currentSemester!.id,
+                        );
+                      }
+
+                      // End cooldown after 10s (or less if success, but let's keep it simply throttled)
+                      // Actually, if load finishes quickly, we might want to keep disabled to prevent spam.
+                      await Future.delayed(const Duration(seconds: 10));
+                      if (mounted) {
+                        setState(() => _isRetryOnCooldown = false);
+                      }
+                    },
+              icon: _isRetryOnCooldown
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_rounded),
+              label: Text(
+                _isRetryOnCooldown ? 'Vui lòng chờ 10s...' : 'Thử lại',
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

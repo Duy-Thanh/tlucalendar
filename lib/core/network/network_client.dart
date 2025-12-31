@@ -87,6 +87,12 @@ class NetworkClient {
     }
 
     if (error.response != null) {
+      final statusCode = error.response?.statusCode;
+      if (statusCode != null && statusCode >= 500) {
+        return ServerFailure(
+          'Lỗi máy chủ trường (Code: $statusCode). Hệ thống trường đang gặp sự cố, vui lòng thử lại sau.',
+        );
+      }
       return ServerFailure(
         'Server error: ${error.response?.statusCode}, Body: ${error.response?.data}',
       );

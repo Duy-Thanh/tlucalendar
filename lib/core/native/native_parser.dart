@@ -1,6 +1,7 @@
 import 'dart:ffi';
 import 'dart:io';
 import 'package:ffi/ffi.dart';
+import 'package:flutter/foundation.dart';
 import 'package:tlucalendar/features/exam/data/models/exam_schedule_model.dart';
 import 'package:tlucalendar/features/exam/data/models/exam_room_model.dart';
 
@@ -364,7 +365,7 @@ class NativeParser {
     int semesterStartMillis,
   ) {
     if (_cachedCoursesJson == null || _cachedHoursJson == null) {
-      print("Native Notif: Missing cached JSONs");
+      debugPrint("Native Notif: Missing cached JSONs");
       return [];
     }
     final coursesJson = _cachedCoursesJson!;
@@ -403,7 +404,9 @@ class NativeParser {
 
         final result = resultPtr.ref;
         if (result.errorMessage != nullptr) {
-          print("Native Notif Error: ${result.errorMessage.toDartString()}");
+          debugPrint(
+            "Native Notif Error: ${result.errorMessage.toDartString()}",
+          );
           freeFunc(resultPtr);
           return [];
         }
@@ -431,7 +434,7 @@ class NativeParser {
         malloc.free(hPtr);
       }
     } catch (e) {
-      print("Native Logic Error (Notif): $e");
+      debugPrint("Native Logic Error (Notif): $e");
       return [];
     }
   }

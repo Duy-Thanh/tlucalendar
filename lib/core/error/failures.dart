@@ -21,6 +21,15 @@ class CacheFailure extends Failure {
   const CacheFailure(super.message);
 }
 
+class CachedDataFailure<T> extends Failure {
+  final T data;
+  const CachedDataFailure(this.data, [String message = 'Dữ liệu cũ (Offline)'])
+    : super(message);
+
+  @override
+  List<Object?> get props => [message, data];
+}
+
 class AuthFailure extends Failure {
   const AuthFailure(super.message);
 }
