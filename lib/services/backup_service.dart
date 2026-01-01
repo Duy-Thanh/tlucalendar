@@ -37,7 +37,7 @@ class BackupService {
         // IF we use SAF or just standard paths if not scoped.
         // But to be safe, we request it.
         var status = await Permission.storage.status;
-        if (status.isGranted) {
+        if (!status.isGranted) {
           status = await Permission.storage.request();
         }
 
