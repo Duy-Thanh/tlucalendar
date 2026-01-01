@@ -28,6 +28,7 @@ jobs:
       - name: Create necessary files
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/rel.jks
+          echo "${{ secrets.OLD_KEYSTORE_BASE64 }}" | base64 --decode > android/old.jks
           echo "${{ secrets.LINEAGE_BASE64 }}" | base64 --decode > android/my.lineage
       
       - name: Setup Flutter
@@ -62,6 +63,7 @@ jobs:
           echo "Using apksigner at: $APKSIGNER"
           
           $APKSIGNER sign --ks android/rel.jks \
+            --next-signer --ks android/old.jks \
             --ks-key-alias ${{ secrets.KEY_ALIAS }} \
             --ks-pass pass:${{ secrets.STORE_PASSWORD }} \
             --key-pass pass:${{ secrets.KEY_PASSWORD }} \
