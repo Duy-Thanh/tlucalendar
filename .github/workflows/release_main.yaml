@@ -66,6 +66,8 @@ jobs:
             --ks-pass pass:${{ secrets.STORE_PASSWORD }} \
             --key-pass pass:${{ secrets.KEY_PASSWORD }} \
             --lineage android/my.lineage \
+            --v1-signing-enabled false \
+            --v2-signing-enabled true \
             --v3-signing-enabled true \
             build/app/outputs/flutter-apk/app-release.apk
             
