@@ -13,7 +13,7 @@ jobs:
   build:
     if: "contains(github.event.head_commit.message, '[release]')"
     name: Build & Release
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v3
@@ -24,6 +24,17 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+
+      - name: Cache Gradle & Pub
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-pub-${{ hashFiles('**/pubspec.lock') }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-pub-
       
       - name: Create necessary files
         run: |
@@ -62,8 +73,13 @@ jobs:
           
           echo "Using apksigner at: $APKSIGNER"
           
-          $APKSIGNER sign --ks android/rel.jks \
-            --next-signer --ks android/old.jks \
+          $APKSIGNER sign \
+            --ks android/old.jks \
+            --ks-key-alias ${{ secrets.KEY_ALIAS }} \
+            --ks-pass pass:${{ secrets.STORE_PASSWORD }} \
+            --key-pass pass:${{ secrets.KEY_PASSWORD }} \
+            --next-signer \
+            --ks android/rel.jks \
             --ks-key-alias ${{ secrets.KEY_ALIAS }} \
             --ks-pass pass:${{ secrets.STORE_PASSWORD }} \
             --key-pass pass:${{ secrets.KEY_PASSWORD }} \
