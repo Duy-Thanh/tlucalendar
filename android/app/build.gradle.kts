@@ -73,6 +73,9 @@ android {
                 storePassword = System.getenv("STORE_PASSWORD") ?: ""
                 keyAlias = System.getenv("KEY_ALIAS") ?: ""
                 keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+
+                enableV3Signing = true
+                enableV4Signing = true
             }
         }
     }

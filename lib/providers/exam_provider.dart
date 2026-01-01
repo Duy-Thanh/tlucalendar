@@ -6,6 +6,10 @@ import 'package:tlucalendar/features/exam/domain/usecases/get_exam_schedules_use
 import 'package:tlucalendar/features/schedule/domain/usecases/get_school_years_usecase.dart';
 import 'package:tlucalendar/features/schedule/domain/usecases/get_course_hours_usecase.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/course_hour.dart';
+import 'package:tlucalendar/core/error/failures.dart';
+import 'package:tlucalendar/features/schedule/domain/entities/school_year.dart';
+import 'package:tlucalendar/features/exam/domain/entities/exam_schedule.dart';
+import 'package:tlucalendar/features/exam/domain/entities/exam_room.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart'; // For ChangeNotifier
 
@@ -79,7 +83,6 @@ class ExamProvider with ChangeNotifier {
   Future<void> init(String accessToken) async {
     _isLoadingSemesters = true;
     notifyListeners();
-    notifyListeners();
     try {
       // Fetch Course Hours concurrently or sequentially
       final hoursResult = await getCourseHoursUseCase(accessToken);
@@ -88,34 +91,23 @@ class ExamProvider with ChangeNotifier {
       final result = await getSchoolYearsUseCase(accessToken);
       result.fold(
         (l) {
-          _errorMessage = l.message;
-          _log.log(
-            'Error fetching school years: ${l.message}',
-            level: LogLevel.error,
-          );
+          if (l is CachedDataFailure<List<SchoolYear>>) {
+            // Use cached data
+            _populateSemesters(l.data);
+            _errorMessage = l.message;
+          } else {
+            _errorMessage = l.message;
+            _log.log(
+              'Error fetching school years: ${l.message}',
+              level: LogLevel.error,
+            );
+          }
         },
         (r) {
-          _availableSemesters = [];
-          for (var year in r) {
-            for (var sem in year.semesters) {
-              _availableSemesters.add(
-                Legacy.SemesterDto(
-                  id: sem.id,
-                  semesterCode: sem.semesterCode,
-                  semesterName: sem.semesterName,
-                  startDate: sem.startDate,
-                  endDate: sem.endDate,
-                  isCurrent: sem.isCurrent,
-                  semesterRegisterPeriods: [],
-                ),
-              );
-            }
-          }
-          if (_availableSemesters.isNotEmpty) {
-            final current = _availableSemesters
-                .where((s) => s.isCurrent)
-                .firstOrNull;
-            _selectedSemesterId = current?.id ?? _availableSemesters.last.id;
+          _populateSemesters(r);
+          // If successful launch, clear any initial error
+          if (_errorMessage != null && _availableSemesters.isNotEmpty) {
+            _errorMessage = null;
           }
         },
       );
@@ -125,6 +117,29 @@ class ExamProvider with ChangeNotifier {
     } finally {
       _isLoadingSemesters = false;
       notifyListeners();
+    }
+  }
+
+  void _populateSemesters(List<SchoolYear> years) {
+    _availableSemesters = [];
+    for (var year in years) {
+      for (var sem in year.semesters) {
+        _availableSemesters.add(
+          Legacy.SemesterDto(
+            id: sem.id,
+            semesterCode: sem.semesterCode,
+            semesterName: sem.semesterName,
+            startDate: sem.startDate,
+            endDate: sem.endDate,
+            isCurrent: sem.isCurrent,
+            semesterRegisterPeriods: [],
+          ),
+        );
+      }
+    }
+    if (_availableSemesters.isNotEmpty) {
+      final current = _availableSemesters.where((s) => s.isCurrent).firstOrNull;
+      _selectedSemesterId = current?.id ?? _availableSemesters.last.id;
     }
   }
 
@@ -166,51 +181,22 @@ class ExamProvider with ChangeNotifier {
 
       result.fold(
         (l) {
-          _errorMessage = l.message;
-          _log.log(
-            'Error fetching exam schedules: ${l.message}',
-            level: LogLevel.error,
-          );
-        },
-        (r) {
-          final currentSem =
-              selectedSemester ??
-              Legacy.SemesterDto(
-                id: semesterId,
-                semesterCode: '',
-                semesterName: '',
-                startDate: 0,
-                endDate: 0,
-                isCurrent: false,
-                semesterRegisterPeriods: [],
-              );
-
-          _registerPeriods = r
-              .map(
-                (e) => Legacy.RegisterPeriod(
-                  id: e.id,
-                  name: e.name,
-                  displayOrder: e.displayOrder,
-                  voided: e.voided,
-                  semester: currentSem,
-                  examPeriods: [],
-                ),
-              )
-              .toList();
-
-          if (_registerPeriods.isNotEmpty) {
-            _selectedRegisterPeriodId = _registerPeriods.first.id;
-            // Trigger fetch for the default selected period
-            fetchExamRoomDetails(
-              accessToken,
-              semesterId,
-              _selectedRegisterPeriodId!,
-              _selectedExamRound,
-              rawToken,
-            );
+          if (l is CachedDataFailure<List<ExamSchedule>>) {
+            _populateRegisterPeriods(l.data, semesterId, accessToken, rawToken);
+            _errorMessage = l.message;
           } else {
+            _errorMessage = l.message;
+            _log.log(
+              'Error fetching exam schedules: ${l.message}',
+              level: LogLevel.error,
+            );
+            // Even if failed, try to load room details if we happen to have register periods?
+            // No, periods come from here.
             _selectedRegisterPeriodId = null;
           }
+        },
+        (r) {
+          _populateRegisterPeriods(r, semesterId, accessToken, rawToken);
         },
       );
     } catch (e) {
@@ -219,6 +205,52 @@ class ExamProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  void _populateRegisterPeriods(
+    List<ExamSchedule> schedules,
+    int semesterId,
+    String accessToken,
+    String? rawToken,
+  ) {
+    final currentSem =
+        selectedSemester ??
+        Legacy.SemesterDto(
+          id: semesterId,
+          semesterCode: '',
+          semesterName: '',
+          startDate: 0,
+          endDate: 0,
+          isCurrent: false,
+          semesterRegisterPeriods: [],
+        );
+
+    _registerPeriods = schedules
+        .map(
+          (e) => Legacy.RegisterPeriod(
+            id: e.id,
+            name: e.name,
+            displayOrder: e.displayOrder,
+            voided: e.voided,
+            semester: currentSem,
+            examPeriods: [],
+          ),
+        )
+        .toList();
+
+    if (_registerPeriods.isNotEmpty) {
+      _selectedRegisterPeriodId = _registerPeriods.first.id;
+      // Trigger fetch for the default selected period
+      fetchExamRoomDetails(
+        accessToken,
+        semesterId,
+        _selectedRegisterPeriodId!,
+        _selectedExamRound,
+        rawToken,
+      );
+    } else {
+      _selectedRegisterPeriodId = null;
     }
   }
 
@@ -267,32 +299,20 @@ class ExamProvider with ChangeNotifier {
         ),
       );
 
-      result.fold((l) => _roomErrorMessage = l.message, (r) {
-        _examRooms = r.map((e) {
-          final detail = Legacy.ExamRoomDetail(
-            id: 0,
-            roomCode: e.roomName ?? '',
-            examDate: e.examDate?.millisecondsSinceEpoch,
-            examDateString: e.examDate != null
-                ? DateFormat('dd/MM/yyyy').format(e.examDate!)
-                : '',
-            examHour: _parseExamHour(e.examTime),
-            room: Legacy.Room(id: 0, name: e.roomName ?? '', code: ''),
-            numberExpectedStudent: e.numberExpectedStudent ?? 0,
-          );
-
-          return Legacy.StudentExamRoom(
-            id: e.id,
-            status: 0,
-            examPeriodCode: e.examPeriodCode,
-            subjectName: e.subjectName,
-            studentCode: e.studentCode,
-            examRound: 0,
-            examRoom: detail,
-            examCode: e.examCode,
-          );
-        }).toList();
-      });
+      result.fold(
+        (l) {
+          if (l is CachedDataFailure<List<ExamRoom>>) {
+            _populateExamRooms(l.data);
+            _roomErrorMessage = l.message;
+          } else {
+            _roomErrorMessage = l.message;
+            _examRooms = []; // Clear if real error
+          }
+        },
+        (r) {
+          _populateExamRooms(r);
+        },
+      );
     } catch (e) {
       _roomErrorMessage = e.toString();
     } finally {
@@ -300,40 +320,68 @@ class ExamProvider with ChangeNotifier {
 
       // Schedule notifications
       if (_examRooms.isNotEmpty) {
-        final notificationService = NotificationService();
-        for (var room in _examRooms) {
-          if (room.examRoom?.examDate != null &&
-              room.examRoom?.examHour != null) {
-            // Parse start time
-            final timeStr = room.examRoom!.examHour!.startString;
-            final parts = timeStr.split(':');
-            if (parts.length >= 2) {
-              final h = int.tryParse(parts[0]);
-              final m = int.tryParse(parts[1]);
-
-              if (h != null && m != null) {
-                final date = DateTime.fromMillisecondsSinceEpoch(
-                  room.examRoom!.examDate!,
-                );
-                final examDateTime = DateTime(
-                  date.year,
-                  date.month,
-                  date.day,
-                  h,
-                  m,
-                );
-
-                notificationService.scheduleExamNotifications(
-                  room,
-                  examDateTime,
-                );
-              }
-            }
-          }
-        }
+        // ... notification logic (existing)
+        _scheduleNotifications();
       }
 
       notifyListeners();
+    }
+  }
+
+  void _populateExamRooms(List<ExamRoom> rooms) {
+    _examRooms = rooms.map((e) {
+      final detail = Legacy.ExamRoomDetail(
+        id: 0,
+        roomCode: e.roomName ?? '',
+        examDate: e.examDate?.millisecondsSinceEpoch,
+        examDateString: e.examDate != null
+            ? DateFormat('dd/MM/yyyy').format(e.examDate!)
+            : '',
+        examHour: _parseExamHour(e.examTime),
+        room: Legacy.Room(id: 0, name: e.roomName ?? '', code: ''),
+        numberExpectedStudent: e.numberExpectedStudent ?? 0,
+      );
+
+      return Legacy.StudentExamRoom(
+        id: e.id,
+        status: 0,
+        examPeriodCode: e.examPeriodCode,
+        subjectName: e.subjectName,
+        studentCode: e.studentCode,
+        examRound: 0,
+        examRoom: detail,
+        examCode: e.examCode,
+      );
+    }).toList();
+  }
+
+  void _scheduleNotifications() {
+    final notificationService = NotificationService();
+    for (var room in _examRooms) {
+      if (room.examRoom?.examDate != null && room.examRoom?.examHour != null) {
+        // Parse start time
+        final timeStr = room.examRoom!.examHour!.startString;
+        final parts = timeStr.split(':');
+        if (parts.length >= 2) {
+          final h = int.tryParse(parts[0]);
+          final m = int.tryParse(parts[1]);
+
+          if (h != null && m != null) {
+            final date = DateTime.fromMillisecondsSinceEpoch(
+              room.examRoom!.examDate!,
+            );
+            final examDateTime = DateTime(
+              date.year,
+              date.month,
+              date.day,
+              h,
+              m,
+            );
+
+            notificationService.scheduleExamNotifications(room, examDateTime);
+          }
+        }
+      }
     }
   }
 

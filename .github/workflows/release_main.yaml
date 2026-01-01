@@ -28,6 +28,7 @@ jobs:
       - name: Create necessary files
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/rel.jks
+          echo "${{ secrets.LINEAGE_BASE64 }}" | base64 --decode > android/my.lineage
       
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -51,6 +52,24 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols
+
+      
+      - name: Sign APK with Lineage (Key Rotation)
+        run: |
+          BUILD_TOOLS_VERSION=$(ls $ANDROID_HOME/build-tools/ | sort -r | head -n 1)
+          APKSIGNER="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner"
+          
+          echo "Using apksigner at: $APKSIGNER"
+          
+          $APKSIGNER sign --ks android/rel.jks \
+            --ks-key-alias ${{ secrets.KEY_ALIAS }} \
+            --ks-pass pass:${{ secrets.STORE_PASSWORD }} \
+            --key-pass pass:${{ secrets.KEY_PASSWORD }} \
+            --lineage android/my.lineage \
+            --v3-signing-enabled true \
+            build/app/outputs/flutter-apk/app-release.apk
+            
+          $APKSIGNER verify --print-certs -v build/app/outputs/flutter-apk/app-release.apk
 
       - name: Build App Bundle
         env:

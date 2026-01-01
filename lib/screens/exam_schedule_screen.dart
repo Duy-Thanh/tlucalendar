@@ -113,7 +113,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
           return const Scaffold(body: SafeArea(child: ScheduleSkeleton()));
         }
 
-        if (examProvider.errorMessage != null) {
+        if (examProvider.errorMessage != null &&
+            examProvider.registerPeriods.isEmpty) {
           return _buildError(examProvider.errorMessage!, () async {
             if (examProvider.selectedSemesterId != null) {
               _loadExamSchedule(examProvider.selectedSemesterId!);
@@ -238,6 +239,39 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
             ),
           ),
         ),
+
+        if (examProvider.errorMessage != null)
+          SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Theme.of(context).colorScheme.error.withOpacity(0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.cloud_off,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      examProvider.errorMessage!,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onErrorContainer,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
 
         // Exam room details
         _buildExamRoomDetails(context, authProvider, examProvider),

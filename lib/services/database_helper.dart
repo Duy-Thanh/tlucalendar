@@ -42,7 +42,10 @@ class DatabaseHelper {
     } catch (_) {}
 
     final db = sqlite3.open(dbPath);
+    return _configureDB(db);
+  }
 
+  Future<Database> _configureDB(Database db) async {
     // Busy timeout for concurrency
     db.execute('PRAGMA busy_timeout = 3000;');
 
@@ -64,6 +67,19 @@ class DatabaseHelper {
     }
 
     return db;
+  }
+
+  // Exposed for Backup/Restore
+  Future<String> get databasePath async {
+    final docsDir = await getApplicationDocumentsDirectory();
+    return join(docsDir.path, 'tlu_calendar.db');
+  }
+
+  Future<void> close() async {
+    if (_database != null) {
+      _database!.dispose();
+      _database = null;
+    }
   }
 
   void _onUpgrade(Database db, int oldVersion, int newVersion) {

@@ -14,6 +14,8 @@ import 'package:tlucalendar/providers/settings_provider.dart';
 import 'package:tlucalendar/screens/login_screen.dart';
 import 'package:tlucalendar/screens/logs_screen.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
+import 'package:tlucalendar/services/backup_service.dart';
+import 'package:tlucalendar/screens/app_initializer.dart';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -376,6 +378,123 @@ class SettingsScreen extends StatelessWidget {
                 ),
               );
             },
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Text(
+              'Dữ liệu',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.cloud_upload_outlined),
+                  title: const Text('Sao lưu dữ liệu'),
+                  subtitle: const Text('Xuất file database để lưu trữ'),
+                  onTap: () async {
+                    // Backup Logic
+                    final messenger = ScaffoldMessenger.of(context);
+                    final result = await BackupService.exportDatabase();
+
+                    if (result != null) {
+                      final isError =
+                          result.startsWith('Lỗi') ||
+                          result.startsWith('Không tìm');
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(result),
+                          backgroundColor: isError ? Colors.red : null,
+                          duration: const Duration(
+                            seconds: 5,
+                          ), // Longer to read path
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.cloud_download_outlined),
+                  title: const Text('Khôi phục dữ liệu'),
+                  subtitle: const Text('Nhập file database đã lưu'),
+                  onTap: () {
+                    // Restore Confirmation Dialog
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Khôi phục dữ liệu?'),
+                        content: const Text(
+                          'Hành động này sẽ XÓA TOÀN BỘ dữ liệu hiện tại và thay thế bằng file sao lưu. Bạn có chắc chắn không?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Hủy'),
+                          ),
+                          FilledButton(
+                            onPressed: () async {
+                              Navigator.pop(context); // Close dialog
+
+                              // Show generic loading if needed, or just let service run (it's fast usually)
+                              // But file picking is async.
+
+                              final messenger = ScaffoldMessenger.of(context);
+                              final error =
+                                  await BackupService.importDatabase();
+
+                              if (error == null) {
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Khôi phục thành công! Đang khởi động lại...',
+                                    ),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                                // Find AuthProvider to refresh or just wait?
+                                // Ideally we should trigger a full reload.
+                                // Let's try to reload providers.
+                                // Reload providers isn't enough for a full "Restart" feel.
+                                // Navigate to root to trigger AppInitializer again.
+                                if (context.mounted) {
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const AppInitializer(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                }
+                              } else {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(error),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            child: const Text('Khôi phục'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ),
         SliverToBoxAdapter(
