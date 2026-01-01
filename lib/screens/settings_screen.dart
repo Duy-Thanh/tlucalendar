@@ -15,7 +15,9 @@ import 'package:tlucalendar/screens/login_screen.dart';
 import 'package:tlucalendar/screens/logs_screen.dart';
 import 'package:tlucalendar/utils/error_logger.dart';
 import 'package:tlucalendar/services/backup_service.dart';
+import 'package:tlucalendar/services/calendar_sync_service.dart';
 import 'package:tlucalendar/screens/app_initializer.dart';
+import 'package:tlucalendar/providers/exam_provider.dart';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -384,7 +386,157 @@ class SettingsScreen extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             child: Text(
-              'Dữ liệu',
+              'Đồng bộ Lịch',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              children: [
+                Consumer<ScheduleProvider>(
+                  builder: (context, scheduleProvider, _) {
+                    return ListTile(
+                      leading: const Icon(Icons.calendar_month_outlined),
+                      title: const Text('Quản lý dữ liệu'),
+                      subtitle: const Text(
+                        'Thêm lịch học vào ứng dụng Lịch trên thiết bị',
+                      ),
+                      onTap: () async {
+                        if (scheduleProvider.courses.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Chưa có dữ liệu lịch học. Vui lòng mở màn hình Lịch học để tải dữ liệu.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Đồng bộ lịch học?'),
+                            content: const Text(
+                              'Thao tác này sẽ thêm lịch học vào ứng dụng Lịch (Google Calendar) của thiết bị.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Hủy'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Đồng bộ'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true && context.mounted) {
+                          final messenger = ScaffoldMessenger.of(context);
+                          try {
+                            // ignore: use_build_context_synchronously
+                            final color = Theme.of(context).colorScheme.primary;
+
+                            final result =
+                                await CalendarSyncService.exportScheduleToCalendar(
+                                  scheduleProvider.courses,
+                                  scheduleProvider.courseHours,
+                                  calendarColor: color,
+                                );
+                            messenger.showSnackBar(
+                              SnackBar(content: Text(result)),
+                            );
+                          } catch (e) {
+                            messenger.showSnackBar(
+                              SnackBar(content: Text('Lỗi: $e')),
+                            );
+                          }
+                        }
+                      },
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+                Consumer<ExamProvider>(
+                  builder: (context, examProvider, _) {
+                    return ListTile(
+                      leading: const Icon(Icons.event_note_outlined),
+                      title: const Text('Đồng bộ Lịch thi'),
+                      subtitle: const Text(
+                        'Thêm lịch thi vào ứng dụng Lịch trên thiết bị',
+                      ),
+                      onTap: () async {
+                        if (examProvider.examRoomEntities.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Chưa có dữ liệu lịch thi. Vui lòng mở màn hình Lịch thi để tải dữ liệu.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
+
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: const Text('Đồng bộ lịch thi?'),
+                            content: const Text(
+                              'Thao tác này sẽ thêm lịch thi vào ứng dụng Lịch (Google Calendar) của thiết bị.',
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Hủy'),
+                              ),
+                              FilledButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Đồng bộ'),
+                              ),
+                            ],
+                          ),
+                        );
+
+                        if (confirm == true && context.mounted) {
+                          final messenger = ScaffoldMessenger.of(context);
+                          try {
+                            // ignore: use_build_context_synchronously
+                            final color = Theme.of(context).colorScheme.primary;
+
+                            final result =
+                                await CalendarSyncService.exportExamToCalendar(
+                                  examProvider.examRoomEntities,
+                                  calendarColor: color,
+                                );
+                            messenger.showSnackBar(
+                              SnackBar(content: Text(result)),
+                            );
+                          } catch (e) {
+                            messenger.showSnackBar(
+                              SnackBar(content: Text('Lỗi: $e')),
+                            );
+                          }
+                        }
+                      },
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Text(
+              'Sao lưu và khôi phục',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),

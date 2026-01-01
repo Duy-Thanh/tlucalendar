@@ -45,6 +45,8 @@ class ExamProvider with ChangeNotifier {
   List<Legacy.RegisterPeriod> get registerPeriods => _registerPeriods;
   List<Legacy.SemesterDto> get availableSemesters => _availableSemesters;
   List<Legacy.StudentExamRoom> get examRooms => _examRooms;
+  List<ExamRoom> _examRoomEntities = [];
+  List<ExamRoom> get examRoomEntities => _examRoomEntities;
   bool get isLoading => _isLoading;
   bool get isLoadingSemesters => _isLoadingSemesters;
   bool get isLoadingRooms => _isLoadingRooms;
@@ -329,6 +331,7 @@ class ExamProvider with ChangeNotifier {
   }
 
   void _populateExamRooms(List<ExamRoom> rooms) {
+    _examRoomEntities = rooms;
     _examRooms = rooms.map((e) {
       final detail = Legacy.ExamRoomDetail(
         id: 0,

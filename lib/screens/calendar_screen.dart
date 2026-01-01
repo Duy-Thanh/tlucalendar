@@ -558,71 +558,73 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildErrorState(BuildContext context, ScheduleProvider provider) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.cloud_off_rounded,
-              size: 64,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Úi! Có lỗi rồi!',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.cloud_off_rounded,
+                size: 64,
                 color: Theme.of(context).colorScheme.error,
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              provider.errorMessage ?? 'Không thể tải lịch học',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              const SizedBox(height: 16),
+              Text(
+                'Úi! Có lỗi rồi!',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.error,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _isRetryOnCooldown
-                  ? null
-                  : () async {
-                      if (_isRetryOnCooldown) return;
-
-                      // Start cooldown
-                      setState(() => _isRetryOnCooldown = true);
-
-                      // Trigger retry
-                      final auth = context.read<AuthProvider>();
-                      if (auth.accessToken != null &&
-                          provider.currentSemester != null) {
-                        await provider.loadSchedule(
-                          auth.accessToken!,
-                          provider.currentSemester!.id,
-                        );
-                      }
-
-                      // End cooldown after 10s (or less if success, but let's keep it simply throttled)
-                      // Actually, if load finishes quickly, we might want to keep disabled to prevent spam.
-                      await Future.delayed(const Duration(seconds: 10));
-                      if (mounted) {
-                        setState(() => _isRetryOnCooldown = false);
-                      }
-                    },
-              icon: _isRetryOnCooldown
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.refresh_rounded),
-              label: Text(
-                _isRetryOnCooldown ? 'Vui lòng chờ 10s...' : 'Thử lại',
+              const SizedBox(height: 8),
+              Text(
+                provider.errorMessage ?? 'Không thể tải lịch học',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _isRetryOnCooldown
+                    ? null
+                    : () async {
+                        if (_isRetryOnCooldown) return;
+
+                        // Start cooldown
+                        setState(() => _isRetryOnCooldown = true);
+
+                        // Trigger retry
+                        final auth = context.read<AuthProvider>();
+                        if (auth.accessToken != null &&
+                            provider.currentSemester != null) {
+                          await provider.loadSchedule(
+                            auth.accessToken!,
+                            provider.currentSemester!.id,
+                          );
+                        }
+
+                        // End cooldown after 10s (or less if success, but let's keep it simply throttled)
+                        // Actually, if load finishes quickly, we might want to keep disabled to prevent spam.
+                        await Future.delayed(const Duration(seconds: 10));
+                        if (mounted) {
+                          setState(() => _isRetryOnCooldown = false);
+                        }
+                      },
+                icon: _isRetryOnCooldown
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+                label: Text(
+                  _isRetryOnCooldown ? 'Vui lòng chờ 10s...' : 'Thử lại',
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
