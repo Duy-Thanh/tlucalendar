@@ -402,7 +402,7 @@ class SettingsScreen extends StatelessWidget {
                   builder: (context, scheduleProvider, _) {
                     return ListTile(
                       leading: const Icon(Icons.calendar_month_outlined),
-                      title: const Text('Quản lý dữ liệu'),
+                      title: const Text('Đồng bộ Lịch học'),
                       subtitle: const Text(
                         'Thêm lịch học vào ứng dụng Lịch trên thiết bị',
                       ),
