@@ -91,6 +91,11 @@ jobs:
           echo "--- VERIFY RESULT ---"
           $APKSIGNER verify --print-certs -v build/app/outputs/flutter-apk/app-release.apk
 
+      - name: Swap Keystore for App Bundle (Use Old Key for Store Upload)
+        run: |
+          echo "Overwriting rel.jks with Old Key for Google Play Upload..."
+          cp android/old.jks android/rel.jks
+
       - name: Build App Bundle
         env:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
