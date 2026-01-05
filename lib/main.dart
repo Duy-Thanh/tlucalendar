@@ -57,8 +57,14 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => di.sl<ThemeProvider>()..init()),
         ChangeNotifierProvider(create: (_) => di.sl<AuthProvider>()),
-        ChangeNotifierProvider(create: (_) => di.sl<ScheduleProvider>()),
-        ChangeNotifierProvider(create: (_) => di.sl<ExamProvider>()),
+        ChangeNotifierProxyProvider<AuthProvider, ScheduleProvider>(
+          create: (_) => di.sl<ScheduleProvider>(),
+          update: (_, auth, schedule) => schedule!..setAuthProvider(auth),
+        ),
+        ChangeNotifierProxyProvider<AuthProvider, ExamProvider>(
+          create: (_) => di.sl<ExamProvider>(),
+          update: (_, auth, exam) => exam!..setAuthProvider(auth),
+        ),
         ChangeNotifierProvider(
           create: (_) => di.sl<SettingsProvider>()..init(),
         ),

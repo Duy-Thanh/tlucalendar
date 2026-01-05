@@ -12,11 +12,15 @@ import 'package:tlucalendar/features/schedule/domain/usecases/get_schedule_useca
 import 'package:tlucalendar/features/schedule/domain/usecases/get_school_years_usecase.dart';
 import 'package:tlucalendar/services/notification_service.dart';
 
+import 'package:tlucalendar/providers/auth_provider.dart';
+
 class ScheduleProvider extends ChangeNotifier {
   final GetScheduleUseCase getScheduleUseCase;
   final GetSchoolYearsUseCase getSchoolYearsUseCase;
   final GetCurrentSemesterUseCase getCurrentSemesterUseCase;
   final GetCourseHoursUseCase getCourseHoursUseCase;
+
+  AuthProvider? _authProvider;
 
   ScheduleProvider({
     required this.getScheduleUseCase,
@@ -24,6 +28,10 @@ class ScheduleProvider extends ChangeNotifier {
     required this.getCurrentSemesterUseCase,
     required this.getCourseHoursUseCase,
   });
+
+  void setAuthProvider(AuthProvider auth) {
+    _authProvider = auth;
+  }
 
   // State
   List<SchoolYear> _schoolYears = [];
@@ -53,9 +61,24 @@ class ScheduleProvider extends ChangeNotifier {
     _isOfflineMode = false;
     notifyListeners();
 
+    String currentToken = accessToken;
+
     try {
-      // 1. Fetch School Years (and semesters)
-      final yearsResult = await getSchoolYearsUseCase(accessToken);
+      // 1. Fetch School Years (with Auto-Relogin)
+      var yearsResult = await getSchoolYearsUseCase(currentToken);
+
+      bool shouldRetry = false;
+      yearsResult.fold((f) {
+        if (f is! CachedDataFailure) shouldRetry = true;
+      }, (r) {});
+
+      if (shouldRetry && _authProvider != null) {
+        debugPrint('Initial fetch failed, attempting auto-relogin...');
+        if (await _authProvider!.reLogin()) {
+          currentToken = _authProvider!.accessToken!;
+          yearsResult = await getSchoolYearsUseCase(currentToken);
+        }
+      }
 
       await yearsResult.fold(
         (failure) async {
@@ -72,12 +95,12 @@ class ScheduleProvider extends ChangeNotifier {
         },
       );
 
-      // 3. Fetch Course Hours (needed for UI time display)
-      await _fetchCourseHours(accessToken);
+      // 3. Fetch Course Hours (pass potentially updated token)
+      await _fetchCourseHours(currentToken);
 
       // 4. If we have a current semester, load its schedule
       if (_currentSemester != null) {
-        await loadSchedule(accessToken, _currentSemester!.id);
+        await loadSchedule(currentToken, _currentSemester!.id);
       }
     } catch (e) {
       _errorMessage = e.toString();
@@ -112,7 +135,21 @@ class ScheduleProvider extends ChangeNotifier {
   }
 
   Future<void> _fetchCourseHours(String accessToken) async {
-    final hoursResult = await getCourseHoursUseCase(accessToken);
+    String currentToken = accessToken;
+    var hoursResult = await getCourseHoursUseCase(currentToken);
+
+    bool shouldRetry = false;
+    hoursResult.fold((f) {
+      if (f is! CachedDataFailure) shouldRetry = true;
+    }, (r) {});
+
+    if (shouldRetry && _authProvider != null) {
+      if (await _authProvider!.reLogin()) {
+        currentToken = _authProvider!.accessToken!;
+        hoursResult = await getCourseHoursUseCase(currentToken);
+      }
+    }
+
     hoursResult.fold(
       (failure) {
         if (failure is CachedDataFailure<List<CourseHour>>) {
@@ -153,9 +190,25 @@ class ScheduleProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final result = await getScheduleUseCase(
-      GetScheduleParams(accessToken: accessToken, semesterId: semesterId),
+    String currentToken = accessToken;
+
+    var result = await getScheduleUseCase(
+      GetScheduleParams(accessToken: currentToken, semesterId: semesterId),
     );
+
+    bool shouldRetry = false;
+    result.fold((f) {
+      if (f is! CachedDataFailure) shouldRetry = true;
+    }, (r) {});
+
+    if (shouldRetry && _authProvider != null) {
+      if (await _authProvider!.reLogin()) {
+        currentToken = _authProvider!.accessToken!;
+        result = await getScheduleUseCase(
+          GetScheduleParams(accessToken: currentToken, semesterId: semesterId),
+        );
+      }
+    }
 
     result.fold(
       (f) {

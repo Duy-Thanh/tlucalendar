@@ -12,6 +12,7 @@ import 'package:tlucalendar/features/exam/domain/entities/exam_schedule.dart';
 import 'package:tlucalendar/features/exam/domain/entities/exam_room.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/foundation.dart'; // For ChangeNotifier
+import 'package:tlucalendar/providers/auth_provider.dart';
 
 class ExamProvider with ChangeNotifier {
   final _log = LogService();
@@ -21,12 +22,18 @@ class ExamProvider with ChangeNotifier {
   final GetSchoolYearsUseCase getSchoolYearsUseCase;
   final GetCourseHoursUseCase getCourseHoursUseCase;
 
+  AuthProvider? _authProvider;
+
   ExamProvider({
     required this.getExamSchedulesUseCase,
     required this.getExamRoomsUseCase,
     required this.getSchoolYearsUseCase,
     required this.getCourseHoursUseCase,
   });
+
+  void setAuthProvider(AuthProvider auth) {
+    _authProvider = auth;
+  }
 
   List<Legacy.RegisterPeriod> _registerPeriods = [];
   List<Legacy.SemesterDto> _availableSemesters = [];
@@ -85,12 +92,35 @@ class ExamProvider with ChangeNotifier {
   Future<void> init(String accessToken) async {
     _isLoadingSemesters = true;
     notifyListeners();
+    String currentToken = accessToken;
     try {
       // Fetch Course Hours concurrently or sequentially
-      final hoursResult = await getCourseHoursUseCase(accessToken);
+      // 1. Course Hours first (ignoring errors usually, but let's try to get them)
+      var hoursResult = await getCourseHoursUseCase(currentToken);
+      // We don't retry JUST for hours, but if we retry for years, we might retry hours too.
+
+      // 2. School Years
+      var result = await getSchoolYearsUseCase(currentToken);
+
+      bool shouldRetry = false;
+      result.fold((l) {
+        if (l is! CachedDataFailure) shouldRetry = true;
+      }, (r) {});
+
+      // If hours failed with something retriable, maybe we should also retry?
+      // But Years is the main blocker.
+
+      if (shouldRetry && _authProvider != null) {
+        if (await _authProvider!.reLogin()) {
+          currentToken = _authProvider!.accessToken!;
+          // Retry both
+          hoursResult = await getCourseHoursUseCase(currentToken);
+          result = await getSchoolYearsUseCase(currentToken);
+        }
+      }
+
       hoursResult.fold((l) => null, (r) => _courseHours = r);
 
-      final result = await getSchoolYearsUseCase(accessToken);
       result.fold(
         (l) {
           if (l is CachedDataFailure<List<SchoolYear>>) {
@@ -172,19 +202,50 @@ class ExamProvider with ChangeNotifier {
     _registerPeriods = [];
     notifyListeners();
 
+    String currentToken = accessToken;
+
     try {
-      final result = await getExamSchedulesUseCase(
+      var result = await getExamSchedulesUseCase(
         GetExamSchedulesParams(
           semesterId: semesterId,
-          accessToken: accessToken,
+          accessToken: currentToken,
           rawToken: rawToken,
         ),
       );
 
+      bool shouldRetry = false;
+      result.fold((l) {
+        if (l is! CachedDataFailure) shouldRetry = true;
+      }, (r) {});
+
+      if (shouldRetry && _authProvider != null) {
+        if (await _authProvider!.reLogin()) {
+          currentToken = _authProvider!.accessToken!;
+          // Note: rawToken might also be updated in AuthProvider but we don't have access to it easily unless we read it from AuthProvider too.
+          // But GetExamSchedulesParams uses rawToken?
+          // Let's try to get it from AuthProvider if reLogin succeeds.
+          final newRaw = _authProvider!.rawTokenStr ?? rawToken;
+
+          result = await getExamSchedulesUseCase(
+            GetExamSchedulesParams(
+              semesterId: semesterId,
+              accessToken: currentToken,
+              rawToken: newRaw,
+            ),
+          );
+        }
+      }
+
       result.fold(
         (l) {
           if (l is CachedDataFailure<List<ExamSchedule>>) {
-            _populateRegisterPeriods(l.data, semesterId, accessToken, rawToken);
+            _populateRegisterPeriods(
+              l.data,
+              semesterId,
+              currentToken,
+              rawToken,
+            ); // Use currentToken?
+            // Actually rawToken passed here is usually just for next calls?
             _errorMessage = l.message;
           } else {
             _errorMessage = l.message;
@@ -198,7 +259,7 @@ class ExamProvider with ChangeNotifier {
           }
         },
         (r) {
-          _populateRegisterPeriods(r, semesterId, accessToken, rawToken);
+          _populateRegisterPeriods(r, semesterId, currentToken, rawToken);
         },
       );
     } catch (e) {
@@ -290,16 +351,40 @@ class ExamProvider with ChangeNotifier {
     _roomErrorMessage = null;
     notifyListeners();
 
+    String currentToken = accessToken;
+
     try {
-      final result = await getExamRoomsUseCase(
+      var result = await getExamRoomsUseCase(
         GetExamRoomsParams(
           semesterId: semesterId,
           scheduleId: scheduleId,
           round: round,
-          accessToken: accessToken,
+          accessToken: currentToken,
           rawToken: rawToken,
         ),
       );
+
+      bool shouldRetry = false;
+      result.fold((l) {
+        if (l is! CachedDataFailure) shouldRetry = true;
+      }, (r) {});
+
+      if (shouldRetry && _authProvider != null) {
+        if (await _authProvider!.reLogin()) {
+          currentToken = _authProvider!.accessToken!;
+          final newRaw = _authProvider!.rawTokenStr ?? rawToken;
+
+          result = await getExamRoomsUseCase(
+            GetExamRoomsParams(
+              semesterId: semesterId,
+              scheduleId: scheduleId,
+              round: round,
+              accessToken: currentToken,
+              rawToken: newRaw,
+            ),
+          );
+        }
+      }
 
       result.fold(
         (l) {

@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:tlucalendar/features/auth/data/models/user_model.dart';
 import 'package:tlucalendar/services/auto_refresh_service.dart';
-
 import 'package:tlucalendar/services/log_service.dart';
 import 'package:tlucalendar/features/auth/domain/usecases/login_usecase.dart';
 import 'package:tlucalendar/features/auth/domain/usecases/get_user_usecase.dart';
@@ -18,6 +18,7 @@ class AuthProvider extends ChangeNotifier {
   UserModel? _currentUser;
 
   late SharedPreferences _prefs;
+  final _storage = const FlutterSecureStorage();
   final _log = LogService();
   bool _isLoggedIn = false;
   String? _accessToken;
@@ -119,6 +120,10 @@ class AuthProvider extends ChangeNotifier {
           _rawTokenStr = tokenStr;
           await _prefs.setString('rawToken', tokenStr);
 
+          // Save credentials for auto-relogin
+          await _storage.write(key: 'studentCode', value: studentCode);
+          await _storage.write(key: 'password', value: password);
+
           // Save other token fields if needed, or serialize the whole map
           // For simplicity, we just keep it in memory. If app restarts, we might lose refresh_token
           // if we don't save it. For now, let's just make it work for the session.
@@ -154,12 +159,50 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// Attempts to re-login using stored credentials
+  /// returns true if successful, false otherwise.
+  /// Retries up to 3 times.
+  Future<bool> reLogin() async {
+    // Avoid concurrent relogin attempts
+    if (_isLoading) return false;
+
+    final studentCode = await _storage.read(key: 'studentCode');
+    final password = await _storage.read(key: 'password');
+
+    if (studentCode == null || password == null) {
+      _log.log('No stored credentials for auto-relogin');
+      return false;
+    }
+
+    _log.log('Auto-relogin started for user: $studentCode');
+
+    for (int i = 0; i < 3; i++) {
+      _log.log('Auto-relogin attempt ${i + 1}/3');
+      // login() handles state updates (_isLoading, _errorMessage, etc.)
+      final success = await login(studentCode, password);
+
+      if (success) {
+        _log.log('Auto-relogin success!');
+        return true;
+      }
+
+      // Wait a bit before retrying
+      if (i < 2) {
+        await Future.delayed(const Duration(milliseconds: 1000));
+      }
+    }
+
+    _log.log('Auto-relogin failed after 3 attempts');
+    return false;
+  }
+
   Future<void> logout() async {
     _accessToken = null;
     _isLoggedIn = false;
     _currentUser = null;
     await _prefs.remove(_accessTokenKey);
     await _prefs.remove('rawToken');
+    await _storage.deleteAll();
     _rawTokenData = null;
     _rawTokenStr = null;
     notifyListeners();
