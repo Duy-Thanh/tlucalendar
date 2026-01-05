@@ -113,9 +113,8 @@ class BackupService {
     try {
       // 1. Pick file
       final result = await FilePicker.platform.pickFiles(
-        type: FileType
-            .any, // Android sometimes hides .db extensions if we use custom type
-        // allowedExtensions: ['db'], // Can be stricter if needed
+        type: FileType.custom,
+        allowedExtensions: ['db'],
       );
 
       if (result == null || result.files.isEmpty) {
