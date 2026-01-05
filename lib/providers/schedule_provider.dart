@@ -173,40 +173,6 @@ class ScheduleProvider extends ChangeNotifier {
     _currentSemester = foundCurrent;
   }
 
-  Future<void> _fetchCourseHours(String accessToken) async {
-    String currentToken = accessToken;
-    var hoursResult = await getCourseHoursUseCase(currentToken);
-
-    bool shouldRetry = false;
-    hoursResult.fold((f) {
-      if (f is! CachedDataFailure) shouldRetry = true;
-    }, (r) {});
-
-    if (shouldRetry && _authProvider != null) {
-      if (await _authProvider!.reLogin()) {
-        currentToken = _authProvider!.accessToken!;
-        hoursResult = await getCourseHoursUseCase(currentToken);
-      }
-    }
-
-    hoursResult.fold(
-      (failure) {
-        if (failure is CachedDataFailure<List<CourseHour>>) {
-          _courseHours = failure.data;
-          // If we fallback to cache for hours, it effectively means we are partially offline.
-          // But since the main indicator is School Years, we just quietly use this data properly.
-          debugPrint('Using cached Course Hours due to: ${failure.message}');
-        } else {
-          // Non-blocking failure for auxiliary data
-          debugPrint('Failed to fetch Course Hours: ${failure.message}');
-        }
-      },
-      (hours) {
-        _courseHours = hours;
-      },
-    );
-  }
-
   Future<void> selectSemester(String accessToken, int semesterId) async {
     // Find semester object
     Semester? found;
