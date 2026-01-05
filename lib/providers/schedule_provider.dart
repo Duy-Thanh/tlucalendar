@@ -64,27 +64,53 @@ class ScheduleProvider extends ChangeNotifier {
     String currentToken = accessToken;
 
     try {
-      // 1. Fetch School Years (with Auto-Relogin)
-      var yearsResult = await getSchoolYearsUseCase(currentToken);
+      // 1 & 2. Fetch School Years and Course Hours PARALLEL
+      // This maximizes "Transmission" usage.
+      var results = await Future.wait([
+        getSchoolYearsUseCase(currentToken),
+        getCourseHoursUseCase(currentToken),
+      ]);
+
+      // Cast results safely
+      var yearsResult =
+          results[0] as dynamic; // Either<Failure, List<SchoolYear>>
+      var hoursResult =
+          results[1] as dynamic; // Either<Failure, List<CourseHour>>
 
       bool shouldRetry = false;
+
+      // Check Years failure
       yearsResult.fold((f) {
         if (f is! CachedDataFailure) shouldRetry = true;
       }, (r) {});
 
+      // Check Hours failure? (Optional, but good for "Extreme Optimization")
+      if (!shouldRetry) {
+        hoursResult.fold((f) {
+          if (f is! CachedDataFailure) shouldRetry = true;
+        }, (r) {});
+      }
+
       if (shouldRetry && _authProvider != null) {
-        debugPrint('Initial fetch failed, attempting auto-relogin...');
+        debugPrint('Initial parallel fetch failed, attempting auto-relogin...');
         if (await _authProvider!.reLogin()) {
           currentToken = _authProvider!.accessToken!;
-          yearsResult = await getSchoolYearsUseCase(currentToken);
+
+          // Retry PARALLEL with new token
+          results = await Future.wait([
+            getSchoolYearsUseCase(currentToken),
+            getCourseHoursUseCase(currentToken),
+          ]);
+          yearsResult = results[0];
+          hoursResult = results[1];
         }
       }
 
+      // Process Years
       await yearsResult.fold(
         (failure) async {
           if (failure is CachedDataFailure<List<SchoolYear>>) {
             _isOfflineMode = true;
-            // Continue with cached data
             _processSchoolYears(failure.data);
           } else {
             _errorMessage = failure.message;
@@ -95,10 +121,23 @@ class ScheduleProvider extends ChangeNotifier {
         },
       );
 
-      // 3. Fetch Course Hours (pass potentially updated token)
-      await _fetchCourseHours(currentToken);
+      // Process Hours
+      hoursResult.fold(
+        (failure) {
+          if (failure is CachedDataFailure<List<CourseHour>>) {
+            _courseHours = failure.data;
+            debugPrint('Using cached Course Hours');
+          } else {
+            debugPrint('Failed to fetch Course Hours: ${failure.message}');
+          }
+        },
+        (hours) {
+          _courseHours = hours;
+        },
+      );
 
       // 4. If we have a current semester, load its schedule
+      // This depends on SchoolYears so it must be sequential to it.
       if (_currentSemester != null) {
         await loadSchedule(currentToken, _currentSemester!.id);
       }

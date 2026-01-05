@@ -159,12 +159,28 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool>? _reLoginFuture;
+
   /// Attempts to re-login using stored credentials
   /// returns true if successful, false otherwise.
   /// Retries up to 3 times.
-  Future<bool> reLogin() async {
-    // Avoid concurrent relogin attempts
-    if (_isLoading) return false;
+  /// Handles concurrent calls by returning the same future.
+  Future<bool> reLogin() {
+    if (_reLoginFuture != null) {
+      _log.log('Joining existing re-login attempt');
+      return _reLoginFuture!;
+    }
+
+    _reLoginFuture = _performReLogin();
+    return _reLoginFuture!.whenComplete(() {
+      _reLoginFuture = null;
+    });
+  }
+
+  Future<bool> _performReLogin() async {
+    // Avoid concurrent relogin attempts if simple login is happening?
+    // Using simple _isLoading check might block valid retry if UI is busy?
+    // Let's rely on _reLoginFuture deduplication.
 
     final studentCode = await _storage.read(key: 'studentCode');
     final password = await _storage.read(key: 'password');
