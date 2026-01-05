@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:tlucalendar/features/schedule/domain/entities/semester_register_period.dart';
 
 class Semester extends Equatable {
   final int id;
@@ -8,9 +9,7 @@ class Semester extends Equatable {
   final int endDate;
   final bool isCurrent;
   final int? ordinalNumbers;
-  // Note: RegisterPeriod related fields might be added if needed,
-  // but for Schedule feature basics, these are sufficient.
-  // We keep it simple for now matching existing usage.
+  final List<SemesterRegisterPeriod>? registerPeriods;
 
   const Semester({
     required this.id,
@@ -20,6 +19,7 @@ class Semester extends Equatable {
     required this.endDate,
     required this.isCurrent,
     this.ordinalNumbers,
+    this.registerPeriods,
   });
 
   @override
@@ -31,5 +31,8 @@ class Semester extends Equatable {
     endDate,
     isCurrent,
     ordinalNumbers,
+    isCurrent,
+    ordinalNumbers,
+    registerPeriods,
   ];
 }

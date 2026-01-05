@@ -1,4 +1,5 @@
 import 'package:tlucalendar/features/schedule/domain/entities/semester.dart';
+import 'package:tlucalendar/features/schedule/data/models/semester_register_period_model.dart';
 
 class SemesterModel extends Semester {
   const SemesterModel({
@@ -9,6 +10,7 @@ class SemesterModel extends Semester {
     required int endDate,
     required bool isCurrent,
     int? ordinalNumbers,
+    List<SemesterRegisterPeriodModel>? registerPeriods,
   }) : super(
          id: id,
          semesterCode: semesterCode,
@@ -17,6 +19,7 @@ class SemesterModel extends Semester {
          endDate: endDate,
          isCurrent: isCurrent,
          ordinalNumbers: ordinalNumbers,
+         registerPeriods: registerPeriods,
        );
 
   factory SemesterModel.fromJson(Map<String, dynamic> json) {
@@ -28,6 +31,11 @@ class SemesterModel extends Semester {
       endDate: json['endDate'] ?? 0,
       isCurrent: json['isCurrent'] ?? false,
       ordinalNumbers: json['ordinalNumbers'],
+      registerPeriods: json['semesterRegisterPeriods'] != null
+          ? (json['semesterRegisterPeriods'] as List)
+                .map((e) => SemesterRegisterPeriodModel.fromJson(e))
+                .toList()
+          : [],
     );
   }
 }

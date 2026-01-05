@@ -820,6 +820,15 @@ extern "C" {
         char* errorMessage;
     };
     
+    // --- Register Period ---
+    struct SemesterRegisterPeriodNative {
+        int id;
+        char* name;
+        long long startRegisterTime;
+        long long endRegisterTime;
+        long long endUnRegisterTime;
+    };
+
     // --- Semester ---
     struct SemesterNative {
         int id;
@@ -829,6 +838,8 @@ extern "C" {
         long long endDate;
         bool isCurrent;
         int ordinalNumbers;
+        int registerPeriodsCount; // NEW
+        struct SemesterRegisterPeriodNative* registerPeriods; // NEW
     };
     
     // --- SchoolYear ---
@@ -861,11 +872,60 @@ extern "C" {
         char* studentId; // username
         char* fullName; // displayName
         char* email;
+        int id;
     };
     
     struct UserResult {
          struct UserNative* user;
          char* errorMessage;
+    };
+
+    // --- Registration Data ---
+    struct TimetableNative {
+        int id;
+        long long startDate;
+        long long endDate;
+        int fromWeek;
+        int toWeek;
+        int dayOfWeek;
+        int startHour;
+        int endHour;
+        char* roomName;
+        char* teacherName;
+    };
+
+    struct CourseSubjectNative {
+        int id;
+        char* code;
+        char* name;
+        char* displayCode;
+        int numberStudent;
+        int maxStudent;
+        int numberRegisted; // numberStudent usually
+        bool isSelected;
+        bool isFull;
+        int timetablesCount;
+        struct TimetableNative* timetables;
+        int credits;
+        char* status; // "new", "full", etc.
+    };
+
+    struct SubjectRegistrationNative {
+        char* subjectName;
+        int numberOfCredit;
+        int courseSubjectsCount;
+        struct CourseSubjectNative* courseSubjects;
+    };
+
+    struct RegistrationPeriodNative {
+        int id;
+        int subjectsCount;
+        struct SubjectRegistrationNative* subjects;
+    };
+
+    struct RegistrationResult {
+        struct RegistrationPeriodNative* data;
+        char* errorMessage;
     };
 
     // --- Free Functions ---
@@ -912,6 +972,12 @@ extern "C" {
          if (result->semester) {
              free(result->semester->semesterCode);
              free(result->semester->semesterName);
+             if (result->semester->registerPeriods) {
+                 for(int k=0; k<result->semester->registerPeriodsCount; k++) {
+                     free(result->semester->registerPeriods[k].name);
+                 }
+                 free(result->semester->registerPeriods);
+             }
              free(result->semester);
          }
          free(result->errorMessage);
@@ -926,6 +992,38 @@ extern "C" {
             free(result->user->fullName);
             free(result->user->email);
             free(result->user);
+        }
+        free(result->errorMessage);
+        free(result);
+    }
+
+    __attribute__((visibility("default"))) __attribute__((used))
+    void free_registration_result(struct RegistrationResult* result) {
+        if (!result) return;
+        if (result->data) {
+             for(int i=0; i<result->data->subjectsCount; i++) {
+                 struct SubjectRegistrationNative* s = &result->data->subjects[i];
+                 free(s->subjectName);
+                 if (s->courseSubjects) {
+                     for(int j=0; j<s->courseSubjectsCount; j++) {
+                         struct CourseSubjectNative* c = &s->courseSubjects[j];
+                         free(c->code);
+                         free(c->name);
+                         free(c->displayCode);
+                         free(c->status);
+                         if (c->timetables) {
+                             for(int k=0; k<c->timetablesCount; k++) {
+                                 free(c->timetables[k].roomName);
+                                 free(c->timetables[k].teacherName);
+                             }
+                             free(c->timetables);
+                         }
+                     }
+                     free(s->courseSubjects);
+                 }
+             }
+             free(result->data->subjects);
+             free(result->data);
         }
         free(result->errorMessage);
         free(result);
@@ -1023,6 +1121,22 @@ extern "C" {
                      s->endDate = get_json_int64(yyjson_obj_get(semItem, "endDate"));
                      s->isCurrent = yyjson_get_bool(yyjson_obj_get(semItem, "isCurrent"));
                      s->ordinalNumbers = get_json_int(yyjson_obj_get(semItem, "ordinalNumbers"));
+                     
+                     yyjson_val *regPeriods = yyjson_obj_get(semItem, "semesterRegisterPeriods");
+                     if (yyjson_is_arr(regPeriods)) {
+                         s->registerPeriodsCount = (int)yyjson_arr_size(regPeriods);
+                         s->registerPeriods = (struct SemesterRegisterPeriodNative*)calloc(s->registerPeriodsCount, sizeof(struct SemesterRegisterPeriodNative));
+                         size_t rp_idx, rp_max;
+                         yyjson_val *rpItem;
+                         yyjson_arr_foreach(regPeriods, rp_idx, rp_max, rpItem) {
+                             struct SemesterRegisterPeriodNative* rp = &s->registerPeriods[rp_idx];
+                             rp->id = get_json_int(yyjson_obj_get(rpItem, "id"));
+                             rp->name = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "name")));
+                             rp->startRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "startRegisterTime"));
+                             rp->endRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endRegisterTime"));
+                             rp->endUnRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endUnRegisterTime"));
+                         }
+                     }
                 }
             }
         }
@@ -1055,6 +1169,22 @@ extern "C" {
          s->endDate = get_json_int64(yyjson_obj_get(root, "endDate"));
          s->isCurrent = yyjson_get_bool(yyjson_obj_get(root, "isCurrent"));
          s->ordinalNumbers = get_json_int(yyjson_obj_get(root, "ordinalNumbers"));
+         
+         yyjson_val *regPeriods = yyjson_obj_get(root, "semesterRegisterPeriods");
+         if (yyjson_is_arr(regPeriods)) {
+             s->registerPeriodsCount = (int)yyjson_arr_size(regPeriods);
+             s->registerPeriods = (struct SemesterRegisterPeriodNative*)calloc(s->registerPeriodsCount, sizeof(struct SemesterRegisterPeriodNative));
+             size_t rp_idx, rp_max;
+             yyjson_val *rpItem;
+             yyjson_arr_foreach(regPeriods, rp_idx, rp_max, rpItem) {
+                 struct SemesterRegisterPeriodNative* rp = &s->registerPeriods[rp_idx];
+                 rp->id = get_json_int(yyjson_obj_get(rpItem, "id"));
+                 rp->name = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "name")));
+                 rp->startRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "startRegisterTime"));
+                 rp->endRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endRegisterTime"));
+                 rp->endUnRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endUnRegisterTime"));
+             }
+         }
 
         yyjson_doc_free(doc);
         return result;
@@ -1079,6 +1209,11 @@ extern "C" {
         result->user->studentId = safe_strdup(yyjson_get_str(yyjson_obj_get(root, "username")));
         result->user->fullName = safe_strdup(yyjson_get_str(yyjson_obj_get(root, "displayName")));
         result->user->email = safe_strdup(yyjson_get_str(yyjson_obj_get(root, "email")));
+        
+        yyjson_val *person = yyjson_obj_get(root, "person");
+        if (person && yyjson_is_obj(person)) {
+            result->user->id = get_json_int(yyjson_obj_get(person, "id"));
+        }
         
         yyjson_doc_free(doc);
         return result;
@@ -1133,6 +1268,99 @@ extern "C" {
         result->token->refresh_token = safe_strdup(yyjson_get_str(yyjson_obj_get(root, "refresh_token")));
         result->token->scope = safe_strdup(yyjson_get_str(yyjson_obj_get(root, "scope")));
         result->token->expires_in = get_json_int(yyjson_obj_get(root, "expires_in"));
+        
+        yyjson_doc_free(doc);
+        return result;
+    }
+
+    __attribute__((visibility("default"))) __attribute__((used))
+    struct RegistrationResult* parse_registration_data(const char* json_str) {
+        struct RegistrationResult* result = (struct RegistrationResult*)calloc(1, sizeof(struct RegistrationResult));
+        if (!json_str) { result->errorMessage = strdup("Null JSON"); return result; }
+        
+        yyjson_doc *doc = yyjson_read_opts((char*)json_str, strlen(json_str), YYJSON_READ_INSITU | YYJSON_READ_STOP_WHEN_DONE, NULL, NULL);
+        if (!doc) { result->errorMessage = strdup("Parse Error"); return result; }
+        
+        yyjson_val *root = yyjson_doc_get_root(doc);
+        if (!root || !yyjson_is_obj(root)) {
+             result->errorMessage = strdup("Not an object");
+             yyjson_doc_free(doc);
+             return result;
+        }
+
+        result->data = (struct RegistrationPeriodNative*)calloc(1, sizeof(struct RegistrationPeriodNative));
+        struct RegistrationPeriodNative* period = result->data;
+        
+        period->id = get_json_int(yyjson_obj_get(root, "Id"));
+        if (period->id == 0) period->id = get_json_int(yyjson_obj_get(root, "id"));
+
+        yyjson_val *viewObj = yyjson_obj_get(root, "CourseRegisterViewObject");
+        if (!viewObj) viewObj = yyjson_obj_get(root, "courseRegisterViewObject");
+
+        if (viewObj && yyjson_is_obj(viewObj)) {
+            yyjson_val *listSubject = yyjson_obj_get(viewObj, "ListSubjectRegistrationDtos");
+            if (!listSubject) listSubject = yyjson_obj_get(viewObj, "listSubjectRegistrationDtos");
+
+            if (yyjson_is_arr(listSubject)) {
+                period->subjectsCount = (int)yyjson_arr_size(listSubject);
+                period->subjects = (struct SubjectRegistrationNative*)calloc(period->subjectsCount, sizeof(struct SubjectRegistrationNative));
+                
+                size_t s_idx, s_max;
+                yyjson_val *sItem;
+                yyjson_arr_foreach(listSubject, s_idx, s_max, sItem) {
+                    struct SubjectRegistrationNative* s = &period->subjects[s_idx];
+                    s->subjectName = safe_strdup(yyjson_get_str(yyjson_obj_get(sItem, "SubjectName")));
+                    s->numberOfCredit = get_json_int(yyjson_obj_get(sItem, "NumberOfCredit"));
+                    
+                    yyjson_val *courseSubjects = yyjson_obj_get(sItem, "CourseSubjectDtos");
+                    if (yyjson_is_arr(courseSubjects)) {
+                         s->courseSubjectsCount = (int)yyjson_arr_size(courseSubjects);
+                         s->courseSubjects = (struct CourseSubjectNative*)calloc(s->courseSubjectsCount, sizeof(struct CourseSubjectNative));
+                         
+                         size_t c_idx, c_max;
+                         yyjson_val *cItem;
+                         yyjson_arr_foreach(courseSubjects, c_idx, c_max, cItem) {
+                             struct CourseSubjectNative* c = &s->courseSubjects[c_idx];
+                             c->id = get_json_int(yyjson_obj_get(cItem, "Id"));
+                             c->code = safe_strdup(yyjson_get_str(yyjson_obj_get(cItem, "Code")));
+                             c->displayCode = safe_strdup(yyjson_get_str(yyjson_obj_get(cItem, "DisplayCode")));
+                             c->maxStudent = get_json_int(yyjson_obj_get(cItem, "MaxStudent"));
+                             c->numberStudent = get_json_int(yyjson_obj_get(cItem, "NumberStudent"));
+                             c->isSelected = yyjson_get_bool(yyjson_obj_get(cItem, "IsSelected"));
+                             c->isFull = yyjson_get_bool(yyjson_obj_get(cItem, "IsFullClass"));
+                             c->credits = get_json_int(yyjson_obj_get(cItem, "NumberOfCredit"));
+                             c->status = safe_strdup(yyjson_get_str(yyjson_obj_get(cItem, "Status")));
+
+                             yyjson_val *timetables = yyjson_obj_get(cItem, "Timetables");
+                             if (yyjson_is_arr(timetables)) {
+                                 c->timetablesCount = (int)yyjson_arr_size(timetables);
+                                 c->timetables = (struct TimetableNative*)calloc(c->timetablesCount, sizeof(struct TimetableNative));
+                                 size_t t_idx, t_max;
+                                 yyjson_val *tItem;
+                                 yyjson_arr_foreach(timetables, t_idx, t_max, tItem) {
+                                     struct TimetableNative* t = &c->timetables[t_idx];
+                                     t->id = get_json_int(yyjson_obj_get(tItem, "id"));
+                                     t->startDate = get_json_int64(yyjson_obj_get(tItem, "startDate"));
+                                     t->endDate = get_json_int64(yyjson_obj_get(tItem, "endDate"));
+                                     t->fromWeek = get_json_int(yyjson_obj_get(tItem, "fromWeek"));
+                                     t->toWeek = get_json_int(yyjson_obj_get(tItem, "toWeek"));
+                                     t->dayOfWeek = get_json_int(yyjson_obj_get(tItem, "weekIndex"));
+                                     
+                                     yyjson_val *startH = yyjson_obj_get(tItem, "startHour");
+                                     if (yyjson_is_obj(startH)) t->startHour = get_json_int(yyjson_obj_get(startH, "indexNumber"));
+                                     
+                                     yyjson_val *endH = yyjson_obj_get(tItem, "endHour");
+                                     if (yyjson_is_obj(endH)) t->endHour = get_json_int(yyjson_obj_get(endH, "indexNumber"));
+                                     
+                                     t->roomName = safe_strdup(yyjson_get_str(yyjson_obj_get(tItem, "roomName")));
+                                     t->teacherName = safe_strdup(yyjson_get_str(yyjson_obj_get(tItem, "teacherName")));
+                                 }
+                             }
+                         }
+                    }
+                }
+            }
+        }
         
         yyjson_doc_free(doc);
         return result;

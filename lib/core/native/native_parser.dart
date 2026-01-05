@@ -8,8 +8,10 @@ import 'package:tlucalendar/features/exam/data/models/exam_room_model.dart';
 import 'package:tlucalendar/features/schedule/data/models/course_model.dart';
 import 'package:tlucalendar/features/schedule/data/models/school_year_model.dart';
 import 'package:tlucalendar/features/schedule/data/models/semester_model.dart';
+import 'package:tlucalendar/features/schedule/data/models/semester_register_period_model.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/course_hour.dart';
 import 'package:tlucalendar/features/auth/data/models/user_model.dart';
+import 'package:tlucalendar/features/registration/data/models/subject_registration_model.dart';
 
 // --- FFI Structs matching C++ ---
 
@@ -165,6 +167,18 @@ final class CourseHourResult extends Struct {
   external Pointer<Utf8> errorMessage;
 }
 
+final class SemesterRegisterPeriodNative extends Struct {
+  @Int32()
+  external int id;
+  external Pointer<Utf8> name;
+  @Int64()
+  external int startRegisterTime;
+  @Int64()
+  external int endRegisterTime;
+  @Int64()
+  external int endUnRegisterTime;
+}
+
 final class SemesterNative extends Struct {
   @Int32()
   external int id;
@@ -178,6 +192,10 @@ final class SemesterNative extends Struct {
   external bool isCurrent;
   @Int32()
   external int ordinalNumbers;
+
+  @Int32()
+  external int registerPeriodsCount;
+  external Pointer<SemesterRegisterPeriodNative> registerPeriods;
 }
 
 final class SemesterResult extends Struct {
@@ -215,6 +233,8 @@ final class UserNative extends Struct {
   external Pointer<Utf8> studentId;
   external Pointer<Utf8> fullName;
   external Pointer<Utf8> email;
+  @Int32()
+  external int id;
 }
 
 final class UserResult extends Struct {
@@ -236,7 +256,74 @@ final class TokenResponseResult extends Struct {
   external Pointer<Utf8> errorMessage;
 }
 
-// --- Notification Structs ---
+// --- Registration Structs ---
+final class TimetableNative extends Struct {
+  @Int32()
+  external int id;
+  @Int64()
+  external int startDate;
+  @Int64()
+  external int endDate;
+  @Int32()
+  external int fromWeek;
+  @Int32()
+  external int toWeek;
+  @Int32()
+  external int dayOfWeek;
+  @Int32()
+  external int startHour;
+  @Int32()
+  external int endHour;
+  external Pointer<Utf8> roomName;
+  external Pointer<Utf8> teacherName;
+}
+
+final class CourseSubjectNative extends Struct {
+  @Int32()
+  external int id;
+  external Pointer<Utf8> code;
+  external Pointer<Utf8> name;
+  external Pointer<Utf8> displayCode;
+  @Int32()
+  external int numberStudent;
+  @Int32()
+  external int maxStudent;
+  @Int32()
+  external int numberRegisted;
+  @Bool()
+  external bool isSelected;
+  @Bool()
+  external bool isFull;
+  @Int32()
+  external int timetablesCount;
+  external Pointer<TimetableNative> timetables;
+  @Int32()
+  external int credits;
+  external Pointer<Utf8> status;
+}
+
+final class SubjectRegistrationNative extends Struct {
+  external Pointer<Utf8> subjectName;
+  @Int32()
+  external int numberOfCredit;
+  @Int32()
+  external int courseSubjectsCount;
+  external Pointer<CourseSubjectNative> courseSubjects;
+}
+
+final class RegistrationPeriodNative extends Struct {
+  @Int32()
+  external int id;
+  @Int32()
+  external int subjectsCount;
+  external Pointer<SubjectRegistrationNative> subjects;
+}
+
+final class RegistrationResult extends Struct {
+  external Pointer<RegistrationPeriodNative> data;
+  external Pointer<Utf8> errorMessage;
+}
+
 final class NotificationNative extends Struct {
   @Int64()
   external int triggerTime;
@@ -327,6 +414,13 @@ typedef FreeSemesterResult = void Function(Pointer<SemesterResult>);
 typedef FreeUserResultFunc = Void Function(Pointer<UserResult>);
 typedef FreeUserResult = void Function(Pointer<UserResult>);
 
+typedef ParseRegistrationFunc =
+    Pointer<RegistrationResult> Function(Pointer<Utf8>);
+typedef ParseRegistration = Pointer<RegistrationResult> Function(Pointer<Utf8>);
+
+typedef FreeRegistrationResultFunc = Void Function(Pointer<RegistrationResult>);
+typedef FreeRegistrationResult = void Function(Pointer<RegistrationResult>);
+
 class NativeParser {
   static DynamicLibrary? _lib;
 
@@ -357,6 +451,123 @@ class NativeParser {
       return func().toDartString();
     } catch (e) {
       return 'Error: $e';
+    }
+  }
+
+  // --- Registration Binding ---
+  static List<SubjectRegistrationModel> parseRegistrationData(
+    String jsonString,
+  ) {
+    try {
+      final func = _library
+          .lookupFunction<ParseRegistrationFunc, ParseRegistration>(
+            'parse_registration_data',
+          );
+      final jsonPtr = jsonString.toNativeUtf8();
+      final resultPtr = func(jsonPtr);
+      calloc.free(jsonPtr);
+
+      final result = resultPtr.ref;
+      if (result.errorMessage != nullptr) {
+        debugPrint(
+          "Native Registration Error: ${result.errorMessage.toDartString()}",
+        );
+        final freeFunc = _library
+            .lookupFunction<FreeRegistrationResultFunc, FreeRegistrationResult>(
+              'free_registration_result',
+            );
+        freeFunc(resultPtr);
+        return [];
+      }
+
+      List<SubjectRegistrationModel> subjects = [];
+      if (result.data != nullptr) {
+        final period = result.data.ref;
+        final subjectsPtr = period.subjects;
+        final count = period.subjectsCount;
+
+        for (int i = 0; i < count; i++) {
+          final sNative = subjectsPtr[i];
+
+          List<CourseSubjectModel> courseSubjects = [];
+          final csPtr = sNative.courseSubjects;
+          final csCount = sNative.courseSubjectsCount;
+
+          for (int j = 0; j < csCount; j++) {
+            final csNative = csPtr[j];
+
+            List<TimetableModel> timetables = [];
+            final tPtr = csNative.timetables;
+            final tCount = csNative.timetablesCount;
+
+            for (int k = 0; k < tCount; k++) {
+              final tNative = tPtr[k];
+              timetables.add(
+                TimetableModel(
+                  id: tNative.id,
+                  startDate: tNative.startDate,
+                  endDate: tNative.endDate,
+                  fromWeek: tNative.fromWeek,
+                  toWeek: tNative.toWeek,
+                  dayOfWeek: tNative.dayOfWeek,
+                  startHour: tNative.startHour,
+                  endHour: tNative.endHour,
+                  roomName: tNative.roomName != nullptr
+                      ? tNative.roomName.toDartString()
+                      : '',
+                  teacherName: tNative.teacherName != nullptr
+                      ? tNative.teacherName.toDartString()
+                      : '',
+                ),
+              );
+            }
+
+            courseSubjects.add(
+              CourseSubjectModel(
+                id: csNative.id,
+                code: csNative.code != nullptr
+                    ? csNative.code.toDartString()
+                    : '',
+                name: csNative.name != nullptr
+                    ? csNative.name.toDartString()
+                    : '',
+                displayCode: csNative.displayCode != nullptr
+                    ? csNative.displayCode.toDartString()
+                    : '',
+                numberStudent: csNative.numberStudent,
+                maxStudent: csNative.maxStudent,
+                isSelected: csNative.isSelected,
+                isFull: csNative.isFull,
+                credits: csNative.credits,
+                status: csNative.status != nullptr
+                    ? csNative.status.toDartString()
+                    : '',
+                timetables: timetables,
+              ),
+            );
+          }
+
+          subjects.add(
+            SubjectRegistrationModel(
+              subjectName: sNative.subjectName != nullptr
+                  ? sNative.subjectName.toDartString()
+                  : '',
+              numberOfCredit: sNative.numberOfCredit,
+              courseSubjects: courseSubjects,
+            ),
+          );
+        }
+      }
+
+      final freeFunc = _library
+          .lookupFunction<FreeRegistrationResultFunc, FreeRegistrationResult>(
+            'free_registration_result',
+          );
+      freeFunc(resultPtr);
+      return subjects;
+    } catch (e) {
+      debugPrint("Native Parse Error (Registration): $e");
+      return [];
     }
   }
 
@@ -769,6 +980,25 @@ class NativeParser {
         final sPtr = sy.semesters;
         for (int j = 0; j < sy.semestersCount; j++) {
           final s = sPtr[j];
+          // Parse Register Periods
+          List<SemesterRegisterPeriodModel> periods = [];
+          final rpCount = s.registerPeriodsCount;
+          final rpPtr = s.registerPeriods;
+          if (rpPtr != nullptr && rpCount > 0) {
+            for (int k = 0; k < rpCount; k++) {
+              final rp = rpPtr[k];
+              periods.add(
+                SemesterRegisterPeriodModel(
+                  id: rp.id,
+                  name: rp.name != nullptr ? rp.name.toDartString() : '',
+                  startRegisterTime: rp.startRegisterTime,
+                  endRegisterTime: rp.endRegisterTime,
+                  endUnRegisterTime: rp.endUnRegisterTime,
+                ),
+              );
+            }
+          }
+
           semesters.add(
             SemesterModel(
               id: s.id,
@@ -782,6 +1012,7 @@ class NativeParser {
               endDate: s.endDate,
               isCurrent: s.isCurrent,
               ordinalNumbers: s.ordinalNumbers,
+              registerPeriods: periods,
             ),
           );
         }
@@ -877,6 +1108,7 @@ class NativeParser {
           studentId: u.studentId != nullptr ? u.studentId.toDartString() : '',
           fullName: u.fullName != nullptr ? u.fullName.toDartString() : '',
           email: u.email != nullptr ? u.email.toDartString() : '',
+          id: u.id,
           profileImageUrl: null,
         );
       }

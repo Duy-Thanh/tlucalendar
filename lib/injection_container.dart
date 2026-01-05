@@ -30,6 +30,14 @@ import 'package:tlucalendar/features/exam/data/datasources/exam_remote_data_sour
 import 'package:tlucalendar/features/exam/data/datasources/exam_local_data_source.dart';
 import 'package:tlucalendar/services/database_helper.dart';
 
+import 'package:tlucalendar/features/registration/data/datasources/registration_remote_data_source.dart';
+import 'package:tlucalendar/features/registration/data/repositories/registration_repository_impl.dart';
+import 'package:tlucalendar/features/registration/domain/repositories/registration_repository.dart';
+import 'package:tlucalendar/features/registration/domain/usecases/get_registration_data.dart';
+import 'package:tlucalendar/features/registration/domain/usecases/register_course.dart';
+import 'package:tlucalendar/features/registration/domain/usecases/cancel_course.dart';
+import 'package:tlucalendar/providers/registration_provider.dart';
+
 final sl = GetIt.instance;
 
 Future<void> init() async {
@@ -83,7 +91,6 @@ Future<void> init() async {
   );
 
   // Data Sources
-  // Data Sources
   sl.registerLazySingleton<ExamRemoteDataSource>(
     () => ExamRemoteDataSourceImpl(client: sl()),
   );
@@ -97,6 +104,22 @@ Future<void> init() async {
   );
   sl.registerLazySingleton<ScheduleLocalDataSource>(
     () => ScheduleLocalDataSourceImpl(databaseHelper: DatabaseHelper.instance),
+  );
+
+  //! Features - Registration
+  // UseCases
+  sl.registerLazySingleton(() => GetRegistrationData(sl()));
+  sl.registerLazySingleton(() => RegisterCourse(sl()));
+  sl.registerLazySingleton(() => CancelCourse(sl()));
+
+  // Repository
+  sl.registerLazySingleton<RegistrationRepository>(
+    () => RegistrationRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  // Data Sources
+  sl.registerLazySingleton<RegistrationRemoteDataSource>(
+    () => RegistrationRemoteDataSourceImpl(client: sl()),
   );
 
   //! Core
@@ -126,4 +149,11 @@ Future<void> init() async {
   );
   sl.registerLazySingleton(() => ThemeProvider());
   sl.registerLazySingleton(() => SettingsProvider());
+  sl.registerLazySingleton(
+    () => RegistrationProvider(
+      getRegistrationData: sl(),
+      registerCourse: sl(),
+      cancelCourse: sl(),
+    ),
+  );
 }

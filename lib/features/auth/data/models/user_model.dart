@@ -2,6 +2,7 @@ import 'package:tlucalendar/features/auth/domain/entities/user.dart';
 
 class UserModel extends User {
   const UserModel({
+    super.id,
     required super.studentId,
     required super.fullName,
     required super.email,
@@ -10,6 +11,7 @@ class UserModel extends User {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
+      id: json['person'] != null ? json['person']['id'] : null,
       studentId: json['username'] ?? '',
       fullName: json['displayName'] ?? '',
       email: json['email'] ?? '',
@@ -19,6 +21,11 @@ class UserModel extends User {
   }
 
   Map<String, dynamic> toJson() {
-    return {'username': studentId, 'displayName': fullName, 'email': email};
+    return {
+      'username': studentId,
+      'displayName': fullName,
+      'email': email,
+      'person': id != null ? {'id': id} : null,
+    };
   }
 }
