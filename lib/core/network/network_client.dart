@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
+import 'package:flutter/foundation.dart'; // For debugPrint
+import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:tlucalendar/core/error/failures.dart';
 
 class NetworkClient {
@@ -23,9 +25,32 @@ class NetworkClient {
       ),
     );
 
+    // Aggressive Retry Strategy for High Load
+    _dio.interceptors.add(
+      RetryInterceptor(
+        dio: _dio,
+        logPrint: (message) => debugPrint('[Retry] $message'),
+        retries: 10,
+        retryDelays: const [
+          Duration(seconds: 1),
+          Duration(seconds: 2),
+          Duration(seconds: 3),
+          Duration(seconds: 5),
+          Duration(seconds: 8),
+          Duration(seconds: 10),
+          Duration(seconds: 10),
+          Duration(seconds: 10),
+          Duration(seconds: 10),
+          Duration(seconds: 10),
+        ],
+        retryableExtraStatuses: {408, 500, 502, 503, 504},
+      ),
+    );
+
     // SSL Verify Bypass (Required for TLU Servers)
     (_dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
       final client = HttpClient();
+      client.idleTimeout = const Duration(seconds: 60); // Keep connection alive
       client.badCertificateCallback =
           (X509Certificate cert, String host, int port) {
             // Only bypass SSL for authorized TLU domains to prevent MITM on others
