@@ -144,7 +144,10 @@ class AuthProvider extends ChangeNotifier {
 
           // We call the service to fetch and cache Schedule & Exams
           // This ensures that right after login, we have data.
-          await AutoRefreshService.triggerRefresh();
+          await AutoRefreshService.triggerRefresh(
+            accessToken: _accessToken,
+            rawToken: _rawTokenStr,
+          );
 
           _isLoading = false;
           notifyListeners();

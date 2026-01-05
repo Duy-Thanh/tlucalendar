@@ -39,8 +39,17 @@ class AutoRefreshService {
   }
 
   // Public method to trigger refresh manually (e.g., after login)
-  static Future<void> triggerRefresh() async {
-    await _performAutoRefresh();
+  static Future<void> triggerRefresh({
+    String? accessToken,
+    String? rawToken,
+  }) async {
+    if (accessToken != null) {
+      // If we have a token (from Login), use it directly to save time
+      await _syncData(accessToken, rawToken: rawToken, isForeground: true);
+    } else {
+      // Otherwise perform full cycle (Login + Sync)
+      await _performAutoRefresh();
+    }
   }
 
   // Cancel periodic refresh
@@ -49,6 +58,144 @@ class AutoRefreshService {
       await AndroidAlarmManager.cancel(_alarmId);
       final log = LogService();
       log.log('Auto-refresh cancelled');
+    }
+  }
+
+  // Shared Sync Logic
+  static Future<void> _syncData(
+    String accessToken, {
+    String? rawToken,
+    bool isForeground = false,
+  }) async {
+    final log = LogService();
+    log.log('[Sync] Starting Data Sync (Foreground: $isForeground)...');
+
+    final networkClient = NetworkClient(
+      baseUrl: 'https://tlu-proxy-node.vercel.app',
+    );
+    final scheduleRemote = ScheduleRemoteDataSourceImpl(client: networkClient);
+    final dbHelper = DatabaseHelper.instance;
+
+    try {
+      // --- PHASE 1: ESSENTIALS (Blocking if Foreground) ---
+      // School Years, Semesters, Courses, Course Hours
+
+      final years = await scheduleRemote.getSchoolYears(accessToken);
+      await dbHelper.saveSchoolYears(years);
+
+      final allSemesters = years.expand((y) => y.semesters).map((s) {
+        if (s is SemesterModel) return s;
+        return SemesterModel(
+          id: s.id,
+          semesterCode: s.semesterCode,
+          semesterName: s.semesterName,
+          startDate: s.startDate,
+          endDate: s.endDate,
+          isCurrent: s.isCurrent,
+          ordinalNumbers: s.ordinalNumbers,
+        );
+      }).toList();
+      await dbHelper.saveSemesters(allSemesters);
+
+      if (allSemesters.isEmpty) {
+        log.log('[Sync] No semesters found. Aborting.');
+        return;
+      }
+
+      final currentSem = allSemesters.firstWhere(
+        (s) => s.isCurrent,
+        orElse: () => allSemesters.last,
+      );
+
+      // Fetch Courses
+      final courses = await scheduleRemote.getCourses(
+        currentSem.id,
+        accessToken,
+      );
+      await dbHelper.saveCourses(currentSem.id, courses);
+
+      // Fetch Course Hours
+      try {
+        final hours = await scheduleRemote.getCourseHours(accessToken);
+        final hourMap = {for (var h in hours) h.id: h};
+        await dbHelper.saveCourseHours(hourMap);
+      } catch (e) {
+        log.log(
+          '[Sync] Failed to fetch course hours: $e',
+          level: LogLevel.warning,
+        );
+      }
+
+      log.log('[Sync] Essentials synced.');
+
+      // --- PHASE 2: EXAMS (Non-Blocking if Foreground) ---
+
+      Future<void> syncExams() async {
+        try {
+          final examRemote = ExamRemoteDataSourceImpl(client: networkClient);
+          final examLocal = ExamLocalDataSourceImpl(databaseHelper: dbHelper);
+
+          final examSchedules = await examRemote.getExamSchedules(
+            currentSem.id,
+            accessToken,
+            rawToken,
+          );
+          await examLocal.cacheExamSchedules(currentSem.id, examSchedules);
+
+          for (var schedule in examSchedules) {
+            // Round 1
+            try {
+              final rooms1 = await examRemote.getExamRooms(
+                semesterId: currentSem.id,
+                scheduleId: schedule.id,
+                round: 1,
+                accessToken: accessToken,
+                rawToken: rawToken,
+              );
+              await examLocal.cacheExamRooms(
+                semesterId: currentSem.id,
+                scheduleId: schedule.id,
+                round: 1,
+                rooms: rooms1,
+              );
+            } catch (_) {}
+
+            // Round 2
+            try {
+              final rooms2 = await examRemote.getExamRooms(
+                semesterId: currentSem.id,
+                scheduleId: schedule.id,
+                round: 2,
+                accessToken: accessToken,
+                rawToken: rawToken,
+              );
+              await examLocal.cacheExamRooms(
+                semesterId: currentSem.id,
+                scheduleId: schedule.id,
+                round: 2,
+                rooms: rooms2,
+              );
+            } catch (_) {}
+          }
+          log.log('[Sync] Exams synced.');
+        } catch (e) {
+          log.log(
+            '[Sync] Failed to fetch exam data: $e',
+            level: LogLevel.warning,
+          );
+        }
+      }
+
+      if (isForeground) {
+        // Fire and forget for exams
+        syncExams();
+      } else {
+        // Background mode (AlarmManager) must await everything
+        await syncExams();
+      }
+    } catch (e) {
+      log.log('[Sync] Error: $e', level: LogLevel.error);
+      rethrow;
     }
   }
 
@@ -68,154 +215,45 @@ class AutoRefreshService {
         return;
       }
 
-      // 1. Login
+      // 1. Login with Retry Logic (Max 3 attempts)
       final networkClient = NetworkClient(
         baseUrl: 'https://tlu-proxy-node.vercel.app',
       );
-
       final authRemote = AuthRemoteDataSourceImpl(client: networkClient);
 
-      final tokenMap = await authRemote.login(studentCode, password);
-      final accessToken = tokenMap['access_token'];
+      String? accessToken;
+
+      for (int i = 0; i < 3; i++) {
+        try {
+          final tokenMap = await authRemote.login(studentCode, password);
+          accessToken = tokenMap['access_token'];
+          if (accessToken != null) break; // Success
+        } catch (e) {
+          log.log('[Background] Login attempt ${i + 1} failed: $e');
+          if (i < 2) await Future.delayed(const Duration(seconds: 2));
+        }
+      }
 
       if (accessToken == null) {
-        log.log('[Background] Login failed (no token).');
+        log.log('[Background] Login failed after 3 attempts. Aborting.');
         return;
       }
 
       // Save new token
       await prefs.setString('accessToken', accessToken);
+      // Try to get rawToken if available, implicitly handled by login response usually but here we just get access_token
+      // We can assume rawToken is same as tokenMap json if needed, or null if we don't parse it here.
+      // For background refresh, we might usually fail to get raw specific fields if not careful,
+      // but let's pass tokenMap json string if possible.
+      // However, authRemote.login returns Map.
 
-      // 2. Fetch Data
-      final scheduleRemote = ScheduleRemoteDataSourceImpl(
-        client: networkClient,
-      );
-      final dbHelper = DatabaseHelper.instance;
-
-      // Fetch School Years & Semesters
-      final years = await scheduleRemote.getSchoolYears(accessToken);
-      // Map SchoolYear -> SchoolYearModel if needed, but getSchoolYears returns Models in DataSource layer usually?
-      // Wait, DataSource returns Models. Repository returns Entities.
-      // ScheduleRemoteDataSourceImpl returns List<SchoolYearModel>. Correct.
-
-      await dbHelper.saveSchoolYears(years);
-
-      // Save flattened semesters
-      final allSemesters = years.expand((y) => y.semesters).map((s) {
-        if (s is SemesterModel) return s;
-        return SemesterModel(
-          id: s.id,
-          semesterCode: s.semesterCode,
-          semesterName: s.semesterName,
-          startDate: s.startDate,
-          endDate: s.endDate,
-          isCurrent: s.isCurrent,
-          ordinalNumbers: s.ordinalNumbers,
-        );
-      }).toList();
-      await dbHelper.saveSemesters(allSemesters);
-
-      if (allSemesters.isEmpty) {
-        log.log('[Background] No semesters found. Aborting.');
-        return;
-      }
-
-      // Get Current Semester
-      final currentSem = allSemesters.firstWhere(
-        (s) => s.isCurrent,
-        orElse: () => allSemesters.last,
-      );
-
-      // Fetch Courses
-      final courses = await scheduleRemote.getCourses(
-        currentSem.id,
+      // 2. Sync
+      await _syncData(
         accessToken,
-      );
-      await dbHelper.saveCourses(currentSem.id, courses);
+        isForeground: false,
+      ); // Background must await all
 
-      // Fetch Course Hours
-      try {
-        final hours = await scheduleRemote.getCourseHours(accessToken);
-        // Convert List to Map for DB
-        final hourMap = {for (var h in hours) h.id: h};
-        await dbHelper.saveCourseHours(hourMap);
-      } catch (e) {
-        log.log(
-          '[Background] Failed to fetch course hours: $e',
-          level: LogLevel.warning,
-        );
-      }
-
-      // 3. Fetch Exam Data
-      // For exams we need raw token data for cookies.
-      // Ideally we should parse the raw token from prefs if we stored it...
-      // But for now, we try with accessToken.
-      // If ExamRemoteDataSource needs rawToken, we might need to store it in prefs during login.
-      // In AuthProvider we stored it: await _prefs.setString('rawToken', jsonEncode(tokenData));
-
-      final rawTokenStr = prefs.getString('rawToken');
-
-      final examRemote = ExamRemoteDataSourceImpl(client: networkClient);
-      final examLocal = ExamLocalDataSourceImpl(databaseHelper: dbHelper);
-
-      try {
-        // Fetch Exam Schedules (Register Periods) for current semester
-        final examSchedules = await examRemote.getExamSchedules(
-          currentSem.id,
-          accessToken,
-          rawTokenStr,
-        );
-
-        await examLocal.cacheExamSchedules(currentSem.id, examSchedules);
-
-        // Ensure "Lần 1" (Round 1) is cached at least, maybe Round 2 too?
-        // Let's try to fetch exams for each schedule if available.
-        for (var schedule in examSchedules) {
-          // Fetch Round 1
-          try {
-            final rooms1 = await examRemote.getExamRooms(
-              semesterId: currentSem.id,
-              scheduleId: schedule.id,
-              round: 1,
-              accessToken: accessToken,
-              rawToken: rawTokenStr,
-            );
-            await examLocal.cacheExamRooms(
-              semesterId: currentSem.id,
-              scheduleId: schedule.id,
-              round: 1,
-              rooms: rooms1,
-            );
-          } catch (_) {}
-
-          // Fetch Round 2 (just in case)
-          try {
-            final rooms2 = await examRemote.getExamRooms(
-              semesterId: currentSem.id,
-              scheduleId: schedule.id,
-              round: 2,
-              accessToken: accessToken,
-              rawToken: rawTokenStr,
-            );
-            await examLocal.cacheExamRooms(
-              semesterId: currentSem.id,
-              scheduleId: schedule.id,
-              round: 2,
-              rooms: rooms2,
-            );
-          } catch (_) {}
-        }
-      } catch (e) {
-        log.log(
-          '[Background] Failed to fetch exam data: $e',
-          level: LogLevel.warning,
-        );
-      }
-
-      log.log('[Background] Auto-Refresh Complete. Data updated.');
-
-      // We could trigger a notification here to say "Schedule Updated" if things changed,
-      // but let's keep it silent for now unless requested.
+      log.log('[Background] Auto-Refresh Complete.');
     } catch (e) {
       log.log('[Background] Auto-Refresh Failed: $e', level: LogLevel.error);
     }
