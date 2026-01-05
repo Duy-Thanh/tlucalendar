@@ -90,7 +90,7 @@ class ScheduleRemoteDataSourceImpl implements ScheduleRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
-        debugPrint('RAW SCHOOL YEARS: ${response.data}'); // DEBUG LOG
+        //debugPrint('RAW SCHOOL YEARS: ${response.data}'); // DEBUG LOG
         // Run Native Parsing in a separate Isolate
         return compute(NativeParser.parseSchoolYears, response.data as String);
       } else {
