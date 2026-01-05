@@ -44,6 +44,9 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# References
+references/*
+
 # Additional files to be ignored
 *.jks
 key.properties
