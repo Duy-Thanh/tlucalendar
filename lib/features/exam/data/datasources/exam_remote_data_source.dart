@@ -33,10 +33,7 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
     String? rawToken,
   ) async {
     try {
-      final cookieValue = rawToken != null
-          ? 'token=${Uri.encodeComponent(rawToken)}'
-          : 'token=${Uri.encodeComponent('{"access_token":"$accessToken","token_type":"bearer"}')}';
-
+      // Worker Proxy automatically handles "Cookie" injection for this endpoint
       final response = await client.get(
         '/api/registerperiod/find/$semesterId',
         options: Options(
@@ -45,7 +42,6 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
           headers: {
             'Authorization': 'Bearer $accessToken',
             'Accept': 'application/json',
-            'Cookie': cookieValue,
           },
         ),
       );
@@ -72,10 +68,7 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
     String? rawToken,
   }) async {
     try {
-      final cookieValue = rawToken != null
-          ? 'token=${Uri.encodeComponent(rawToken)}'
-          : 'token=${Uri.encodeComponent('{"access_token":"$accessToken","token_type":"bearer"}')}';
-
+      // Worker Proxy automatically handles "Cookie" injection for this endpoint
       final response = await client.get(
         '/api/semestersubjectexamroom/getListRoomByStudentByLoginUser/$semesterId/$scheduleId/$round',
         options: Options(
@@ -83,7 +76,6 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
           headers: {
             'Authorization': 'Bearer $accessToken',
             'Accept': 'application/json',
-            'Cookie': cookieValue,
           },
         ),
       );

@@ -15,11 +15,12 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
   AuthRemoteDataSourceImpl({required this.client});
 
-  static const String _tokenEndpoint = '/oauth/token';
+  static const String _tokenEndpoint = '/login';
   static const String _userEndpoint = '/api/users/getCurrentUser';
-  static const String _clientId = 'education_client';
-  static const String _clientSecret = 'password';
-  static const String _grantType = 'password';
+  // Client secrets handled by Worker now
+  // static const String _clientId = 'education_client';
+  // static const String _clientSecret = 'password';
+  // static const String _grantType = 'password';
 
   @override
   Future<Map<String, dynamic>> login(
@@ -27,20 +28,16 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     String password,
   ) async {
     try {
-      // Use form-urlencoded for token endpoint
+      // Simplified Login via Cloudflare Worker
+      // Worker handles JSON -> Form Data conversion and Secret injection
       final response = await client.post(
         _tokenEndpoint,
-        data: {
-          'client_id': _clientId,
-          'client_secret': _clientSecret,
-          'grant_type': _grantType,
-          'username': studentCode,
-          'password': password,
-        },
+        data: {'studentCode': studentCode, 'password': password},
         options: Options(
-          contentType: Headers.formUrlEncodedContentType,
+          contentType: Headers.jsonContentType,
           responseType: ResponseType.plain,
         ),
+        // Headers are already 'application/json' by default in Dio/NetworkClient
       );
 
       if (response.statusCode == 200) {
