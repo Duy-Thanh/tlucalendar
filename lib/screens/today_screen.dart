@@ -94,109 +94,193 @@ class _TodayScreenState extends State<TodayScreen> {
         return Scaffold(
           backgroundColor: Theme.of(context).colorScheme.surface,
           body: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Personalized Greeting Header
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${_getGreeting()}, $userName!',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.primary,
+            child: RefreshIndicator(
+              onRefresh: () async {
+                if (authProvider.accessToken != null &&
+                    scheduleProvider.currentSemester != null) {
+                  await scheduleProvider.loadSchedule(
+                    authProvider.accessToken!,
+                    scheduleProvider.currentSemester!.id,
+                  );
+                }
+              },
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  // Reconnecting Banner
+                  if (scheduleProvider.isReconnecting)
+                    Container(
+                      width: double.infinity,
+                      color: Colors.blue.shade100,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 16,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.blue.shade800,
                             ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        todaySchedules.isEmpty
-                            ? 'Hôm nay bạn được nghỉ ngơi thoải mái!'
-                            : 'Hôm nay chiến ${todaySchedules.length} môn nhé.',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Date Chip
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 8,
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      dateFormat,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Timeline List
-                Expanded(
-                  child: todaySchedules.isEmpty
-                      ? const EmptyStateWidget(
-                          icon: Icons.weekend_outlined,
-                          title: 'Không có lớp hôm nay',
-                          description: 'Dành thời gian cho bản thân nhé!',
-                          lottieAsset: 'assets/lottie/relax.json',
-                        )
-                      : AnimationLimiter(
-                          child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 8,
-                            ),
-                            itemCount: todaySchedules.length,
-                            itemBuilder: (context, index) {
-                              final course = todaySchedules[index];
-                              final isLast = index == todaySchedules.length - 1;
-                              final status = _getCourseStatus(
-                                scheduleProvider,
-                                course,
-                              );
-
-                              return AnimationConfiguration.staggeredList(
-                                position: index,
-                                duration: const Duration(milliseconds: 375),
-                                child: SlideAnimation(
-                                  verticalOffset: 50.0,
-                                  child: FadeInAnimation(
-                                    child: _buildTimelineItem(
-                                      context,
-                                      scheduleProvider,
-                                      course,
-                                      isLast,
-                                      status,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
                           ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Đang thử kết nối lại...',
+                            style: TextStyle(
+                              color: Colors.blue.shade900,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Offline Banner
+                  if (scheduleProvider.isOfflineMode)
+                    Container(
+                      width: double.infinity,
+                      color: Colors.orange.shade100,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 16,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.cloud_off,
+                            size: 16,
+                            color: Colors.orange.shade800,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Mất kết nối. Đang hiển thị lịch đã lưu.',
+                            style: TextStyle(
+                              color: Colors.orange.shade900,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // Greeting Header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_getGreeting()}, $userName!',
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                         ),
-                ),
-              ],
+                        const SizedBox(height: 8),
+                        Text(
+                          todaySchedules.isEmpty
+                              ? 'Hôm nay bạn được nghỉ ngơi thoải mái!'
+                              : 'Hôm nay chiến ${todaySchedules.length} môn nhé.',
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Date Chip
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 8,
+                    ),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          dateFormat,
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Timeline List or Empty State
+                  if (todaySchedules.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 40),
+                      child: EmptyStateWidget(
+                        icon: Icons.weekend_outlined,
+                        title: 'Không có lớp hôm nay',
+                        description: 'Dành thời gian cho bản thân nhé!',
+                        lottieAsset: 'assets/lottie/relax.json',
+                      ),
+                    )
+                  else
+                    AnimationLimiter(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 8,
+                        ),
+                        itemCount: todaySchedules.length,
+                        itemBuilder: (context, index) {
+                          final course = todaySchedules[index];
+                          final isLast = index == todaySchedules.length - 1;
+                          final status = _getCourseStatus(
+                            scheduleProvider,
+                            course,
+                          );
+
+                          return AnimationConfiguration.staggeredList(
+                            position: index,
+                            duration: const Duration(milliseconds: 375),
+                            child: SlideAnimation(
+                              verticalOffset: 50.0,
+                              child: FadeInAnimation(
+                                child: _buildTimelineItem(
+                                  context,
+                                  scheduleProvider,
+                                  course,
+                                  isLast,
+                                  status,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 24), // Bottom padding
+                ],
+              ),
             ),
           ),
         );

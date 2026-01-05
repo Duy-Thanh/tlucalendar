@@ -552,9 +552,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
         final courses = scheduleProvider.getActiveCourses(_selectedDate);
 
         if (courses.isEmpty) {
-          return const EmptyStateWidget(
-            title: 'Không có lịch học',
-            icon: Icons.event_busy,
+          return RefreshIndicator(
+            onRefresh: () async {
+              final auth = context.read<AuthProvider>();
+              if (auth.accessToken != null &&
+                  scheduleProvider.currentSemester != null) {
+                await scheduleProvider.loadSchedule(
+                  auth.accessToken!,
+                  scheduleProvider.currentSemester!.id,
+                );
+              }
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 100), // Push it down a bit
+                EmptyStateWidget(
+                  title: 'Không có lịch học',
+                  icon: Icons.event_busy,
+                ),
+              ],
+            ),
           );
         }
 
