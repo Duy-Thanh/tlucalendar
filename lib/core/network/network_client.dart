@@ -52,8 +52,8 @@ class NetworkClient {
     // SSL Verify Bypass (Keep enabled for Emulator/Low Android Versions)
     (_dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
       final client = HttpClient();
-      client.badCertificateCallback =
-          (X509Certificate cert, String host, int port) => true;
+      // client.badCertificateCallback =
+      //     (X509Certificate cert, String host, int port) => true;
       client.autoUncompress = true; // Handle gzip/deflate automatically
       return client;
     };
