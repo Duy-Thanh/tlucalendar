@@ -21,6 +21,7 @@ import 'package:tlucalendar/providers/exam_provider.dart';
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:tlucalendar/screens/course_registration_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
