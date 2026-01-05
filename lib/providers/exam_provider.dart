@@ -11,6 +11,7 @@ import 'package:tlucalendar/features/schedule/domain/entities/school_year.dart';
 import 'package:tlucalendar/features/exam/domain/entities/exam_schedule.dart';
 import 'package:tlucalendar/features/exam/domain/entities/exam_room.dart';
 import 'package:intl/intl.dart';
+import 'package:tlucalendar/services/auto_refresh_service.dart';
 import 'package:flutter/foundation.dart'; // For ChangeNotifier
 import 'package:tlucalendar/providers/auth_provider.dart';
 
@@ -144,12 +145,23 @@ class ExamProvider with ChangeNotifier {
         },
       );
     } catch (e) {
-      _errorMessage = e.toString();
-      _log.log('Exception fetching school years: $e', level: LogLevel.error);
-    } finally {
-      _isLoadingSemesters = false;
-      notifyListeners();
+      debugPrint(
+        'ExamProvider init failed ($e). Attempting robust auto-refresh...',
+      );
+      try {
+        await AutoRefreshService.triggerRefresh(accessToken: currentToken);
+        // Retry School Years only as it is critical for ExamProvider init
+        final result = await getSchoolYearsUseCase(currentToken);
+        result.fold(
+          (l) => _errorMessage = l.message,
+          (r) => _populateSemesters(r),
+        );
+      } catch (retryError) {
+        _errorMessage = e.toString();
+      }
     }
+    _isLoadingSemesters = false;
+    notifyListeners();
   }
 
   void _populateSemesters(List<SchoolYear> years) {

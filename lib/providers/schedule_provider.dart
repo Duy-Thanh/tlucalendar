@@ -12,6 +12,7 @@ import 'package:tlucalendar/features/schedule/domain/usecases/get_schedule_useca
 import 'package:tlucalendar/features/schedule/domain/usecases/get_school_years_usecase.dart';
 import 'package:tlucalendar/services/notification_service.dart';
 
+import 'package:tlucalendar/services/auto_refresh_service.dart';
 import 'package:tlucalendar/providers/auth_provider.dart';
 
 class ScheduleProvider extends ChangeNotifier {
@@ -40,6 +41,7 @@ class ScheduleProvider extends ChangeNotifier {
   Semester? _currentSemester;
 
   bool _isOfflineMode = false;
+  bool _isReconnecting = false;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -53,12 +55,14 @@ class ScheduleProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isOfflineMode => _isOfflineMode;
+  bool get isReconnecting => _isReconnecting;
 
   // Init Data
   Future<void> init(String accessToken) async {
     _isLoading = true;
     _errorMessage = null;
     _isOfflineMode = false;
+    _isReconnecting = false;
     notifyListeners();
 
     String currentToken = accessToken;
@@ -142,11 +146,41 @@ class ScheduleProvider extends ChangeNotifier {
         await loadSchedule(currentToken, _currentSemester!.id);
       }
     } catch (e) {
-      _errorMessage = e.toString();
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+      debugPrint(
+        'ScheduleProvider init failed ($e). Attempting robust auto-refresh...',
+      );
+      try {
+        _isReconnecting = true;
+        notifyListeners();
+
+        // Last Resort: Trigger Robust Sync (Login + Fetch + Cache)
+        await AutoRefreshService.triggerRefresh(accessToken: currentToken);
+
+        // If successful, retry fetching (logic will likely hit Cache or Network success)
+        var results = await Future.wait([
+          getSchoolYearsUseCase(currentToken),
+          getCourseHoursUseCase(currentToken),
+        ]);
+
+        // Process results again
+        var yearsResult = results[0] as dynamic;
+        var hoursResult = results[1] as dynamic;
+
+        await yearsResult.fold(
+          (f) async => _errorMessage = f.message,
+          (r) async => _processSchoolYears(r),
+        );
+        hoursResult.fold((f) => null, (r) => _courseHours = r);
+
+        if (_currentSemester != null) {
+          await loadSchedule(currentToken, _currentSemester!.id);
+        }
+      } catch (retryError) {
+        _errorMessage = e.toString(); // Show original error or retry error
+      }
     }
+    _isLoading = false;
+    notifyListeners();
   }
 
   Future<void> _processSchoolYears(List<SchoolYear> years) async {

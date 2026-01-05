@@ -61,6 +61,39 @@ class _CalendarScreenState extends State<CalendarScreen> {
             // Offline Indicator
             Consumer<ScheduleProvider>(
               builder: (context, provider, _) {
+                if (provider.isReconnecting) {
+                  return Container(
+                    width: double.infinity,
+                    color: Colors.blue.shade100,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 16,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.blue.shade800,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Đang thử kết nối lại...',
+                          style: TextStyle(
+                            color: Colors.blue.shade900,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
                 if (provider.isOfflineMode) {
                   return Container(
                     width: double.infinity,
