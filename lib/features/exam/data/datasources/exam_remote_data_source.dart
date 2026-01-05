@@ -35,7 +35,7 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
     try {
       // Worker Proxy automatically handles "Cookie" injection for this endpoint
       final response = await client.get(
-        '/api/registerperiod/find/$semesterId',
+        '/education/api/registerperiod/find/$semesterId',
         options: Options(
           responseType:
               ResponseType.plain, // Request raw string for Native Parser
@@ -70,7 +70,7 @@ class ExamRemoteDataSourceImpl implements ExamRemoteDataSource {
     try {
       // Worker Proxy automatically handles "Cookie" injection for this endpoint
       final response = await client.get(
-        '/api/semestersubjectexamroom/getListRoomByStudentByLoginUser/$semesterId/$scheduleId/$round',
+        '/education/api/semestersubjectexamroom/getListRoomByStudentByLoginUser/$semesterId/$scheduleId/$round',
         options: Options(
           responseType: ResponseType.plain,
           headers: {

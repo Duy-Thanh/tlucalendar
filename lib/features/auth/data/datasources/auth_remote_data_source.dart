@@ -16,7 +16,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   AuthRemoteDataSourceImpl({required this.client});
 
   static const String _tokenEndpoint = '/login';
-  static const String _userEndpoint = '/api/users/getCurrentUser';
+  static const String _userEndpoint = '/education/api/users/getCurrentUser';
   // Client secrets handled by Worker now
   // static const String _clientId = 'education_client';
   // static const String _clientSecret = 'password';
@@ -43,7 +43,9 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       if (response.statusCode == 200) {
         return NativeParser.parseToken(response.data as String) ?? {};
       } else {
-        throw ServerFailure('Login failed: ${response.statusCode}');
+        throw ServerFailure(
+          'Login failed: ${response.statusCode}, Body: ${response.data}',
+        );
       }
     } catch (e) {
       if (e is Failure) rethrow; // Pass through known failures

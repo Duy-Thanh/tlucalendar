@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart'; // Add for IOHttpClientAdapter
 import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:tlucalendar/core/error/failures.dart';
@@ -9,14 +11,15 @@ class NetworkClient {
   NetworkClient({required String baseUrl}) {
     _dio = Dio(
       BaseOptions(
-        baseUrl: 'https://tlu-proxy-node.vercel.app', // Cloudflare Worker Proxy
+        baseUrl: baseUrl,
         connectTimeout: const Duration(seconds: 240),
         receiveTimeout: const Duration(seconds: 240),
         validateStatus: (status) => status != null && status < 500,
         headers: {
           'Content-Type': 'application/json', // Default to JSON
           'Accept': 'application/json',
-          'Accept-Encoding': 'gzip, deflate, br', // Worker supports this
+          'Accept-Encoding':
+              'gzip, deflate', // Enable compression (No Brotli 'br' support in Dart HttpClient)
         },
       ),
     );
@@ -43,8 +46,14 @@ class NetworkClient {
       ),
     );
 
-    // SSL Verify Bypass is NO LONGER NEEDED for Cloudflare Worker
-    // It has a valid public SSL certificate.
+    // SSL Verify Bypass (Keep enabled for Emulator/Low Android Versions)
+    (_dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
+      final client = HttpClient();
+      client.badCertificateCallback =
+          (X509Certificate cert, String host, int port) => true;
+      client.autoUncompress = true; // Ensure automatic decompression
+      return client;
+    };
   }
 
   Future<Response> get(

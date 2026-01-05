@@ -101,7 +101,7 @@ Future<void> init() async {
 
   //! Core
   sl.registerLazySingleton<NetworkClient>(
-    () => NetworkClient(baseUrl: 'https://sinhvien1.tlu.edu.vn/education'),
+    () => NetworkClient(baseUrl: 'https://tlu-proxy-node.vercel.app'),
   );
 
   //! Providers

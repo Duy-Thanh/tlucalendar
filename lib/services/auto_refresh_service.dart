@@ -70,7 +70,7 @@ class AutoRefreshService {
 
       // 1. Login
       final networkClient = NetworkClient(
-        baseUrl: 'https://sinhvien1.tlu.edu.vn/education',
+        baseUrl: 'https://tlu-proxy-node.vercel.app',
       );
 
       final authRemote = AuthRemoteDataSourceImpl(client: networkClient);
@@ -114,6 +114,11 @@ class AutoRefreshService {
         );
       }).toList();
       await dbHelper.saveSemesters(allSemesters);
+
+      if (allSemesters.isEmpty) {
+        log.log('[Background] No semesters found. Aborting.');
+        return;
+      }
 
       // Get Current Semester
       final currentSem = allSemesters.firstWhere(

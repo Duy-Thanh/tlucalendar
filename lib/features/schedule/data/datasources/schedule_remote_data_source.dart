@@ -29,7 +29,7 @@ class ScheduleRemoteDataSourceImpl implements ScheduleRemoteDataSource {
   ) async {
     try {
       final response = await client.get(
-        '/api/StudentCourseSubject/studentLoginUser/$semesterId',
+        '/education/api/StudentCourseSubject/studentLoginUser/$semesterId',
         options: Options(
           responseType: ResponseType.plain,
           headers: {
@@ -54,7 +54,7 @@ class ScheduleRemoteDataSourceImpl implements ScheduleRemoteDataSource {
   Future<List<CourseHour>> getCourseHours(String accessToken) async {
     try {
       final response = await client.get(
-        '/api/coursehour/1/1000',
+        '/education/api/coursehour/1/1000',
         options: Options(
           responseType: ResponseType.plain,
           headers: {
@@ -79,7 +79,7 @@ class ScheduleRemoteDataSourceImpl implements ScheduleRemoteDataSource {
   Future<List<SchoolYearModel>> getSchoolYears(String accessToken) async {
     try {
       final response = await client.get(
-        '/api/schoolyear/1/10000',
+        '/education/api/schoolyear/1/10000',
         options: Options(
           responseType: ResponseType.plain,
           headers: {
@@ -90,6 +90,7 @@ class ScheduleRemoteDataSourceImpl implements ScheduleRemoteDataSource {
       );
 
       if (response.statusCode == 200) {
+        debugPrint('RAW SCHOOL YEARS: ${response.data}'); // DEBUG LOG
         // Run Native Parsing in a separate Isolate
         return compute(NativeParser.parseSchoolYears, response.data as String);
       } else {
@@ -104,7 +105,7 @@ class ScheduleRemoteDataSourceImpl implements ScheduleRemoteDataSource {
   Future<SemesterModel> getCurrentSemester(String accessToken) async {
     try {
       final response = await client.get(
-        '/api/semester/semester_info',
+        '/education/api/semester/semester_info',
         options: Options(
           responseType: ResponseType.plain,
           headers: {
