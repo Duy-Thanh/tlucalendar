@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:dio/io.dart'; // Add for IOHttpClientAdapter
+import 'package:dio/io.dart';
+import 'package:tlucalendar/core/network/dio_brotli_transformer.dart';
 import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:dio_smart_retry/dio_smart_retry.dart';
 import 'package:tlucalendar/core/error/failures.dart';
@@ -18,11 +19,13 @@ class NetworkClient {
         headers: {
           'Content-Type': 'application/json', // Default to JSON
           'Accept': 'application/json',
-          'Accept-Encoding':
-              'gzip, deflate', // Enable compression (No Brotli 'br' support in Dart HttpClient)
+          'Accept-Encoding': 'gzip, deflate, br', // Enable Brotli
         },
       ),
     );
+
+    // Register Custom Transformer for Brotli
+    _dio.transformer = DioBrotliTransformer();
 
     // Aggressive Retry Strategy for High Load
     _dio.interceptors.add(
@@ -51,7 +54,7 @@ class NetworkClient {
       final client = HttpClient();
       client.badCertificateCallback =
           (X509Certificate cert, String host, int port) => true;
-      client.autoUncompress = true; // Ensure automatic decompression
+      client.autoUncompress = true; // Handle gzip/deflate automatically
       return client;
     };
   }
