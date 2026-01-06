@@ -40,6 +40,7 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
       final response = await client.get(
         '/education/api/cs_reg_mongo/findByPeriod/$personId/$periodId',
         options: Options(
+          responseType: ResponseType.plain,
           headers: {
             'Authorization': 'Bearer $accessToken',
             'Accept': 'application/json',
