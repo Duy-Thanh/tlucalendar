@@ -908,6 +908,7 @@ extern "C" {
         int numberRegisted; // numberStudent usually
         bool isSelected;
         bool isFull;
+        bool isOverlap;
         int timetablesCount;
         struct TimetableNative* timetables;
         int credits;
@@ -1412,6 +1413,10 @@ extern "C" {
 
                              c->isFull = yyjson_get_bool(yyjson_obj_get(cItem, "IsFullClass"));
                              if (!c->isFull && yyjson_obj_get(cItem, "isFullClass")) c->isFull = yyjson_get_bool(yyjson_obj_get(cItem, "isFullClass"));
+
+                             c->isOverlap = yyjson_get_bool(yyjson_obj_get(cItem, "IsOvelapTime"));
+                             if (!c->isOverlap && yyjson_obj_get(cItem, "isOvelapTime")) c->isOverlap = yyjson_get_bool(yyjson_obj_get(cItem, "isOvelapTime"));
+
 
                              c->credits = get_json_int(yyjson_obj_get(cItem, "NumberOfCredit"));
                              if (c->credits == 0) c->credits = get_json_int(yyjson_obj_get(cItem, "numberOfCredit"));

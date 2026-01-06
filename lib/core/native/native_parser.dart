@@ -297,6 +297,8 @@ final class CourseSubjectNative extends Struct {
   external bool isSelected;
   @Bool()
   external bool isFull;
+  @Bool()
+  external bool isOverlap;
   @Int32()
   external int timetablesCount;
   external Pointer<TimetableNative> timetables;
@@ -557,6 +559,7 @@ class NativeParser {
                 maxStudent: csNative.maxStudent,
                 isSelected: csNative.isSelected,
                 isFull: csNative.isFull,
+                isOverlap: csNative.isOverlap,
                 credits: csNative.credits,
                 status: csNative.status != nullptr
                     ? csNative.status.toDartString()

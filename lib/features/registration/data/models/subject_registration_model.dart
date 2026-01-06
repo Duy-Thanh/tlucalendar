@@ -18,6 +18,7 @@ class CourseSubjectModel extends CourseSubject {
     required super.maxStudent,
     required super.isSelected,
     required super.isFull,
+    required super.isOverlap,
     required super.credits,
     required super.status,
     required super.timetables,

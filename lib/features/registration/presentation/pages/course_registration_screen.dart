@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/registration_provider.dart';
 import 'package:tlucalendar/features/registration/domain/entities/subject_registration.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/semester_register_period.dart';
-import 'package:tlucalendar/providers/schedule_provider.dart';
+
 import 'dart:convert'; // For jsonEncode
 
 class CourseRegistrationScreen extends StatefulWidget {
@@ -277,16 +277,31 @@ class _CourseSubjectItemState extends State<_CourseSubjectItem> {
                               color: textColor,
                             ),
                           ),
-                          if (!widget.course.isSelected &&
-                              _checkConflict(context))
+                          if (widget.course.isOverlap)
                             const Padding(
                               padding: EdgeInsets.only(left: 8.0),
                               child: Tooltip(
-                                message: "Trùng lịch học",
-                                child: Icon(
-                                  Icons.warning_amber_rounded,
-                                  color: Colors.deepOrange,
-                                  size: 20,
+                                message: "Trùng tiết!",
+                                child: Text(
+                                  "Trùng tiết!",
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (!widget.course.isSelected && widget.course.isFull)
+                            const Padding(
+                              padding: EdgeInsets.only(left: 8.0),
+                              child: Tooltip(
+                                message: "Lớp đầy!",
+                                child: Text(
+                                  "Lớp đầy!",
+                                  style: TextStyle(
+                                    color: Colors.deepOrange,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ),
@@ -439,47 +454,5 @@ class _CourseSubjectItemState extends State<_CourseSubjectItem> {
         );
       }
     }
-  }
-
-  bool _checkConflict(BuildContext context) {
-    if (widget.course.isSelected) return false;
-
-    final scheduleProvider = context.read<ScheduleProvider>();
-    final enrolledCourses = scheduleProvider.courses;
-    final courseHours = scheduleProvider.courseHours;
-
-    if (courseHours.isEmpty || enrolledCourses.isEmpty) return false;
-
-    for (var t in widget.course.timetables) {
-      for (var e in enrolledCourses) {
-        if (t.dayOfWeek != e.dayOfWeek) continue;
-
-        int maxStartWeek = t.fromWeek > e.fromWeek ? t.fromWeek : e.fromWeek;
-        int minEndWeek = t.toWeek < e.toWeek ? t.toWeek : e.toWeek;
-        if (maxStartWeek > minEndWeek) continue;
-
-        final eStartHourObj = courseHours.firstWhere(
-          (h) => h.id == e.startCourseHour,
-          orElse: () => courseHours.first,
-        );
-        final eEndHourObj = courseHours.firstWhere(
-          (h) => h.id == e.endCourseHour,
-          orElse: () => courseHours.first,
-        );
-
-        int eStartIndex = eStartHourObj.indexNumber;
-        int eEndIndex = eEndHourObj.indexNumber;
-
-        int maxStartHour = t.startHour > eStartIndex
-            ? t.startHour
-            : eStartIndex;
-        int minEndHour = t.endHour < eEndIndex ? t.endHour : eEndIndex;
-
-        if (maxStartHour <= minEndHour) {
-          return true; // Conflict found
-        }
-      }
-    }
-    return false;
   }
 }

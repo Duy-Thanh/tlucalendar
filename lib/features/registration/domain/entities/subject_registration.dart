@@ -24,6 +24,7 @@ class CourseSubject extends Equatable {
   final int maxStudent;
   final bool isSelected;
   final bool isFull;
+  final bool isOverlap;
   final int credits;
   final String status;
   final List<Timetable> timetables;
@@ -37,6 +38,7 @@ class CourseSubject extends Equatable {
     required this.maxStudent,
     required this.isSelected,
     required this.isFull,
+    required this.isOverlap,
     required this.credits,
     required this.status,
     required this.timetables,
@@ -52,6 +54,7 @@ class CourseSubject extends Equatable {
     maxStudent,
     isSelected,
     isFull,
+    isOverlap,
     credits,
     status,
     timetables,
