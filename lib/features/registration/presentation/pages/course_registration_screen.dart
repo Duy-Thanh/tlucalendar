@@ -17,9 +17,18 @@ class CourseRegistrationScreen extends StatefulWidget {
 }
 
 class _CourseRegistrationScreenState extends State<CourseRegistrationScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _isSearching = false;
+
   @override
   void initState() {
     super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text.toLowerCase();
+      });
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<RegistrationProvider>().fetchRegistrationData(
         widget.period.id.toString(),
@@ -28,9 +37,52 @@ class _CourseRegistrationScreenState extends State<CourseRegistrationScreen> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.period.name)),
+      appBar: AppBar(
+        leading: _isSearching
+            ? IconButton(
+                icon: const Icon(
+                  Icons.close,
+                ), // Use 'Close' (X) to indicate "Exit Search"
+                tooltip: "Thoát tìm kiếm",
+                onPressed: () {
+                  setState(() {
+                    _isSearching = false;
+                    _searchController.clear();
+                  });
+                },
+              )
+            : null, // Default AutoLeading (Back Arrow) when NOT searching
+        title: _isSearching ? _buildSearchBar() : Text(widget.period.name),
+        actions: [
+          if (_isSearching)
+            if (_searchQuery.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () {
+                  _searchController.clear();
+                },
+              )
+            else
+              const SizedBox()
+          else
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                setState(() {
+                  _isSearching = true;
+                });
+              },
+            ),
+        ],
+      ),
       body: Consumer<RegistrationProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
@@ -61,16 +113,40 @@ class _CourseRegistrationScreenState extends State<CourseRegistrationScreen> {
             return const Center(child: Text('Không có môn học nào để đăng ký'));
           }
 
+          // Filter subjects based on search query
+          final filteredSubjects = subjects.where((subject) {
+            final name = subject.subjectName.toLowerCase();
+            return name.contains(_searchQuery);
+          }).toList();
+
+          if (filteredSubjects.isEmpty) {
+            return Center(
+              child: Text('Không tìm thấy môn học "$_searchQuery"'),
+            );
+          }
+
           return ListView.builder(
-            itemCount: subjects.length,
+            itemCount: filteredSubjects.length,
             itemBuilder: (context, index) {
               return _SubjectItem(
-                subject: subjects[index],
+                subject: filteredSubjects[index],
                 periodId: widget.period.id.toString(),
               );
             },
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return TextField(
+      controller: _searchController,
+      style: const TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        hintText: 'Tìm kiếm môn học...',
+        hintStyle: TextStyle(color: Colors.white70),
+        border: InputBorder.none,
       ),
     );
   }
@@ -299,7 +375,6 @@ class _CourseSubjectItem extends StatelessWidget {
     final payload = jsonEncode(payloadMap);
     final provider = context.read<RegistrationProvider>();
 
-    // Show loading indicator or optimistic update could be better, but simple await here
     final success = isRegister
         ? await provider.registerSubject(periodId, payload)
         : await provider.cancelSubjectRegistration(periodId, payload);
@@ -362,7 +437,7 @@ class _CourseSubjectItem extends StatelessWidget {
         int minEndHour = t.endHour < eEndIndex ? t.endHour : eEndIndex;
 
         if (maxStartHour <= minEndHour) {
-          return true;
+          return true; // Conflict found
         }
       }
     }

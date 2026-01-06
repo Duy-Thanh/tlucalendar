@@ -1376,6 +1376,8 @@ extern "C" {
                     
                     s->numberOfCredit = get_json_int(yyjson_obj_get(sItem, "NumberOfCredit"));
                     if (s->numberOfCredit == 0) s->numberOfCredit = get_json_int(yyjson_obj_get(sItem, "numberOfCredit"));
+                    if (s->numberOfCredit == 0) s->numberOfCredit = get_json_int(yyjson_obj_get(sItem, "Credits"));
+                    if (s->numberOfCredit == 0) s->numberOfCredit = get_json_int(yyjson_obj_get(sItem, "credits"));
                     
                     yyjson_val *courseSubjects = yyjson_obj_get(sItem, "CourseSubjectDtos");
                     if (!courseSubjects) courseSubjects = yyjson_obj_get(sItem, "courseSubjectDtos");
@@ -1444,6 +1446,10 @@ extern "C" {
                                  }
                              }
                          }
+                     }
+
+                     if (s->numberOfCredit == 0 && s->courseSubjectsCount > 0) {
+                         s->numberOfCredit = s->courseSubjects[0].credits;
                      }
                 }
             } else if (!listSubject) {
