@@ -51,6 +51,8 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
       final String jsonStr = response.data is String
           ? response.data
           : response.toString();
+      // debugPrint("REGISTRATION JSON: $jsonStr"); // Use simple print or log
+      print("REGISTRATION JSON: $jsonStr");
       return NativeParser.parseRegistrationData(jsonStr);
     } on DioException catch (e) {
       throw ServerFailure(e.message ?? 'Unknown Dio Error');

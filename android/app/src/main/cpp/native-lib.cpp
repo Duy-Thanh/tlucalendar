@@ -1336,7 +1336,16 @@ extern "C" {
         
         yyjson_val *root = yyjson_doc_get_root(doc);
         if (!root || !yyjson_is_obj(root)) {
-             result->errorMessage = strdup("Not an object");
+             const char* typeStr = "unknown";
+             if (yyjson_is_arr(root)) typeStr = "array";
+             else if (yyjson_is_str(root)) typeStr = "string";
+             else if (yyjson_is_num(root)) typeStr = "number";
+             else if (yyjson_is_null(root)) typeStr = "null";
+             else if (yyjson_is_bool(root)) typeStr = "bool";
+             
+             char buf[128];
+             snprintf(buf, sizeof(buf), "Not an object (Actual: %s)", typeStr);
+             result->errorMessage = strdup(buf);
              yyjson_doc_free(doc);
              return result;
         }

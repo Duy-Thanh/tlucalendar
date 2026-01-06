@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/semester_register_period.dart';
+import 'package:tlucalendar/features/schedule/domain/entities/school_year.dart';
+import 'package:tlucalendar/features/schedule/domain/entities/semester.dart';
 import 'package:tlucalendar/providers/schedule_provider.dart';
 import 'package:tlucalendar/features/registration/presentation/pages/course_registration_screen.dart';
 import 'package:intl/intl.dart';
@@ -58,10 +60,23 @@ class RegistrationPeriodSelectionScreen extends StatelessWidget {
             }
           }
 
-          // Sort by start time descending (newest first)
+          // Sort by Year > Semester > Period Start Time (Newest first)
           allPeriods.sort((a, b) {
+            final yA = a['year'] as SchoolYear;
+            final yB = b['year'] as SchoolYear;
+            // Primary: Year Start Date Descending
+            int cmpYear = yB.startDate.compareTo(yA.startDate);
+            if (cmpYear != 0) return cmpYear;
+
+            final sA = a['semester'] as Semester;
+            final sB = b['semester'] as Semester;
+            // Secondary: Semester Start Date Descending
+            int cmpSem = sB.startDate.compareTo(sA.startDate);
+            if (cmpSem != 0) return cmpSem;
+
             final pA = a['period'] as SemesterRegisterPeriod;
             final pB = b['period'] as SemesterRegisterPeriod;
+            // Tertiary: Registration Period Start Time Descending
             return pB.startRegisterTime.compareTo(pA.startRegisterTime);
           });
 
