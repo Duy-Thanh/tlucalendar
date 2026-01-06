@@ -81,6 +81,7 @@ class AuthProvider extends ChangeNotifier {
             fullName: u.fullName,
             email: u.email,
             profileImageUrl: u.profileImageUrl,
+            id: u.id,
           );
           notifyListeners();
         },
