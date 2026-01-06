@@ -827,6 +827,10 @@ extern "C" {
         long long startRegisterTime;
         long long endRegisterTime;
         long long endUnRegisterTime;
+        // String fallbacks
+        char* startRegisterTimeString;
+        char* endRegisterTimeString;
+        char* endUnRegisterTimeString;
     };
 
     // --- Semester ---
@@ -956,6 +960,15 @@ extern "C" {
                      for(int j=0; j<result->years[i].semestersCount; j++) {
                          free(result->years[i].semesters[j].semesterCode);
                          free(result->years[i].semesters[j].semesterName);
+                         if (result->years[i].semesters[j].registerPeriods) {
+                             for(int k=0; k<result->years[i].semesters[j].registerPeriodsCount; k++) {
+                                 free(result->years[i].semesters[j].registerPeriods[k].name);
+                                 free(result->years[i].semesters[j].registerPeriods[k].startRegisterTimeString);
+                                 free(result->years[i].semesters[j].registerPeriods[k].endRegisterTimeString);
+                                 free(result->years[i].semesters[j].registerPeriods[k].endUnRegisterTimeString);
+                             }
+                             free(result->years[i].semesters[j].registerPeriods);
+                         }
                      }
                      free(result->years[i].semesters);
                  }
@@ -975,6 +988,9 @@ extern "C" {
              if (result->semester->registerPeriods) {
                  for(int k=0; k<result->semester->registerPeriodsCount; k++) {
                      free(result->semester->registerPeriods[k].name);
+                     free(result->semester->registerPeriods[k].startRegisterTimeString);
+                     free(result->semester->registerPeriods[k].endRegisterTimeString);
+                     free(result->semester->registerPeriods[k].endUnRegisterTimeString);
                  }
                  free(result->semester->registerPeriods);
              }
@@ -1135,6 +1151,10 @@ extern "C" {
                              rp->startRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "startRegisterTime"));
                              rp->endRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endRegisterTime"));
                              rp->endUnRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endUnRegisterTime"));
+                             
+                             rp->startRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "startRegisterTimeString")));
+                             rp->endRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "endRegisterTimeString")));
+                             rp->endUnRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "endUnRegisterTimeString")));
                          }
                      }
                 }
@@ -1183,6 +1203,10 @@ extern "C" {
                  rp->startRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "startRegisterTime"));
                  rp->endRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endRegisterTime"));
                  rp->endUnRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endUnRegisterTime"));
+                 
+                 rp->startRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "startRegisterTimeString")));
+                 rp->endRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "endRegisterTimeString")));
+                 rp->endUnRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "endUnRegisterTimeString")));
              }
          }
 

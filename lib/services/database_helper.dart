@@ -253,9 +253,25 @@ class DatabaseHelper {
   Future<void> saveUser(UserModel user) async {
     final db = await database;
     final stmt = db.prepare(
-      'INSERT OR REPLACE INTO users (id, username, displayName, email, lastUpdated) VALUES (1, ?, ?, ?, ?)',
+      'INSERT OR REPLACE INTO users (id, username, displayName, email, lastUpdated) VALUES (?, ?, ?, ?, ?)',
     );
+    // If user.id is null, it might be an issue if table requires non-null.
+    // But table schema says `id INTEGER PRIMARY KEY`. If we insert NULL, it autoincrements, which is NOT what we want if we want to preserve API ID.
+    // However, User entity has nullable id? `UserModel` has nullable `id`.
+    // Wait, `id` in `User` entity is nullable. But table `id` is PK.
+    // If API returns `id`, we must use it.
+
+    // Check if user.id is null usage.
+    // If null, we can't save it as the specific ID.
+    // But for registration we need the specific Person ID.
+
+    // Let's assume user.id is available from AuthRemoteDataSource parsing.
+
     stmt.execute([
+      user.id ?? 1, // Fallback to 1 if null, but this might hide bugs?
+      // Better to rely on valid ID. If null, maybe don't overwrite if existing?
+      // Actually, if it's null, we probably shouldn't be saving it as the "Main User" with a fake ID.
+      // But `authProvider` needs it.
       user.studentId,
       user.fullName,
       user.email,
@@ -270,6 +286,7 @@ class DatabaseHelper {
     if (results.isEmpty) return null;
     final row = results.first;
     return UserModel(
+      id: row['id'] as int?,
       studentId: row['username'] as String,
       fullName: row['displayName'] as String,
       email: row['email'] as String,

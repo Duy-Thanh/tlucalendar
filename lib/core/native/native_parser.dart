@@ -177,6 +177,9 @@ final class SemesterRegisterPeriodNative extends Struct {
   external int endRegisterTime;
   @Int64()
   external int endUnRegisterTime;
+  external Pointer<Utf8> startRegisterTimeString;
+  external Pointer<Utf8> endRegisterTimeString;
+  external Pointer<Utf8> endUnRegisterTimeString;
 }
 
 final class SemesterNative extends Struct {
@@ -991,9 +994,27 @@ class NativeParser {
                 SemesterRegisterPeriodModel(
                   id: rp.id,
                   name: rp.name != nullptr ? rp.name.toDartString() : '',
-                  startRegisterTime: rp.startRegisterTime,
-                  endRegisterTime: rp.endRegisterTime,
-                  endUnRegisterTime: rp.endUnRegisterTime,
+                  startRegisterTime: rp.startRegisterTime > 0
+                      ? rp.startRegisterTime
+                      : _parseDateString(
+                          rp.startRegisterTimeString.address == 0
+                              ? null
+                              : rp.startRegisterTimeString.toDartString(),
+                        ),
+                  endRegisterTime: rp.endRegisterTime > 0
+                      ? rp.endRegisterTime
+                      : _parseDateString(
+                          rp.endRegisterTimeString.address == 0
+                              ? null
+                              : rp.endRegisterTimeString.toDartString(),
+                        ),
+                  endUnRegisterTime: rp.endUnRegisterTime > 0
+                      ? rp.endUnRegisterTime
+                      : _parseDateString(
+                          rp.endUnRegisterTimeString.address == 0
+                              ? null
+                              : rp.endUnRegisterTimeString.toDartString(),
+                        ),
                 ),
               );
             }
@@ -1061,6 +1082,44 @@ class NativeParser {
       SemesterModel? sm;
       if (result.semester != nullptr) {
         final s = result.semester.ref;
+
+        // Parse periods for single semester too if needed
+        List<SemesterRegisterPeriodModel> periods = [];
+        final rpCount = s.registerPeriodsCount;
+        final rpPtr = s.registerPeriods;
+        if (rpPtr != nullptr && rpCount > 0) {
+          for (int k = 0; k < rpCount; k++) {
+            final rp = rpPtr[k];
+            periods.add(
+              SemesterRegisterPeriodModel(
+                id: rp.id,
+                name: rp.name != nullptr ? rp.name.toDartString() : '',
+                startRegisterTime: rp.startRegisterTime > 0
+                    ? rp.startRegisterTime
+                    : _parseDateString(
+                        rp.startRegisterTimeString.address == 0
+                            ? null
+                            : rp.startRegisterTimeString.toDartString(),
+                      ),
+                endRegisterTime: rp.endRegisterTime > 0
+                    ? rp.endRegisterTime
+                    : _parseDateString(
+                        rp.endRegisterTimeString.address == 0
+                            ? null
+                            : rp.endRegisterTimeString.toDartString(),
+                      ),
+                endUnRegisterTime: rp.endUnRegisterTime > 0
+                    ? rp.endUnRegisterTime
+                    : _parseDateString(
+                        rp.endUnRegisterTimeString.address == 0
+                            ? null
+                            : rp.endUnRegisterTimeString.toDartString(),
+                      ),
+              ),
+            );
+          }
+        }
+
         sm = SemesterModel(
           id: s.id,
           semesterCode: s.semesterCode != nullptr
@@ -1073,6 +1132,7 @@ class NativeParser {
           endDate: s.endDate,
           isCurrent: s.isCurrent,
           ordinalNumbers: s.ordinalNumbers,
+          registerPeriods: periods,
         );
       }
       freeFunc(resultPtr);
@@ -1160,6 +1220,44 @@ class NativeParser {
       return map;
     } catch (e) {
       return null;
+    }
+  }
+
+  static int _parseDateString(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return 0;
+    try {
+      return DateTime.parse(dateStr).millisecondsSinceEpoch;
+    } catch (_) {
+      try {
+        // Handle dd/MM/yyyy HH:mm or dd/MM/yyyy
+        // Regex for dd/MM/yyyy
+        final parts = dateStr.split(' ');
+        final dateParts = parts[0].split('/');
+        if (dateParts.length == 3) {
+          final day = int.parse(dateParts[0]);
+          final month = int.parse(dateParts[1]);
+          final year = int.parse(dateParts[2]);
+          int hour = 0;
+          int minute = 0;
+          if (parts.length > 1) {
+            final timeParts = parts[1].split(':');
+            if (timeParts.length >= 2) {
+              hour = int.parse(timeParts[0]);
+              minute = int.parse(timeParts[1]);
+            }
+          }
+          return DateTime(
+            year,
+            month,
+            day,
+            hour,
+            minute,
+          ).millisecondsSinceEpoch;
+        }
+        return 0;
+      } catch (e) {
+        return 0;
+      }
     }
   }
 }
