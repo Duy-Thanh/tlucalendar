@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/registration_provider.dart';
 import 'package:tlucalendar/features/registration/domain/entities/subject_registration.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/semester_register_period.dart';
+import 'package:tlucalendar/providers/schedule_provider.dart';
 import 'dart:convert'; // For jsonEncode
 
 class CourseRegistrationScreen extends StatefulWidget {
@@ -163,7 +164,23 @@ class _CourseSubjectItem extends StatelessWidget {
                       'GV: ${course.timetables.isNotEmpty ? course.timetables.first.teacherName : "N/A"}',
                     ),
                     Text('Sĩ số: ${course.numberStudent}/${course.maxStudent}'),
-                    Text('Trạng thái: ${course.status}'),
+                    Row(
+                      children: [
+                        Text('Trạng thái: ${course.status}'),
+                        if (!course.isSelected && _checkConflict(context))
+                          const Padding(
+                            padding: EdgeInsets.only(left: 8.0),
+                            child: Tooltip(
+                              message: "Trùng lịch học",
+                              child: Icon(
+                                Icons.warning,
+                                color: Colors.orange,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -277,5 +294,52 @@ class _CourseSubjectItem extends StatelessWidget {
         SnackBar(content: Text(provider.errorMessage ?? 'Thao tác thất bại')),
       );
     }
+  }
+
+  bool _checkConflict(BuildContext context) {
+    if (course.isSelected)
+      return false; // Already selected, no conflict with self (conceptually)
+
+    final scheduleProvider = context.read<ScheduleProvider>();
+    final enrolledCourses = scheduleProvider.courses;
+    final courseHours = scheduleProvider.courseHours;
+
+    if (courseHours.isEmpty || enrolledCourses.isEmpty) return false;
+
+    for (var t in course.timetables) {
+      for (var e in enrolledCourses) {
+        // 1. Check Day
+        if (t.dayOfWeek != e.dayOfWeek) continue;
+
+        // 2. Check Weeks
+        int maxStartWeek = t.fromWeek > e.fromWeek ? t.fromWeek : e.fromWeek;
+        int minEndWeek = t.toWeek < e.toWeek ? t.toWeek : e.toWeek;
+        if (maxStartWeek > minEndWeek) continue; // No week overlap
+
+        // 3. Check Hours
+        // Mapping Enrolled Course Hours ID -> Index
+        final eStartHourObj = courseHours.firstWhere(
+          (h) => h.id == e.startCourseHour,
+          orElse: () => courseHours.first,
+        );
+        final eEndHourObj = courseHours.firstWhere(
+          (h) => h.id == e.endCourseHour,
+          orElse: () => courseHours.first,
+        );
+
+        int eStartIndex = eStartHourObj.indexNumber;
+        int eEndIndex = eEndHourObj.indexNumber;
+
+        int maxStartHour = t.startHour > eStartIndex
+            ? t.startHour
+            : eStartIndex;
+        int minEndHour = t.endHour < eEndIndex ? t.endHour : eEndIndex;
+
+        if (maxStartHour <= minEndHour) {
+          return true; // Conflict found
+        }
+      }
+    }
+    return false;
   }
 }
