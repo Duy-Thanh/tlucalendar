@@ -1134,7 +1134,9 @@ extern "C" {
                      s->semesterCode = safe_strdup(yyjson_get_str(yyjson_obj_get(semItem, "semesterCode")));
                      s->semesterName = safe_strdup(yyjson_get_str(yyjson_obj_get(semItem, "semesterName")));
                      s->startDate = get_json_int64(yyjson_obj_get(semItem, "startDate"));
+                     if (s->startDate == 0) s->startDate = get_json_int64(yyjson_obj_get(semItem, "StartDate"));
                      s->endDate = get_json_int64(yyjson_obj_get(semItem, "endDate"));
+                     if (s->endDate == 0) s->endDate = get_json_int64(yyjson_obj_get(semItem, "EndDate"));
                      s->isCurrent = yyjson_get_bool(yyjson_obj_get(semItem, "isCurrent"));
                      s->ordinalNumbers = get_json_int(yyjson_obj_get(semItem, "ordinalNumbers"));
                      
@@ -1149,12 +1151,18 @@ extern "C" {
                              rp->id = get_json_int(yyjson_obj_get(rpItem, "id"));
                              rp->name = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "name")));
                              rp->startRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "startRegisterTime"));
+                             if (rp->startRegisterTime == 0) rp->startRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "StartRegisterTime"));
                              rp->endRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endRegisterTime"));
+                             if (rp->endRegisterTime == 0) rp->endRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "EndRegisterTime"));
                              rp->endUnRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endUnRegisterTime"));
+                             if (rp->endUnRegisterTime == 0) rp->endUnRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "EndUnRegisterTime"));
                              
                              rp->startRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "startRegisterTimeString")));
+                             if (!rp->startRegisterTimeString) rp->startRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "StartRegisterTimeString")));
                              rp->endRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "endRegisterTimeString")));
+                             if (!rp->endRegisterTimeString) rp->endRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "EndRegisterTimeString")));
                              rp->endUnRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "endUnRegisterTimeString")));
+                             if (!rp->endUnRegisterTimeString) rp->endUnRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "EndUnRegisterTimeString")));
                          }
                      }
                 }
@@ -1199,14 +1207,28 @@ extern "C" {
              yyjson_arr_foreach(regPeriods, rp_idx, rp_max, rpItem) {
                  struct SemesterRegisterPeriodNative* rp = &s->registerPeriods[rp_idx];
                  rp->id = get_json_int(yyjson_obj_get(rpItem, "id"));
+                 if (rp->id == 0) rp->id = get_json_int(yyjson_obj_get(rpItem, "Id"));
+                 
                  rp->name = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "name")));
+                 if (!rp->name) rp->name = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "Name")));
+                 
                  rp->startRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "startRegisterTime"));
+                 if (rp->startRegisterTime == 0) rp->startRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "StartRegisterTime"));
+                 
                  rp->endRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endRegisterTime"));
+                 if (rp->endRegisterTime == 0) rp->endRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "EndRegisterTime"));
+                 
                  rp->endUnRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "endUnRegisterTime"));
+                 if (rp->endUnRegisterTime == 0) rp->endUnRegisterTime = get_json_int64(yyjson_obj_get(rpItem, "EndUnRegisterTime"));
                  
                  rp->startRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "startRegisterTimeString")));
+                 if (!rp->startRegisterTimeString) rp->startRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "StartRegisterTimeString")));
+                 
                  rp->endRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "endRegisterTimeString")));
+                 if (!rp->endRegisterTimeString) rp->endRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "EndRegisterTimeString")));
+                 
                  rp->endUnRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "endUnRegisterTimeString")));
+                 if (!rp->endUnRegisterTimeString) rp->endUnRegisterTimeString = safe_strdup(yyjson_get_str(yyjson_obj_get(rpItem, "EndUnRegisterTimeString")));
              }
          }
 
