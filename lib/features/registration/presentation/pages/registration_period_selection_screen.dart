@@ -76,14 +76,28 @@ class RegistrationPeriodSelectionScreen extends StatelessWidget {
               final period = item['period'] as SemesterRegisterPeriod;
               final semester = item['semester']; // Semester entity
 
-              final startDate = DateTime.fromMillisecondsSinceEpoch(
-                period.startRegisterTime,
-              );
-              final endDate = DateTime.fromMillisecondsSinceEpoch(
-                period.endRegisterTime,
-              );
+              final startDate = period.startRegisterTime > 0
+                  ? DateTime.fromMillisecondsSinceEpoch(
+                      period.startRegisterTime,
+                    )
+                  : null;
+              final endDate = period.endRegisterTime > 0
+                  ? DateTime.fromMillisecondsSinceEpoch(period.endRegisterTime)
+                  : null;
               final now = DateTime.now();
-              final isActive = now.isAfter(startDate) && now.isBefore(endDate);
+              final isActive =
+                  startDate != null &&
+                  endDate != null &&
+                  now.isAfter(startDate) &&
+                  now.isBefore(endDate);
+
+              String timeText = '';
+              if (startDate != null && endDate != null) {
+                timeText =
+                    'Thời gian: ${DateFormat('dd/MM/yyyy HH:mm').format(startDate)} - ${DateFormat('dd/MM/yyyy HH:mm').format(endDate)}';
+              } else {
+                timeText = 'Thời gian: Chưa cập nhật';
+              }
 
               return Card(
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -96,9 +110,7 @@ class RegistrationPeriodSelectionScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Học kỳ: ${semester.semesterName}'),
-                      Text(
-                        'Thời gian: ${DateFormat('dd/MM/yyyy HH:mm').format(startDate)} - ${DateFormat('dd/MM/yyyy HH:mm').format(endDate)}',
-                      ),
+                      Text(timeText),
                     ],
                   ),
                   trailing: isActive
