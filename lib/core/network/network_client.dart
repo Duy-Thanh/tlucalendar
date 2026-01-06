@@ -135,7 +135,7 @@ class NetworkClient {
       final statusCode = error.response?.statusCode;
       if (statusCode != null && statusCode >= 500) {
         return ServerFailure(
-          'Lỗi máy chủ trường (Code: $statusCode). Hệ thống trường đang gặp sự cố, vui lòng thử lại sau.',
+          'Trường bị lỗi máy chủ rồi! (Code: $statusCode). Hệ thống trường đang gặp sự cố, vui lòng thử lại sau.',
         );
       }
       return ServerFailure(
