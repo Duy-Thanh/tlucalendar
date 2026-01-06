@@ -55,6 +55,10 @@ key.properties
 *.html
 output.txt
 
+# DISABLE IOS AND MACOS UPDATE CODEBASE
+ios/*
+macos/*
+
 # .md files
 ARCHITECTURE.md
 DEVELOPMENT_GUIDE.md
