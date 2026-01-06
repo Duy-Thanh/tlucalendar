@@ -134,124 +134,150 @@ class _CourseSubjectItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Need simpler UI for class section
-
     // Status color
-    Color statusColor = Colors.grey;
+    Color statusColor = Colors.grey.shade300;
     if (course.isSelected) {
       statusColor = Colors.green.shade100;
     } else if (course.isFull) {
       statusColor = Colors.red.shade100;
     }
 
+    // Force black text because background is consistently light
+    const textColor = Colors.black87;
+
     return Container(
-      color: statusColor,
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Mã lớp: ${course.displayCode} (${course.code})',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      'GV: ${course.timetables.isNotEmpty ? course.timetables.first.teacherName : "N/A"}',
-                    ),
-                    Text('Sĩ số: ${course.numberStudent}/${course.maxStudent}'),
-                    Row(
-                      children: [
-                        Text('Trạng thái: ${course.status}'),
-                        if (!course.isSelected && _checkConflict(context))
-                          const Padding(
-                            padding: EdgeInsets.only(left: 8.0),
-                            child: Tooltip(
-                              message: "Trùng lịch học",
-                              child: Icon(
-                                Icons.warning,
-                                color: Colors.orange,
-                                size: 16,
-                              ),
+      margin: const EdgeInsets.only(bottom: 8.0, left: 8.0, right: 8.0),
+      decoration: BoxDecoration(
+        color: statusColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      padding: const EdgeInsets.all(12.0),
+      child: DefaultTextStyle(
+        style: const TextStyle(color: textColor, fontSize: 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Mã lớp: ${course.displayCode} (${course.code})',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'GV: ${course.timetables.isNotEmpty ? course.timetables.first.teacherName : "N/A"}',
+                        style: const TextStyle(color: textColor),
+                      ),
+                      Text(
+                        'Sĩ số: ${course.numberStudent}/${course.maxStudent}',
+                        style: const TextStyle(color: textColor),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            'Trạng thái: ${course.status}',
+                            style: const TextStyle(
+                              fontStyle: FontStyle.italic,
+                              color: textColor,
                             ),
                           ),
-                      ],
+                          if (!course.isSelected && _checkConflict(context))
+                            const Padding(
+                              padding: EdgeInsets.only(left: 8.0),
+                              child: Tooltip(
+                                message: "Trùng lịch học",
+                                child: Icon(
+                                  Icons.warning_amber_rounded,
+                                  color: Colors.deepOrange,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (course.isSelected)
+                  ElevatedButton(
+                    onPressed: () => _handleAction(context, false),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      visualDensity: VisualDensity.compact,
                     ),
-                  ],
-                ),
-              ),
-              if (course.isSelected)
-                ElevatedButton(
-                  onPressed: () {
-                    // Cancel logic
-                    // Payload from C# code looks like: JsonConvert.SerializeObject(CourseSubjectDto)
-                    // But I don't have easy DTO serialization here matching C#.
-                    // However, `CourseSubjectModel` structure matches `CourseSubjectDto` properties if serialization naming matches.
-                    // NativeParser mapped from native structs.
-                    // I should probably manually construct the payload map to ensure keys match C# expectation.
-                    // Keys: Id, Code, DisplayCode, SubjectName (maybe not?), etc.
-                    // The C# `remove_reg` sends `SerializeObject(register)`.
-                    // Wait, `new_reg` takes `register` which is `CourseSubjectDto`.
-
-                    _handleAction(context, false);
-                  },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('Hủy'),
-                )
-              else
-                ElevatedButton(
-                  onPressed: course.isFull
-                      ? null
-                      : () {
-                          // Register logic
-                          _handleAction(context, true);
-                        },
-                  child: const Text('Đăng ký'),
-                ),
-            ],
-          ),
-          // Timetables brief
-          if (course.timetables.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4.0),
-              child: Text(
-                course.timetables
-                    .map(
-                      (t) =>
-                          "T${t.dayOfWeek} (Tiết ${t.startHour}-${t.endHour}) @ ${t.roomName}",
-                    )
-                    .join('\n'),
-                style: const TextStyle(fontSize: 12, color: Colors.indigo),
-              ),
+                    child: const Text('Hủy'),
+                  )
+                else
+                  ElevatedButton(
+                    onPressed: course.isFull
+                        ? null
+                        : () => _handleAction(context, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    child: const Text('Đăng ký'),
+                  ),
+              ],
             ),
-          const Divider(),
-        ],
+
+            if (course.timetables.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  course.timetables
+                      .map(
+                        (t) =>
+                            "T${t.dayOfWeek} (Tiết ${t.startHour}-${t.endHour}) @ ${t.roomName}",
+                      )
+                      .join('\n'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A237E), // Deep Indigo
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 
   void _handleAction(BuildContext context, bool isRegister) async {
     // Construct payload. C# expects JSON of CourseSubjectDto.
-    // My `CourseSubject` entity doesn't strictly match the C# DTO keys unless I serialize carefully.
-    // Keys observed in C#: Id, Code, DisplayCode, MaxStudent, NumberStudent, IsSelected, IsFullClass, NumberOfCredit, Status, Timetables...
-    // NativeParser used keys: Id, Code, DisplayCode, MaxStudent, NumberStudent, IsSelected, IsFullClass, NumberOfCredit, Status.
-
-    // I should create a map
     final Map<String, dynamic> payloadMap = {
       "Id": course.id,
       "Code": course.code,
       "DisplayCode": course.displayCode,
       "MaxStudent": course.maxStudent,
-      "NumberStudent": course.numberStudent, // This might change on server?
-      "IsSelected": course.isSelected, // Current state
+      "NumberStudent": course.numberStudent,
+      "IsSelected": course.isSelected,
       "IsFullClass": course.isFull,
       "NumberOfCredit": course.credits,
       "Status": course.status,
-      // Timetables?
       "Timetables": course.timetables
           .map(
             (t) => {
@@ -261,10 +287,7 @@ class _CourseSubjectItem extends StatelessWidget {
               "fromWeek": t.fromWeek,
               "toWeek": t.toWeek,
               "weekIndex": t.dayOfWeek,
-              "startHour": {"indexNumber": t.startHour}, // Nested object in C#?
-              // Wait, C# `Timetable` likely has objects for startHour?
-              // NativeParser: `yyjson_obj_get(tItem, "startHour")` -> `indexNumber`.
-              // So yes, it is nested.
+              "startHour": {"indexNumber": t.startHour},
               "endHour": {"indexNumber": t.endHour},
               "roomName": t.roomName,
               "teacherName": t.teacherName,
@@ -273,32 +296,39 @@ class _CourseSubjectItem extends StatelessWidget {
           .toList(),
     };
 
-    // Note: "startHour" having "indexNumber" is based on NativeParser logic:
-    // `yyjson_val *startH = yyjson_obj_get(tItem, "startHour"); if... get_json_int(..., "indexNumber")`
-
     final payload = jsonEncode(payloadMap);
-
     final provider = context.read<RegistrationProvider>();
+
+    // Show loading indicator or optimistic update could be better, but simple await here
     final success = isRegister
         ? await provider.registerSubject(periodId, payload)
         : await provider.cancelSubjectRegistration(periodId, payload);
 
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isRegister ? 'Đăng ký thành công' : 'Hủy thành công!'),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(provider.errorMessage ?? 'Thao tác thất bại')),
-      );
+    if (context.mounted) {
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isRegister ? 'Đăng ký thành công' : 'Hủy thành công!',
+            ),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(provider.errorMessage ?? 'Thao tác thất bại'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
   bool _checkConflict(BuildContext context) {
-    if (course.isSelected)
-      return false; // Already selected, no conflict with self (conceptually)
+    if (course.isSelected) return false;
 
     final scheduleProvider = context.read<ScheduleProvider>();
     final enrolledCourses = scheduleProvider.courses;
@@ -308,16 +338,12 @@ class _CourseSubjectItem extends StatelessWidget {
 
     for (var t in course.timetables) {
       for (var e in enrolledCourses) {
-        // 1. Check Day
         if (t.dayOfWeek != e.dayOfWeek) continue;
 
-        // 2. Check Weeks
         int maxStartWeek = t.fromWeek > e.fromWeek ? t.fromWeek : e.fromWeek;
         int minEndWeek = t.toWeek < e.toWeek ? t.toWeek : e.toWeek;
-        if (maxStartWeek > minEndWeek) continue; // No week overlap
+        if (maxStartWeek > minEndWeek) continue;
 
-        // 3. Check Hours
-        // Mapping Enrolled Course Hours ID -> Index
         final eStartHourObj = courseHours.firstWhere(
           (h) => h.id == e.startCourseHour,
           orElse: () => courseHours.first,
@@ -336,7 +362,7 @@ class _CourseSubjectItem extends StatelessWidget {
         int minEndHour = t.endHour < eEndIndex ? t.endHour : eEndIndex;
 
         if (maxStartHour <= minEndHour) {
-          return true; // Conflict found
+          return true;
         }
       }
     }
