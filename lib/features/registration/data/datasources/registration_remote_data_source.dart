@@ -85,7 +85,7 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
       final jsonStr = response.data.toString();
       final result = NativeParser.parseRegistrationAction(jsonStr);
 
-      if (!result.success) {
+      if (!result.success && result.status != 0) {
         throw ServerFailure(
           result.message.isNotEmpty
               ? result.message
@@ -124,7 +124,7 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
       final jsonStr = response.data.toString();
       final result = NativeParser.parseRegistrationAction(jsonStr);
 
-      if (!result.success) {
+      if (!result.success && result.status != 0) {
         throw ServerFailure(
           result.message.isNotEmpty
               ? result.message

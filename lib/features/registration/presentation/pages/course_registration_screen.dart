@@ -380,16 +380,16 @@ class _CourseSubjectItemState extends State<_CourseSubjectItem> {
 
     // Construct payload. C# expects JSON of CourseSubjectDto.
     final Map<String, dynamic> payloadMap = {
-      "Id": widget.course.id,
-      "Code": widget.course.code,
-      "DisplayCode": widget.course.displayCode,
-      "MaxStudent": widget.course.maxStudent,
-      "NumberStudent": widget.course.numberStudent,
-      "IsSelected": widget.course.isSelected,
-      "IsFullClass": widget.course.isFull,
-      "NumberOfCredit": widget.course.credits,
-      "Status": widget.course.status,
-      "Timetables": widget.course.timetables
+      "id": widget.course.id,
+      "code": widget.course.code,
+      "displayCode": widget.course.displayCode,
+      "maxStudent": widget.course.maxStudent,
+      "numberStudent": widget.course.numberStudent,
+      "isSelected": widget.course.isSelected,
+      "isFullClass": widget.course.isFull,
+      "numberOfCredit": widget.course.credits,
+      "status": widget.course.status,
+      "timetables": widget.course.timetables
           .map(
             (t) => {
               "id": t.id,
