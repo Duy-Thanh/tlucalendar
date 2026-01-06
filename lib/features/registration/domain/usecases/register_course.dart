@@ -11,7 +11,13 @@ class RegisterCourse {
     String personId,
     String periodId,
     String payload,
+    String accessToken,
   ) async {
-    return await repository.registerCourse(personId, periodId, payload);
+    return await repository.registerCourse(
+      personId,
+      periodId,
+      payload,
+      accessToken,
+    );
   }
 }

@@ -11,7 +11,12 @@ class GetRegistrationData {
   Future<Either<Failure, List<SubjectRegistration>>> call(
     String personId,
     String periodId,
+    String accessToken,
   ) async {
-    return await repository.getRegistrationData(personId, periodId);
+    return await repository.getRegistrationData(
+      personId,
+      periodId,
+      accessToken,
+    );
   }
 }

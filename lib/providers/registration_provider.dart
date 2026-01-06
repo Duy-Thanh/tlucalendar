@@ -39,7 +39,8 @@ class RegistrationProvider extends ChangeNotifier {
 
   Future<void> fetchRegistrationData(String periodId) async {
     final personId = _userPersonId;
-    if (personId == null) {
+    final token = _authProvider?.accessToken;
+    if (personId == null || token == null) {
       _errorMessage = "Chưa đăng nhập"; // User not logged in
       notifyListeners();
       return;
@@ -49,7 +50,7 @@ class RegistrationProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final result = await getRegistrationData(personId, periodId);
+    final result = await getRegistrationData(personId, periodId, token);
 
     result.fold(
       (failure) {
@@ -67,13 +68,14 @@ class RegistrationProvider extends ChangeNotifier {
 
   Future<bool> registerSubject(String periodId, String payload) async {
     final personId = _userPersonId;
-    if (personId == null) return false;
+    final token = _authProvider?.accessToken;
+    if (personId == null || token == null) return false;
 
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    final result = await registerCourse(personId, periodId, payload);
+    final result = await registerCourse(personId, periodId, payload, token);
 
     bool success = false;
     result.fold(
@@ -101,13 +103,14 @@ class RegistrationProvider extends ChangeNotifier {
     String payload,
   ) async {
     final personId = _userPersonId;
-    if (personId == null) return false;
+    final token = _authProvider?.accessToken;
+    if (personId == null || token == null) return false;
 
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    final result = await cancelCourse(personId, periodId, payload);
+    final result = await cancelCourse(personId, periodId, payload, token);
 
     bool success = false;
     result.fold(

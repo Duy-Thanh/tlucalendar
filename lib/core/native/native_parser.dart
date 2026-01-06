@@ -472,15 +472,15 @@ class NativeParser {
 
       final result = resultPtr.ref;
       if (result.errorMessage != nullptr) {
-        debugPrint(
-          "Native Registration Error: ${result.errorMessage.toDartString()}",
-        );
+        final errorMsg = result.errorMessage.toDartString();
+        debugPrint("Native Registration Error: $errorMsg");
         final freeFunc = _library
             .lookupFunction<FreeRegistrationResultFunc, FreeRegistrationResult>(
               'free_registration_result',
             );
         freeFunc(resultPtr);
-        return [];
+        // Throwing exception so provider catches it
+        throw Exception("Native Parse Error: $errorMsg");
       }
 
       List<SubjectRegistrationModel> subjects = [];

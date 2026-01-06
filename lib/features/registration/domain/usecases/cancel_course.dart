@@ -11,7 +11,13 @@ class CancelCourse {
     String personId,
     String periodId,
     String payload,
+    String accessToken,
   ) async {
-    return await repository.cancelCourse(personId, periodId, payload);
+    return await repository.cancelCourse(
+      personId,
+      periodId,
+      payload,
+      accessToken,
+    );
   }
 }

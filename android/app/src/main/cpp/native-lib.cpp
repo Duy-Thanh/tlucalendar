@@ -1354,7 +1354,7 @@ extern "C" {
             yyjson_val *listSubject = yyjson_obj_get(viewObj, "ListSubjectRegistrationDtos");
             if (!listSubject) listSubject = yyjson_obj_get(viewObj, "listSubjectRegistrationDtos");
 
-            if (yyjson_is_arr(listSubject)) {
+            if (listSubject && yyjson_is_arr(listSubject)) {
                 period->subjectsCount = (int)yyjson_arr_size(listSubject);
                 period->subjects = (struct SubjectRegistrationNative*)calloc(period->subjectsCount, sizeof(struct SubjectRegistrationNative));
                 
@@ -1363,9 +1363,14 @@ extern "C" {
                 yyjson_arr_foreach(listSubject, s_idx, s_max, sItem) {
                     struct SubjectRegistrationNative* s = &period->subjects[s_idx];
                     s->subjectName = safe_strdup(yyjson_get_str(yyjson_obj_get(sItem, "SubjectName")));
+                    if (!s->subjectName) s->subjectName = safe_strdup(yyjson_get_str(yyjson_obj_get(sItem, "subjectName")));
+                    
                     s->numberOfCredit = get_json_int(yyjson_obj_get(sItem, "NumberOfCredit"));
+                    if (s->numberOfCredit == 0) s->numberOfCredit = get_json_int(yyjson_obj_get(sItem, "numberOfCredit"));
                     
                     yyjson_val *courseSubjects = yyjson_obj_get(sItem, "CourseSubjectDtos");
+                    if (!courseSubjects) courseSubjects = yyjson_obj_get(sItem, "courseSubjectDtos");
+                    
                     if (yyjson_is_arr(courseSubjects)) {
                          s->courseSubjectsCount = (int)yyjson_arr_size(courseSubjects);
                          s->courseSubjects = (struct CourseSubjectNative*)calloc(s->courseSubjectsCount, sizeof(struct CourseSubjectNative));
@@ -1375,16 +1380,36 @@ extern "C" {
                          yyjson_arr_foreach(courseSubjects, c_idx, c_max, cItem) {
                              struct CourseSubjectNative* c = &s->courseSubjects[c_idx];
                              c->id = get_json_int(yyjson_obj_get(cItem, "Id"));
+                             if (c->id == 0) c->id = get_json_int(yyjson_obj_get(cItem, "id"));
+
                              c->code = safe_strdup(yyjson_get_str(yyjson_obj_get(cItem, "Code")));
+                             if (!c->code) c->code = safe_strdup(yyjson_get_str(yyjson_obj_get(cItem, "code")));
+
                              c->displayCode = safe_strdup(yyjson_get_str(yyjson_obj_get(cItem, "DisplayCode")));
+                             if (!c->displayCode) c->displayCode = safe_strdup(yyjson_get_str(yyjson_obj_get(cItem, "displayCode"))); // fallback
+
                              c->maxStudent = get_json_int(yyjson_obj_get(cItem, "MaxStudent"));
+                             if (c->maxStudent == 0) c->maxStudent = get_json_int(yyjson_obj_get(cItem, "maxStudent"));
+
                              c->numberStudent = get_json_int(yyjson_obj_get(cItem, "NumberStudent"));
+                             if (c->numberStudent == 0) c->numberStudent = get_json_int(yyjson_obj_get(cItem, "numberStudent"));
+
                              c->isSelected = yyjson_get_bool(yyjson_obj_get(cItem, "IsSelected"));
+                             // no fallback needed for bool if false is default, but yyjson_get_bool returns false if not found.
+                             // check camelCase:
+                             if (!c->isSelected && yyjson_obj_get(cItem, "isSelected")) c->isSelected = yyjson_get_bool(yyjson_obj_get(cItem, "isSelected"));
+
                              c->isFull = yyjson_get_bool(yyjson_obj_get(cItem, "IsFullClass"));
+                             if (!c->isFull && yyjson_obj_get(cItem, "isFullClass")) c->isFull = yyjson_get_bool(yyjson_obj_get(cItem, "isFullClass"));
+
                              c->credits = get_json_int(yyjson_obj_get(cItem, "NumberOfCredit"));
+                             if (c->credits == 0) c->credits = get_json_int(yyjson_obj_get(cItem, "numberOfCredit"));
+
                              c->status = safe_strdup(yyjson_get_str(yyjson_obj_get(cItem, "Status")));
+                             if (!c->status) c->status = safe_strdup(yyjson_get_str(yyjson_obj_get(cItem, "status")));
 
                              yyjson_val *timetables = yyjson_obj_get(cItem, "Timetables");
+                             if (!timetables) timetables = yyjson_obj_get(cItem, "timetables");
                              if (yyjson_is_arr(timetables)) {
                                  c->timetablesCount = (int)yyjson_arr_size(timetables);
                                  c->timetables = (struct TimetableNative*)calloc(c->timetablesCount, sizeof(struct TimetableNative));
@@ -1410,9 +1435,18 @@ extern "C" {
                                  }
                              }
                          }
-                    }
+                     }
                 }
+            } else if (!listSubject) {
+                result->errorMessage = strdup("Missing ListSubjectRegistrationDtos");
             }
+        } else {
+             yyjson_val* msg = yyjson_obj_get(root, "message");
+             if (msg) {
+                 result->errorMessage = safe_strdup(yyjson_get_str(msg));
+             } else {
+                 result->errorMessage = strdup("Missing CourseRegisterViewObject");
+             }
         }
         
         yyjson_doc_free(doc);

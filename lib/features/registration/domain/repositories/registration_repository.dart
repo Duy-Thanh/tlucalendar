@@ -6,17 +6,20 @@ abstract class RegistrationRepository {
   Future<Either<Failure, List<SubjectRegistration>>> getRegistrationData(
     String personId,
     String periodId,
+    String accessToken,
   );
 
   Future<Either<Failure, void>> registerCourse(
     String personId,
     String periodId,
     String payload,
+    String accessToken,
   );
 
   Future<Either<Failure, void>> cancelCourse(
     String personId,
     String periodId,
     String payload,
+    String accessToken,
   );
 }

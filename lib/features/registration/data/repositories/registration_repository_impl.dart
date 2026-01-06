@@ -13,11 +13,13 @@ class RegistrationRepositoryImpl implements RegistrationRepository {
   Future<Either<Failure, List<SubjectRegistration>>> getRegistrationData(
     String personId,
     String periodId,
+    String accessToken,
   ) async {
     try {
       final subjects = await remoteDataSource.getRegistrationData(
         personId,
         periodId,
+        accessToken,
       );
       return Right(subjects);
     } on Failure catch (e) {
@@ -32,9 +34,15 @@ class RegistrationRepositoryImpl implements RegistrationRepository {
     String personId,
     String periodId,
     String payload,
+    String accessToken,
   ) async {
     try {
-      await remoteDataSource.registerCourse(personId, periodId, payload);
+      await remoteDataSource.registerCourse(
+        personId,
+        periodId,
+        payload,
+        accessToken,
+      );
       return const Right(null);
     } on Failure catch (e) {
       return Left(e);
@@ -48,9 +56,15 @@ class RegistrationRepositoryImpl implements RegistrationRepository {
     String personId,
     String periodId,
     String payload,
+    String accessToken,
   ) async {
     try {
-      await remoteDataSource.cancelCourse(personId, periodId, payload);
+      await remoteDataSource.cancelCourse(
+        personId,
+        periodId,
+        payload,
+        accessToken,
+      );
       return const Right(null);
     } on Failure catch (e) {
       return Left(e);
