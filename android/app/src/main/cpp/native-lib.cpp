@@ -1235,8 +1235,15 @@ extern "C" {
         result->user->email = safe_strdup(yyjson_get_str(yyjson_obj_get(root, "email")));
         
         yyjson_val *person = yyjson_obj_get(root, "person");
+        if (!person) person = yyjson_obj_get(root, "Person");
+        
         if (person && yyjson_is_obj(person)) {
             result->user->id = get_json_int(yyjson_obj_get(person, "id"));
+            if (result->user->id == 0) result->user->id = get_json_int(yyjson_obj_get(person, "Id"));
+        } else {
+            // Fallback to root id
+             result->user->id = get_json_int(yyjson_obj_get(root, "id"));
+             if (result->user->id == 0) result->user->id = get_json_int(yyjson_obj_get(root, "Id"));
         }
         
         yyjson_doc_free(doc);

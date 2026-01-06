@@ -1229,23 +1229,28 @@ class NativeParser {
       return DateTime.parse(dateStr).millisecondsSinceEpoch;
     } catch (_) {
       try {
-        // Handle dd/MM/yyyy HH:mm or dd/MM/yyyy
-        // Regex for dd/MM/yyyy
-        final parts = dateStr.split(' ');
+        // Handle dd/MM/yyyy HH:mm or dd-MM-yyyy HH:mm
+        // Normalize - to /
+        final normalized = dateStr.replaceAll('-', '/');
+        final parts = normalized.split(' ');
         final dateParts = parts[0].split('/');
+
         if (dateParts.length == 3) {
-          final day = int.parse(dateParts[0]);
-          final month = int.parse(dateParts[1]);
-          final year = int.parse(dateParts[2]);
+          final day = int.tryParse(dateParts[0]) ?? 1;
+          final month = int.tryParse(dateParts[1]) ?? 1;
+          final year = int.tryParse(dateParts[2]) ?? 1970;
+
           int hour = 0;
           int minute = 0;
+
           if (parts.length > 1) {
             final timeParts = parts[1].split(':');
             if (timeParts.length >= 2) {
-              hour = int.parse(timeParts[0]);
-              minute = int.parse(timeParts[1]);
+              hour = int.tryParse(timeParts[0]) ?? 0;
+              minute = int.tryParse(timeParts[1]) ?? 0;
             }
           }
+          // Year must be 4 digits usually. if < 100 assume 20xx? No, TLU uses 4 digits.
           return DateTime(
             year,
             month,

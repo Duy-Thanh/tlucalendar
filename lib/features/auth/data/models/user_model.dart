@@ -10,12 +10,23 @@ class UserModel extends User {
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    // Robust parsing for 'person' object
+    final personObj = json['person'] ?? json['Person'];
+    int? parsedId;
+    if (personObj != null) {
+      parsedId = personObj['id'] ?? personObj['Id'] ?? personObj['ID'];
+    }
+
+    // Robust parsing for 'id' at root if person is missing (fallback)
+    if (parsedId == null) {
+      parsedId = json['id'] ?? json['Id'];
+    }
+
     return UserModel(
-      id: json['person'] != null ? json['person']['id'] : null,
-      studentId: json['username'] ?? '',
-      fullName: json['displayName'] ?? '',
-      email: json['email'] ?? '',
-      // TLU API doesn't standardly return profile image here, so null
+      id: parsedId,
+      studentId: json['username'] ?? json['Username'] ?? '',
+      fullName: json['displayName'] ?? json['DisplayName'] ?? '',
+      email: json['email'] ?? json['Email'] ?? '',
       profileImageUrl: null,
     );
   }
