@@ -59,7 +59,7 @@ class _CourseRegistrationScreenState extends State<CourseRegistrationScreen> {
                   });
                 },
               )
-            : null, // Default AutoLeading (Back Arrow) when NOT searching
+            : null, // Default AutoLeading
         title: _isSearching ? _buildSearchBar() : Text(widget.period.name),
         actions: [
           if (_isSearching)
@@ -85,11 +85,13 @@ class _CourseRegistrationScreenState extends State<CourseRegistrationScreen> {
       ),
       body: Consumer<RegistrationProvider>(
         builder: (context, provider, child) {
-          if (provider.isLoading) {
+          // Only show full loading if we have NO data.
+          // If we have data but are refreshing/acting, the individual buttons will handle loading state
+          if (provider.isLoading && provider.subjects.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (provider.errorMessage != null) {
+          if (provider.errorMessage != null && provider.subjects.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -143,7 +145,8 @@ class _CourseRegistrationScreenState extends State<CourseRegistrationScreen> {
     return TextField(
       controller: _searchController,
       style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
+      autofocus: true,
+      decoration: const InputDecoration(
         hintText: 'Tìm kiếm môn học...',
         hintStyle: TextStyle(color: Colors.white70),
         border: InputBorder.none,
@@ -202,19 +205,26 @@ class _SubjectItemState extends State<_SubjectItem> {
   }
 }
 
-class _CourseSubjectItem extends StatelessWidget {
+class _CourseSubjectItem extends StatefulWidget {
   final CourseSubject course;
   final String periodId;
 
   const _CourseSubjectItem({required this.course, required this.periodId});
 
   @override
+  State<_CourseSubjectItem> createState() => _CourseSubjectItemState();
+}
+
+class _CourseSubjectItemState extends State<_CourseSubjectItem> {
+  bool _isLocalLoading = false;
+
+  @override
   Widget build(BuildContext context) {
     // Status color
     Color statusColor = Colors.grey.shade300;
-    if (course.isSelected) {
+    if (widget.course.isSelected) {
       statusColor = Colors.green.shade100;
-    } else if (course.isFull) {
+    } else if (widget.course.isFull) {
       statusColor = Colors.red.shade100;
     }
 
@@ -241,7 +251,7 @@ class _CourseSubjectItem extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Mã lớp: ${course.displayCode} (${course.code})',
+                        'Mã lớp: ${widget.course.displayCode} (${widget.course.code})',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
@@ -250,24 +260,25 @@ class _CourseSubjectItem extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'GV: ${course.timetables.isNotEmpty ? course.timetables.first.teacherName : "N/A"}',
+                        'GV: ${widget.course.timetables.isNotEmpty ? widget.course.timetables.first.teacherName : "N/A"}',
                         style: const TextStyle(color: textColor),
                       ),
                       Text(
-                        'Sĩ số: ${course.numberStudent}/${course.maxStudent}',
+                        'Sĩ số: ${widget.course.numberStudent}/${widget.course.maxStudent}',
                         style: const TextStyle(color: textColor),
                       ),
                       const SizedBox(height: 2),
                       Row(
                         children: [
                           Text(
-                            'Trạng thái: ${course.status}',
+                            'Trạng thái: ${widget.course.status}',
                             style: const TextStyle(
                               fontStyle: FontStyle.italic,
                               color: textColor,
                             ),
                           ),
-                          if (!course.isSelected && _checkConflict(context))
+                          if (!widget.course.isSelected &&
+                              _checkConflict(context))
                             const Padding(
                               padding: EdgeInsets.only(left: 8.0),
                               child: Tooltip(
@@ -285,20 +296,31 @@ class _CourseSubjectItem extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (course.isSelected)
+                if (widget.course.isSelected)
                   ElevatedButton(
-                    onPressed: () => _handleAction(context, false),
+                    onPressed: _isLocalLoading
+                        ? null
+                        : () => _handleAction(context, false),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       visualDensity: VisualDensity.compact,
                     ),
-                    child: const Text('Hủy'),
+                    child: _isLocalLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('Hủy'),
                   )
                 else
                   ElevatedButton(
-                    onPressed: course.isFull
+                    onPressed: (widget.course.isFull || _isLocalLoading)
                         ? null
                         : () => _handleAction(context, true),
                     style: ElevatedButton.styleFrom(
@@ -307,12 +329,21 @@ class _CourseSubjectItem extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       visualDensity: VisualDensity.compact,
                     ),
-                    child: const Text('Đăng ký'),
+                    child: _isLocalLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('Đăng ký'),
                   ),
               ],
             ),
 
-            if (course.timetables.isNotEmpty) ...[
+            if (widget.course.timetables.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
                 width: double.infinity,
@@ -322,7 +353,7 @@ class _CourseSubjectItem extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  course.timetables
+                  widget.course.timetables
                       .map(
                         (t) =>
                             "T${t.dayOfWeek} (Tiết ${t.startHour}-${t.endHour}) @ ${t.roomName}",
@@ -343,18 +374,22 @@ class _CourseSubjectItem extends StatelessWidget {
   }
 
   void _handleAction(BuildContext context, bool isRegister) async {
+    setState(() {
+      _isLocalLoading = true;
+    });
+
     // Construct payload. C# expects JSON of CourseSubjectDto.
     final Map<String, dynamic> payloadMap = {
-      "Id": course.id,
-      "Code": course.code,
-      "DisplayCode": course.displayCode,
-      "MaxStudent": course.maxStudent,
-      "NumberStudent": course.numberStudent,
-      "IsSelected": course.isSelected,
-      "IsFullClass": course.isFull,
-      "NumberOfCredit": course.credits,
-      "Status": course.status,
-      "Timetables": course.timetables
+      "Id": widget.course.id,
+      "Code": widget.course.code,
+      "DisplayCode": widget.course.displayCode,
+      "MaxStudent": widget.course.maxStudent,
+      "NumberStudent": widget.course.numberStudent,
+      "IsSelected": widget.course.isSelected,
+      "IsFullClass": widget.course.isFull,
+      "NumberOfCredit": widget.course.credits,
+      "Status": widget.course.status,
+      "Timetables": widget.course.timetables
           .map(
             (t) => {
               "id": t.id,
@@ -376,10 +411,14 @@ class _CourseSubjectItem extends StatelessWidget {
     final provider = context.read<RegistrationProvider>();
 
     final success = isRegister
-        ? await provider.registerSubject(periodId, payload)
-        : await provider.cancelSubjectRegistration(periodId, payload);
+        ? await provider.registerSubject(widget.periodId, payload)
+        : await provider.cancelSubjectRegistration(widget.periodId, payload);
 
-    if (context.mounted) {
+    if (mounted) {
+      setState(() {
+        _isLocalLoading = false;
+      });
+
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -403,7 +442,7 @@ class _CourseSubjectItem extends StatelessWidget {
   }
 
   bool _checkConflict(BuildContext context) {
-    if (course.isSelected) return false;
+    if (widget.course.isSelected) return false;
 
     final scheduleProvider = context.read<ScheduleProvider>();
     final enrolledCourses = scheduleProvider.courses;
@@ -411,7 +450,7 @@ class _CourseSubjectItem extends StatelessWidget {
 
     if (courseHours.isEmpty || enrolledCourses.isEmpty) return false;
 
-    for (var t in course.timetables) {
+    for (var t in widget.course.timetables) {
       for (var e in enrolledCourses) {
         if (t.dayOfWeek != e.dayOfWeek) continue;
 

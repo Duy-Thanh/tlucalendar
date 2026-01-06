@@ -69,7 +69,7 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
     String accessToken,
   ) async {
     try {
-      await client.post(
+      final response = await client.post(
         '/education/api/cs_reg_mongo/add-register/$personId/$periodId',
         data: courseString,
         options: Options(
@@ -78,10 +78,25 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
             'Authorization': 'Bearer $accessToken',
             'Accept': 'application/json',
           },
+          responseType: ResponseType.plain, // Force plain text
         ),
       );
+
+      final jsonStr = response.data.toString();
+      final result = NativeParser.parseRegistrationAction(jsonStr);
+
+      if (!result.success) {
+        throw ServerFailure(
+          result.message.isNotEmpty
+              ? result.message
+              : "Đăng ký thất bại (Status: ${result.status})",
+        );
+      }
+    } on DioException catch (e) {
+      throw ServerFailure(e.message ?? 'Unknown Dio Error');
     } catch (e) {
-      rethrow;
+      if (e is ServerFailure) rethrow;
+      throw ServerFailure(e.toString());
     }
   }
 
@@ -93,7 +108,7 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
     String accessToken,
   ) async {
     try {
-      await client.delete(
+      final response = await client.delete(
         '/education/api/cs_reg_mongo/remove-register/$personId/$periodId',
         data: courseString,
         options: Options(
@@ -102,10 +117,25 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
             'Authorization': 'Bearer $accessToken',
             'Accept': 'application/json',
           },
+          responseType: ResponseType.plain, // Force plain text
         ),
       );
+
+      final jsonStr = response.data.toString();
+      final result = NativeParser.parseRegistrationAction(jsonStr);
+
+      if (!result.success) {
+        throw ServerFailure(
+          result.message.isNotEmpty
+              ? result.message
+              : "Hủy đăng ký thất bại (Status: ${result.status})",
+        );
+      }
+    } on DioException catch (e) {
+      throw ServerFailure(e.message ?? 'Unknown Dio Error');
     } catch (e) {
-      rethrow;
+      if (e is ServerFailure) rethrow;
+      throw ServerFailure(e.toString());
     }
   }
 }

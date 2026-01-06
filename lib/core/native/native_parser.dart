@@ -327,6 +327,12 @@ final class RegistrationResult extends Struct {
   external Pointer<Utf8> errorMessage;
 }
 
+final class RegistrationActionNative extends Struct {
+  @Int32()
+  external int status;
+  external Pointer<Utf8> message;
+}
+
 final class NotificationNative extends Struct {
   @Int64()
   external int triggerTime;
@@ -423,6 +429,16 @@ typedef ParseRegistration = Pointer<RegistrationResult> Function(Pointer<Utf8>);
 
 typedef FreeRegistrationResultFunc = Void Function(Pointer<RegistrationResult>);
 typedef FreeRegistrationResult = void Function(Pointer<RegistrationResult>);
+
+typedef ParseRegistrationActionFunc =
+    Pointer<RegistrationActionNative> Function(Pointer<Utf8>);
+typedef ParseRegistrationAction =
+    Pointer<RegistrationActionNative> Function(Pointer<Utf8>);
+
+typedef FreeRegistrationActionResultFunc =
+    Void Function(Pointer<RegistrationActionNative>);
+typedef FreeRegistrationActionResult =
+    void Function(Pointer<RegistrationActionNative>);
 
 class NativeParser {
   static DynamicLibrary? _lib;
@@ -571,6 +587,39 @@ class NativeParser {
     } catch (e) {
       debugPrint("Native Parse Error (Registration): $e");
       return [];
+    }
+  }
+
+  static ({bool success, String message, int status}) parseRegistrationAction(
+    String jsonString,
+  ) {
+    try {
+      final func = _library
+          .lookupFunction<ParseRegistrationActionFunc, ParseRegistrationAction>(
+            'parse_registration_action',
+          );
+      final jsonPtr = jsonString.toNativeUtf8();
+      final resultPtr = func(jsonPtr);
+      calloc.free(jsonPtr);
+
+      final result = resultPtr.ref;
+      final status = result.status;
+      final message = result.message != nullptr
+          ? result.message.toDartString()
+          : '';
+
+      final freeFunc = _library
+          .lookupFunction<
+            FreeRegistrationActionResultFunc,
+            FreeRegistrationActionResult
+          >('free_registration_action_result');
+      freeFunc(resultPtr);
+
+      // If status is 200, assume success.
+      return (success: status == 200, message: message, status: status);
+    } catch (e) {
+      debugPrint("Native Action Parse Error: $e");
+      return (success: false, message: "Native Error: $e", status: -1);
     }
   }
 

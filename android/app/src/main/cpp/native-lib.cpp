@@ -1475,6 +1475,41 @@ extern "C" {
          return 0;
     }
 
+
+    struct RegistrationActionResult {
+        int status;
+        char* message;
+    };
+
+    __attribute__((visibility("default"))) __attribute__((used))
+    void free_registration_action_result(struct RegistrationActionResult* result) {
+        if (!result) return;
+        free(result->message);
+        free(result);
+    }
+
+    __attribute__((visibility("default"))) __attribute__((used))
+    struct RegistrationActionResult* parse_registration_action(const char* json_str) {
+        struct RegistrationActionResult* result = (struct RegistrationActionResult*)calloc(1, sizeof(struct RegistrationActionResult));
+        if (!json_str) { return result; }
+        
+        yyjson_doc *doc = yyjson_read(json_str, strlen(json_str), 0);
+        if (!doc) { return result; }
+        
+        yyjson_val *root = yyjson_doc_get_root(doc);
+        if (!root || !yyjson_is_obj(root)) { yyjson_doc_free(doc); return result; }
+
+        result->status = get_json_int(yyjson_obj_get(root, "status"));
+        if (result->status == 0) result->status = get_json_int(yyjson_obj_get(root, "Status"));
+
+        yyjson_val* msg = yyjson_obj_get(root, "message");
+        if (!msg) msg = yyjson_obj_get(root, "Message");
+        if (msg) result->message = safe_strdup(yyjson_get_str(msg));
+
+        yyjson_doc_free(doc);
+        return result;
+    }
+
 }
 
 extern "C" JNIEXPORT jstring JNICALL
