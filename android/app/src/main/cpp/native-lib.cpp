@@ -1336,7 +1336,7 @@ extern "C" {
         struct RegistrationResult* result = (struct RegistrationResult*)calloc(1, sizeof(struct RegistrationResult));
         if (!json_str) { result->errorMessage = strdup("Null JSON"); return result; }
         
-        yyjson_doc *doc = yyjson_read_opts((char*)json_str, strlen(json_str), YYJSON_READ_INSITU | YYJSON_READ_STOP_WHEN_DONE, NULL, NULL);
+        yyjson_doc *doc = yyjson_read_opts((char*)json_str, strlen(json_str), YYJSON_READ_STOP_WHEN_DONE, NULL, NULL);
         if (!doc) { result->errorMessage = strdup("Parse Error"); return result; }
         
         yyjson_val *root = yyjson_doc_get_root(doc);

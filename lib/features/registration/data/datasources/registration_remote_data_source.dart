@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart'; // Needed for debugPrint
 import 'package:tlucalendar/core/error/failures.dart';
 import 'package:tlucalendar/core/native/native_parser.dart';
 import 'package:tlucalendar/core/network/network_client.dart';
@@ -84,9 +86,16 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
 
       final jsonStr = response.data.toString();
 
-      // [REVIEW MODE] Check for Fake Success
-      if (jsonStr.contains('"note": "Action completed"')) {
-        throw const ReviewModeSuccessFailure();
+      // [REVIEW MODE] Check for Fake Success (Robust Parsing)
+      try {
+        debugPrint("ReviewMode Check: Checking JSON length ${jsonStr.length}");
+        if (jsonStr.contains("Action completed")) {
+          debugPrint("ReviewMode Check: Found 'Action completed' string");
+          // Relaxed check
+          throw const ReviewModeSuccessFailure();
+        }
+      } catch (e) {
+        debugPrint("ReviewMode Check Error: $e");
       }
 
       final result = NativeParser.parseRegistrationAction(jsonStr);
@@ -129,9 +138,15 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
 
       final jsonStr = response.data.toString();
 
-      // [REVIEW MODE] Check for Fake Success
-      if (jsonStr.contains('"note": "Action completed"')) {
-        throw const ReviewModeSuccessFailure();
+      // [REVIEW MODE] Check for Fake Success (Robust Parsing)
+      try {
+        debugPrint("ReviewMode Check: Checking JSON length ${jsonStr.length}");
+        if (jsonStr.contains("Action completed")) {
+          debugPrint("ReviewMode Check: Found 'Action completed' string");
+          throw const ReviewModeSuccessFailure();
+        }
+      } catch (e) {
+        debugPrint("ReviewMode Check Error: $e");
       }
 
       final result = NativeParser.parseRegistrationAction(jsonStr);
