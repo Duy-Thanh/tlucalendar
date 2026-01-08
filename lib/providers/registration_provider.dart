@@ -83,13 +83,28 @@ class RegistrationProvider extends ChangeNotifier {
     bool isReviewMode = false;
     result.fold(
       (failure) {
-        // Robust check: Type check OR String check (to handle hot-reload/runtime ghosts)
-        if (failure is ReviewModeSuccessFailure ||
-            failure.toString().contains("ReviewMode")) {
+        // DEBUG PRINT
+        debugPrint("RegisterCheck: Failure is ${failure.runtimeType}");
+        debugPrint(
+          "RegisterCheck: Failure toString() is '${failure.toString()}'",
+        );
+
+        // Robust check: Type check OR String check
+        final bool isReviewModeFailure = failure is ReviewModeSuccessFailure;
+        final bool isReviewModeString =
+            failure.toString().contains("ReviewMode") ||
+            failure.toString().contains("SafeModeSuccess");
+
+        debugPrint("RegisterCheck: isReviewModeFailure=$isReviewModeFailure");
+        debugPrint("RegisterCheck: isReviewModeString=$isReviewModeString");
+
+        if (isReviewModeFailure || isReviewModeString) {
+          debugPrint("RegisterCheck: MATCHED! Treating as success.");
           isReviewMode = true;
           success = true; // Treat as success
           _handleOptimisticUpdate(payload, isRegister: true);
         } else {
+          debugPrint("RegisterCheck: NO MATCH. Treating as error.");
           _errorMessage = _mapFailureToMessage(failure);
         }
       },
@@ -132,13 +147,28 @@ class RegistrationProvider extends ChangeNotifier {
     bool isReviewMode = false;
     result.fold(
       (failure) {
+        // DEBUG PRINT
+        debugPrint("CancelCheck: Failure is ${failure.runtimeType}");
+        debugPrint(
+          "CancelCheck: Failure toString() is '${failure.toString()}'",
+        );
+
         // Robust check: Type check OR String check
-        if (failure is ReviewModeSuccessFailure ||
-            failure.toString().contains("ReviewMode")) {
+        final bool isReviewModeFailure = failure is ReviewModeSuccessFailure;
+        final bool isReviewModeString = failure.toString().contains(
+          "ReviewMode",
+        );
+
+        debugPrint("CancelCheck: isReviewModeFailure=$isReviewModeFailure");
+        debugPrint("CancelCheck: isReviewModeString=$isReviewModeString");
+
+        if (isReviewModeFailure || isReviewModeString) {
+          debugPrint("CancelCheck: MATCHED! Treating as success.");
           isReviewMode = true;
           success = true;
           _handleOptimisticUpdate(payload, isRegister: false);
         } else {
+          debugPrint("CancelCheck: NO MATCH. Treating as error.");
           _errorMessage = _mapFailureToMessage(failure);
         }
       },

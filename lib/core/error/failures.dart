@@ -39,6 +39,6 @@ class ReviewModeSuccessFailure extends Failure {
 
   @override
   String toString() {
-    return "ReviewModeSuccessFailure";
+    return "SafeModeSuccess";
   }
 }
