@@ -896,6 +896,9 @@ extern "C" {
         int endHour;
         char* roomName;
         char* teacherName;
+        int roomId; // Added
+        int startHourId; // Added
+        int endHourId; // Added
     };
 
     struct CourseSubjectNative {
@@ -913,6 +916,7 @@ extern "C" {
         struct TimetableNative* timetables;
         int credits;
         char* status; // "new", "full", etc.
+        int subjectId; // Added
     };
 
     struct SubjectRegistrationNative {
@@ -1417,6 +1421,9 @@ extern "C" {
                              c->isOverlap = yyjson_get_bool(yyjson_obj_get(cItem, "IsOvelapTime"));
                              if (!c->isOverlap && yyjson_obj_get(cItem, "isOvelapTime")) c->isOverlap = yyjson_get_bool(yyjson_obj_get(cItem, "isOvelapTime"));
 
+                             c->subjectId = get_json_int(yyjson_obj_get(cItem, "SubjectId"));
+                             if (c->subjectId == 0) c->subjectId = get_json_int(yyjson_obj_get(cItem, "subjectId"));
+
 
                              c->credits = get_json_int(yyjson_obj_get(cItem, "NumberOfCredit"));
                              if (c->credits == 0) c->credits = get_json_int(yyjson_obj_get(cItem, "numberOfCredit"));
@@ -1441,11 +1448,22 @@ extern "C" {
                                      t->dayOfWeek = get_json_int(yyjson_obj_get(tItem, "weekIndex"));
                                      
                                      yyjson_val *startH = yyjson_obj_get(tItem, "startHour");
-                                     if (yyjson_is_obj(startH)) t->startHour = get_json_int(yyjson_obj_get(startH, "indexNumber"));
+                                     if (yyjson_is_obj(startH)) {
+                                         t->startHour = get_json_int(yyjson_obj_get(startH, "indexNumber"));
+                                         t->startHourId = get_json_int(yyjson_obj_get(startH, "id"));
+                                     }
                                      
                                      yyjson_val *endH = yyjson_obj_get(tItem, "endHour");
-                                     if (yyjson_is_obj(endH)) t->endHour = get_json_int(yyjson_obj_get(endH, "indexNumber"));
+                                     if (yyjson_is_obj(endH)) {
+                                         t->endHour = get_json_int(yyjson_obj_get(endH, "indexNumber"));
+                                         t->endHourId = get_json_int(yyjson_obj_get(endH, "id"));
+                                     }
                                      
+                                     yyjson_val *roomObj = yyjson_obj_get(tItem, "room");
+                                     if (roomObj && yyjson_is_obj(roomObj)) {
+                                          t->roomId = get_json_int(yyjson_obj_get(roomObj, "id"));
+                                     }
+
                                      t->roomName = safe_strdup(yyjson_get_str(yyjson_obj_get(tItem, "roomName")));
                                      t->teacherName = safe_strdup(yyjson_get_str(yyjson_obj_get(tItem, "teacherName")));
                                  }

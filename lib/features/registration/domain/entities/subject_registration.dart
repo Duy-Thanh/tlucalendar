@@ -17,6 +17,7 @@ class SubjectRegistration extends Equatable {
 
 class CourseSubject extends Equatable {
   final int id;
+  final int subjectId; // Added
   final String code;
   final String name; // Usually same as subjectName
   final String displayCode;
@@ -31,6 +32,7 @@ class CourseSubject extends Equatable {
 
   const CourseSubject({
     required this.id,
+    required this.subjectId,
     required this.code,
     required this.name,
     required this.displayCode,
@@ -63,6 +65,9 @@ class CourseSubject extends Equatable {
 
 class Timetable extends Equatable {
   final int id;
+  final int roomId;
+  final int startHourId;
+  final int endHourId;
   final int startDate;
   final int endDate;
   final int fromWeek;
@@ -75,6 +80,9 @@ class Timetable extends Equatable {
 
   const Timetable({
     required this.id,
+    required this.roomId,
+    required this.startHourId,
+    required this.endHourId,
     required this.startDate,
     required this.endDate,
     required this.fromWeek,
@@ -96,6 +104,9 @@ class Timetable extends Equatable {
     dayOfWeek,
     startHour,
     endHour,
+    roomId,
+    startHourId,
+    endHourId,
     roomName,
     teacherName,
   ];

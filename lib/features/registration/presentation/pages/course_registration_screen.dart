@@ -397,11 +397,11 @@ class _CourseSubjectItemState extends State<_CourseSubjectItem> {
     final scheduleProvider = context.read<ScheduleProvider>();
     final courseHours = scheduleProvider.courseHours;
 
-    Map<String, dynamic> buildHourObj(int index) {
+    Map<String, dynamic> buildHourObj(int index, int? knownId) {
       final h = courseHours.where((e) => e.indexNumber == index).firstOrNull;
 
       return {
-        "id": h?.id,
+        "id": (knownId != null && knownId != 0) ? knownId : h?.id,
         "name": h?.name,
         "start": null,
         "startString": h?.startString,
@@ -421,7 +421,9 @@ class _CourseSubjectItemState extends State<_CourseSubjectItem> {
       "voided": false,
       "code": widget.course.code,
       "shortCode": null,
-      "subjectId": null, // We don't have this, sending null
+      "subjectId": widget.course.subjectId != 0
+          ? widget.course.subjectId
+          : null,
       "subjectName": widget.course.name,
       "subjectCode": null,
       "parent": null,
@@ -433,12 +435,12 @@ class _CourseSubjectItemState extends State<_CourseSubjectItem> {
           .map(
             (t) => {
               "id": t.id,
-              "endHour": buildHourObj(t.endHour),
-              "startHour": buildHourObj(t.startHour),
+              "endHour": buildHourObj(t.endHour, t.endHourId),
+              "startHour": buildHourObj(t.startHour, t.startHourId),
               "teacher": null, // Detailed teacher object missing
               "assistantTeacher": null,
               "room": {
-                "id": null,
+                "id": t.roomId != 0 ? t.roomId : null,
                 "name": t.roomName,
                 "code": null,
                 "capacity": null,

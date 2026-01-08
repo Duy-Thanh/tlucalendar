@@ -279,6 +279,12 @@ final class TimetableNative extends Struct {
   external int endHour;
   external Pointer<Utf8> roomName;
   external Pointer<Utf8> teacherName;
+  @Int32()
+  external int roomId;
+  @Int32()
+  external int startHourId;
+  @Int32()
+  external int endHourId;
 }
 
 final class CourseSubjectNative extends Struct {
@@ -305,6 +311,8 @@ final class CourseSubjectNative extends Struct {
   @Int32()
   external int credits;
   external Pointer<Utf8> status;
+  @Int32()
+  external int subjectId;
 }
 
 final class SubjectRegistrationNative extends Struct {
@@ -375,8 +383,6 @@ typedef ParseTokenFunc = Pointer<TokenResponseResult> Function(Pointer<Utf8>);
 typedef ParseToken = Pointer<TokenResponseResult> Function(Pointer<Utf8>);
 typedef FreeTokenResultFunc = Void Function(Pointer<TokenResponseResult>);
 typedef FreeTokenResult = void Function(Pointer<TokenResponseResult>);
-
-// ... other typedefs ...
 
 typedef ParseExamRoomsFunc = Pointer<ExamRoomResult> Function(Pointer<Utf8>);
 typedef ParseExamRooms = Pointer<ExamRoomResult> Function(Pointer<Utf8>);
@@ -533,6 +539,9 @@ class NativeParser {
                   dayOfWeek: tNative.dayOfWeek,
                   startHour: tNative.startHour,
                   endHour: tNative.endHour,
+                  roomId: tNative.roomId,
+                  startHourId: tNative.startHourId,
+                  endHourId: tNative.endHourId,
                   roomName: tNative.roomName != nullptr
                       ? tNative.roomName.toDartString()
                       : '',
@@ -546,6 +555,7 @@ class NativeParser {
             courseSubjects.add(
               CourseSubjectModel(
                 id: csNative.id,
+                subjectId: csNative.subjectId,
                 code: csNative.code != nullptr
                     ? csNative.code.toDartString()
                     : '',

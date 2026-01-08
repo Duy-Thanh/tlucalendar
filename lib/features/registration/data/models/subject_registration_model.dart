@@ -11,6 +11,7 @@ class SubjectRegistrationModel extends SubjectRegistration {
 class CourseSubjectModel extends CourseSubject {
   const CourseSubjectModel({
     required super.id,
+    required super.subjectId,
     required super.code,
     required super.name,
     required super.displayCode,
@@ -28,6 +29,9 @@ class CourseSubjectModel extends CourseSubject {
 class TimetableModel extends Timetable {
   const TimetableModel({
     required super.id,
+    required super.roomId,
+    required super.startHourId,
+    required super.endHourId,
     required super.startDate,
     required super.endDate,
     required super.fromWeek,
