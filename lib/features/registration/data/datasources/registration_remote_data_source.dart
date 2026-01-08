@@ -87,15 +87,11 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
       final jsonStr = response.data.toString();
 
       // [REVIEW MODE] Check for Fake Success (Robust Parsing)
-      try {
-        debugPrint("ReviewMode Check: Checking JSON length ${jsonStr.length}");
-        if (jsonStr.contains("Action completed")) {
-          debugPrint("ReviewMode Check: Found 'Action completed' string");
-          // Relaxed check
-          throw const ReviewModeSuccessFailure();
-        }
-      } catch (e) {
-        debugPrint("ReviewMode Check Error: $e");
+      if (jsonStr.contains("Action completed")) {
+        debugPrint(
+          "ReviewMode Check: Found 'Action completed' string. Throwing Signal.",
+        );
+        throw const ReviewModeSuccessFailure();
       }
 
       final result = NativeParser.parseRegistrationAction(jsonStr);
@@ -139,14 +135,11 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
       final jsonStr = response.data.toString();
 
       // [REVIEW MODE] Check for Fake Success (Robust Parsing)
-      try {
-        debugPrint("ReviewMode Check: Checking JSON length ${jsonStr.length}");
-        if (jsonStr.contains("Action completed")) {
-          debugPrint("ReviewMode Check: Found 'Action completed' string");
-          throw const ReviewModeSuccessFailure();
-        }
-      } catch (e) {
-        debugPrint("ReviewMode Check Error: $e");
+      if (jsonStr.contains("Action completed")) {
+        debugPrint(
+          "ReviewMode Check: Found 'Action completed' string. Throwing Signal.",
+        );
+        throw const ReviewModeSuccessFailure();
       }
 
       final result = NativeParser.parseRegistrationAction(jsonStr);
