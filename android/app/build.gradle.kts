@@ -38,7 +38,7 @@ android {
         // Version code with last is 30 is BETA CHANNEL
         // Version code with last is 40 is ALPHA CHANNEL
         // 21, 2x is INCREMENT VERSION for RELEASE CHANNEL
-        versionCode = 2025123122
+        versionCode = 2026010820
         versionName = flutter.versionName
 
         ndk {
@@ -118,21 +118,21 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 
-    implementation("androidx.activity:activity-compose:1.12.0")
-    implementation("androidx.compose.ui:ui:1.9.5")
+    implementation("androidx.activity:activity-compose:1.12.2")
+    implementation("androidx.compose.ui:ui:1.10.0")
     implementation("androidx.compose.material3:material3:1.4.0")
     implementation("androidx.compose.material:material-icons-extended:1.7.8")
     implementation("androidx.compose.material:material-icons-core:1.7.8")
-    implementation("androidx.compose.ui:ui-tooling-preview:1.9.5")
-    debugImplementation("androidx.compose.ui:ui-tooling:1.9.5")
+    implementation("androidx.compose.ui:ui-tooling-preview:1.10.0")
+    debugImplementation("androidx.compose.ui:ui-tooling:1.10.0")
 
     implementation("androidx.core:core-ktx:1.17.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
 
-    implementation("com.mikepenz:aboutlibraries-core:13.1.0")
-    implementation("com.mikepenz:aboutlibraries-compose-core:13.1.0")
-    implementation("com.mikepenz:aboutlibraries-compose:13.1.0")
-    implementation("com.mikepenz:aboutlibraries-compose-m3:13.1.0")
-    implementation("com.mikepenz:aboutlibraries:13.1.0")
+    implementation("com.mikepenz:aboutlibraries-core:13.2.1")
+    implementation("com.mikepenz:aboutlibraries-compose-core:13.2.1")
+    implementation("com.mikepenz:aboutlibraries-compose:13.2.1")
+    implementation("com.mikepenz:aboutlibraries-compose-m3:13.2.1")
+    implementation("com.mikepenz:aboutlibraries:13.2.1")
 
 }

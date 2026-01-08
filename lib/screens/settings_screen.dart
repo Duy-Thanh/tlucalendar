@@ -722,7 +722,7 @@ class SettingsScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       Text(
-                        '2025.12.31',
+                        '2026.01.08',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -739,7 +739,7 @@ class SettingsScreen extends StatelessWidget {
                       ),
                       Text(
                         // 24 characters only
-                        'd46b36baee4c71e239b3eb16',
+                        'f72372df9d2bdfb714128360',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -771,7 +771,7 @@ class SettingsScreen extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                       Text(
-                        'release_2025.12.31_XX-XX',
+                        'release_2026.01.08_XX-XX',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -867,7 +867,7 @@ class SettingsScreen extends StatelessWidget {
 
     // Gather app info
     String appName = 'TLU Calendar';
-    String appVersion = '2025.12.31';
+    String appVersion = '2026.01.08';
     try {
       final pkg = await PackageInfo.fromPlatform();
       appName = pkg.appName;
@@ -987,7 +987,7 @@ class SettingsScreen extends StatelessWidget {
             data: Theme.of(context),
             child: const LicensePage(
               applicationName: 'TLU Calendar',
-              applicationVersion: '2025.12.31',
+              applicationVersion: '2026.01.08',
             ),
           ),
         ),

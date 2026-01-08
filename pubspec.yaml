@@ -1,7 +1,7 @@
 name: tlucalendar
 description: "TLU Calendar for TLU students - free, open source, no ads"
 publish_to: 'none'
-version: 2025.12.31
+version: 2026.01.08
 
 environment:
   sdk: ^3.10.4
@@ -21,20 +21,20 @@ dependencies:
   package_info_plus: ^9.0.0
   android_intent_plus: ^6.0.0
   flutter_local_notifications: ^19.5.0
-  timezone: ^0.10.1
+  timezone: ^0.11.0
   android_alarm_manager_plus: ^5.0.0  # For exact daily alarms
   fluttertoast: ^9.0.0  # For toast messages
   flutter_secure_storage: ^10.0.0  # For encrypted credential storage
   encrypt: ^5.0.3  # For additional encryption
   dartz: ^0.10.1
   get_it: ^9.2.0
-  equatable: ^2.0.7
+  equatable: ^2.0.8
   shimmer: ^3.0.0
   lottie: ^3.3.2
   flutter_staggered_animations: ^1.1.1
   table_calendar: ^3.2.0
   intl: ^0.20.2
-  ffi: ^2.1.4
+  ffi: ^2.1.5
   share_plus: ^12.0.1
   file_picker: ^10.3.8
   permission_handler: ^12.0.1
@@ -43,7 +43,7 @@ dependencies:
   brotli: ^0.6.0
 
 dependency_overrides:
-  timezone: ^0.10.1
+  timezone: ^0.11.0
 
 dev_dependencies:
   flutter_test:
