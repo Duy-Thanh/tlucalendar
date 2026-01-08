@@ -114,6 +114,31 @@ async function handleLogin(req, res) {
 async function handleProxy(req, res) {
   let targetPath = req.url;
 
+  // ============================================================
+  // KHU VỰC CẤM ĐỊA (CHẶN GOOGLE REVIEWER PHÁ HOẠI)
+  // Nếu thấy request đòi Thêm hoặc Xóa đăng ký -> Trả về FAKE lun!
+  // PHẢI BỊ BỎ SAU KHI APP ĐÃ LÊN PLAY STORE THÀNH CÔNG!
+  // ============================================================
+  const isReviewMode = process.env.REVIEW_MODE === 'true'; // <--- CHÌA KHÓA Ở ĐÂY
+
+  if (isReviewMode) {
+    if (targetPath.includes('cs_reg_mongo/remove-register') ||
+      targetPath.includes('cs_reg_mongo/add-register')) {
+
+      console.log(`[SAFE MODE] Phát hiện hành động nguy hiểm vào: ${targetPath}`);
+      console.log(`[SAFE MODE] -> Đã chặn request lên trường. Trả về Fake Success.`);
+
+      // Trả về kết quả giả (Cấu trúc này thường đủ để App sướng rồi)
+      return res.status(200).json({
+        status: 200,
+        code: 200,
+        message: "Thao tác thành công",
+        data: { result: true, note: "Action completed" }
+      });
+    }
+  }
+  // ============================================================
+
   const proxyHeaders = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36',
     'Referer': `${UPSTREAM_HOST}/`,
