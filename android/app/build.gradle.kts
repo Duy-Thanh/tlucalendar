@@ -1,5 +1,20 @@
 // Copyright (C) 2025 Nguyen Duy Thanh (@Nekkochan0x0007). All right reserved
 
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Cái dòng id(...) id(...) ở dưới kệ nó.
+        // Thêm dòng này để dạy khôn thằng R8:
+        classpath("org.jetbrains.kotlin:kotlin-metadata-jvm:2.3.0") 
+        // Lưu ý: Nếu có bản 2.3.0 trên Maven thì để 2.3.0, 
+        // còn không thì cứ để bản mới nhất mày tìm thấy. 
+        // Thường bản 2.0+ hoặc 2.1+ là nó support backward/forward compatibility tốt hơn bản cũ rích của AGP.
+    }
+}
+
 plugins {
     id("com.mikepenz.aboutlibraries.plugin")
     id("com.mikepenz.aboutlibraries.plugin.android")
