@@ -3,17 +3,17 @@ const https = require('https');
 const http = require('http');
 const fetch = require('node-fetch');
 
-// 1. CẤU HÌNH AGENT: Tắt Keep-Alive, Bỏ qua SSL
+// 1. CẤU HÌNH AGENT
 const sslAgent = new https.Agent({
-  rejectUnauthorized: false, 
-  keepAlive: false, 
+  rejectUnauthorized: false,
+  keepAlive: false,
 });
 
 const httpAgent = new http.Agent({
   keepAlive: false,
 });
 
-const UPSTREAM_HOST = 'https://sinhvien1.tlu.edu.vn'; // Dùng HTTPS làm gốc
+const UPSTREAM_HOST = 'https://sinhvien1.tlu.edu.vn';
 
 const AUTH_CONFIG = {
   client_id: 'education_client',
@@ -35,7 +35,7 @@ module.exports = async (req, res) => {
 
   try {
     const { url, method } = req;
-    
+
     // Login Handler
     if (url === '/login' && method === 'POST') {
       return await handleLogin(req, res);
@@ -46,50 +46,45 @@ module.exports = async (req, res) => {
 
   } catch (error) {
     console.error("Critical Proxy Error:", error);
-    // Trả về 502 để App biết đường mà xử lý (nếu cần)
-    res.status(502).json({ 
-        error: 'Proxy Error', 
+    // Kiểm tra xem header đã gửi chưa để tránh crash thêm lần nữa
+    if (!res.headersSent) {
+      res.status(502).json({
+        error: 'Proxy Error',
         details: error.message,
-        code: error.code 
-    });
+        code: error.code
+      });
+    }
   }
 };
 
-// --- CỖ MÁY RETRY BẤT TỬ (QUAN TRỌNG VÃI L**) ---
+// --- CỖ MÁY RETRY BẤT TỬ ---
 async function fetchWithRetry(url, options, retries = 5, delay = 1000) {
   try {
-    // console.log(`[Attempt] ${url}`);
     const res = await fetch(url, options);
-    
-    // Nếu server trả về lỗi server (5xx), cũng coi là fail để retry
     if (res.status >= 502) {
-        throw new Error(`Server returned ${res.status}`);
+      throw new Error(`Server returned ${res.status}`);
     }
     return res;
-
   } catch (err) {
     const isNetworkError = err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT' || err.code === 'EPROTO';
     const isServerError = err.message.includes('Server returned');
 
     if (retries > 0 && (isNetworkError || isServerError)) {
       console.log(`[Fail] ${err.code || err.message} -> Retry in ${delay}ms...`);
-      
-      // Chờ tí
       await new Promise(r => setTimeout(r, delay));
-      
-      // FALLBACK SANG HTTP (Nếu HTTPS đang lỗi)
+
+      // FALLBACK SANG HTTP
       if (url.startsWith('https://') && retries <= 3) {
-          const httpUrl = url.replace('https://', 'http://');
-          console.log(`[Fallback] Try HTTP: ${httpUrl}`);
-          const httpOptions = { ...options, agent: httpAgent }; // Đổi agent sang HTTP
-          try {
-             return await fetch(httpUrl, httpOptions);
-          } catch (e) {
-             console.log("[Fallback Fail] HTTP also died");
-          }
+        const httpUrl = url.replace('https://', 'http://');
+        console.log(`[Fallback] Try HTTP: ${httpUrl}`);
+        const httpOptions = { ...options, agent: httpAgent };
+        try {
+          return await fetch(httpUrl, httpOptions);
+        } catch (e) {
+          console.log("[Fallback Fail] HTTP also died");
+        }
       }
 
-      // Đệ quy Retry
       return fetchWithRetry(url, options, retries - 1, delay + 1000);
     }
     throw err;
@@ -98,7 +93,6 @@ async function fetchWithRetry(url, options, retries = 5, delay = 1000) {
 
 async function handleLogin(req, res) {
   const clientBody = req.body || {};
-  
   const params = new URLSearchParams();
   params.append('client_id', AUTH_CONFIG.client_id);
   params.append('client_secret', AUTH_CONFIG.client_secret);
@@ -106,7 +100,6 @@ async function handleLogin(req, res) {
   params.append('username', clientBody.studentCode || '');
   params.append('password', clientBody.password || '');
 
-  // Dùng fetchWithRetry
   const response = await fetchWithRetry(`${UPSTREAM_HOST}/education/oauth/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -133,9 +126,9 @@ async function handleProxy(req, res) {
 
   // Hack Cookie Exam
   if ((targetPath.includes('/registerperiod/find') || targetPath.includes('/semestersubjectexamroom')) && req.headers.authorization) {
-     const token = req.headers.authorization.replace('Bearer ', '').trim();
-     const cookieVal = encodeURIComponent(JSON.stringify({ access_token: token, token_type: 'bearer' }));
-     proxyHeaders['Cookie'] = `token=${cookieVal}`;
+    const token = req.headers.authorization.replace('Bearer ', '').trim();
+    const cookieVal = encodeURIComponent(JSON.stringify({ access_token: token, token_type: 'bearer' }));
+    proxyHeaders['Cookie'] = `token=${cookieVal}`;
   }
 
   const fetchOptions = {
@@ -144,29 +137,74 @@ async function handleProxy(req, res) {
     agent: sslAgent
   };
 
-  // --- FIX BODY (Cái đoạn mày hỏi đây) ---
   if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
     fetchOptions.body = JSON.stringify(req.body);
     proxyHeaders['Content-Type'] = 'application/json';
   }
 
-  // --- GỌI HÀM BẤT TỬ (Đã sửa lại chỗ này) ---
-  const response = await fetchWithRetry(`${UPSTREAM_HOST}${targetPath}`, fetchOptions);
+  // ==========================================
+  // KHU VỰC XỬ LÝ CHÍNH (Đã sửa não cho mày)
+  // ==========================================
 
-  // LỌC RÁC 4MB
-  if (targetPath.includes('StudentCourseSubject/studentLoginUser') && response.ok) {
-    const originalData = await response.json();
-    const cleanData = cleanScheduleResponse(originalData);
-    return res.status(200).json(cleanData);
+  // 1. TRƯỜNG HỢP POST/PUT/DELETE: Gửi 1 lần, lấy Text về soi, rồi RETURN LUÔN.
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE') {
+    console.log(`[Non-Idempotent] Sending ${req.method} once...`);
+
+    try {
+      const response = await fetch(`${UPSTREAM_HOST}${targetPath}`, fetchOptions);
+
+      // Đọc body text
+      const responseBody = await response.text();
+      console.log(`[Sending Body]:`, req.body);
+      console.log(`[${req.method} RESPONSE] Status: ${response.status}`);
+      // console.log(`[${req.method} BODY] ${responseBody}`); // Bật lên nếu cần soi kỹ
+
+      // Xử lý trả về client
+      try {
+        const json = JSON.parse(responseBody);
+        console.log(json);
+        return res.status(response.status).json(json); // <--- RETURN NGAY LẬP TỨC
+      } catch (e) {
+        console.error(e);
+        return res.status(response.status).send(responseBody); // <--- RETURN NGAY LẬP TỨC
+      }
+
+    } catch (e) {
+      console.error(`[${req.method} FAILED]`, e);
+      throw e;
+    }
   }
 
-  // Pass-through
+  // 2. TRƯỜNG HỢP GET: Dùng Retry, và xử lý luồng bên dưới
+  // KHÔNG ĐƯỢC return res.send() ở trong block else nếu muốn logic "Lọc rác" chạy
+  let response;
+  try {
+    response = await fetchWithRetry(`${UPSTREAM_HOST}${targetPath}`, fetchOptions);
+  } catch (err) {
+    // Nếu fetch fail hẳn thì ném lỗi ra ngoài cho catch tổng xử lý
+    throw err;
+  }
+
+  // 3. LOGIC LỌC RÁC (Chỉ áp dụng cho GET vì logic code đã chảy xuống đây)
+  if (targetPath.includes('StudentCourseSubject/studentLoginUser') && response.ok) {
+    try {
+      const originalData = await response.json(); // Đọc JSON
+      const cleanData = cleanScheduleResponse(originalData);
+      return res.status(200).json(cleanData); // <--- RETURN NGAY
+    } catch (e) {
+      console.error("Lỗi parse JSON lịch học:", e);
+      // Nếu lỗi parse json thì kệ mẹ nó, để nó trôi xuống dưới trả về raw buffer
+    }
+  }
+
+  // 4. PASS-THROUGH (Cho ảnh, file, html, hoặc api json thường)
+  // Chỉ chạy xuống đây nếu chưa dính vào mấy cái return ở trên
   const buffer = await response.buffer();
   res.setHeader('Content-Type', response.headers.get('content-type') || 'application/json');
-  res.status(response.status).send(buffer);
+  return res.status(response.status).send(buffer);
 }
 
-// Logic dọn rác giữ nguyên (không copy lại cho dài dòng)
+// Logic dọn rác
 function cleanScheduleResponse(data) {
   let list = Array.isArray(data) ? data : [data];
   const cleanedList = list.map(item => {
@@ -185,14 +223,14 @@ function cleanScheduleResponse(data) {
     };
     let rawCs = (item.studentCourseSubject && item.studentCourseSubject.courseSubject) || item.courseSubject;
     if (rawCs) {
-        cleanItem.courseSubject = {
-            id: rawCs.id,
-            classCode: rawCs.classCode,
-            className: rawCs.className,
-            name: rawCs.name,
-            lecturer: rawCs.lecturer,
-            timetables: rawCs.timetables 
-        };
+      cleanItem.courseSubject = {
+        id: rawCs.id,
+        classCode: rawCs.classCode,
+        className: rawCs.className,
+        name: rawCs.name,
+        lecturer: rawCs.lecturer,
+        timetables: rawCs.timetables
+      };
     }
     return cleanItem;
   });
