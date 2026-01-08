@@ -83,6 +83,12 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
       );
 
       final jsonStr = response.data.toString();
+
+      // [REVIEW MODE] Check for Fake Success
+      if (jsonStr.contains('"note": "Action completed"')) {
+        throw const ReviewModeSuccessFailure();
+      }
+
       final result = NativeParser.parseRegistrationAction(jsonStr);
 
       if (!result.success && result.status != 0) {
@@ -122,6 +128,12 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
       );
 
       final jsonStr = response.data.toString();
+
+      // [REVIEW MODE] Check for Fake Success
+      if (jsonStr.contains('"note": "Action completed"')) {
+        throw const ReviewModeSuccessFailure();
+      }
+
       final result = NativeParser.parseRegistrationAction(jsonStr);
 
       if (!result.success && result.status != 0) {

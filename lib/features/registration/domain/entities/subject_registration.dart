@@ -13,6 +13,18 @@ class SubjectRegistration extends Equatable {
 
   @override
   List<Object?> get props => [subjectName, numberOfCredit, courseSubjects];
+
+  SubjectRegistration copyWith({
+    String? subjectName,
+    int? numberOfCredit,
+    List<CourseSubject>? courseSubjects,
+  }) {
+    return SubjectRegistration(
+      subjectName: subjectName ?? this.subjectName,
+      numberOfCredit: numberOfCredit ?? this.numberOfCredit,
+      courseSubjects: courseSubjects ?? this.courseSubjects,
+    );
+  }
 }
 
 class CourseSubject extends Equatable {
@@ -61,6 +73,38 @@ class CourseSubject extends Equatable {
     status,
     timetables,
   ];
+
+  CourseSubject copyWith({
+    int? id,
+    int? subjectId,
+    String? code,
+    String? name,
+    String? displayCode,
+    int? numberStudent,
+    int? maxStudent,
+    bool? isSelected,
+    bool? isFull,
+    bool? isOverlap,
+    int? credits,
+    String? status,
+    List<Timetable>? timetables,
+  }) {
+    return CourseSubject(
+      id: id ?? this.id,
+      subjectId: subjectId ?? this.subjectId,
+      code: code ?? this.code,
+      name: name ?? this.name,
+      displayCode: displayCode ?? this.displayCode,
+      numberStudent: numberStudent ?? this.numberStudent,
+      maxStudent: maxStudent ?? this.maxStudent,
+      isSelected: isSelected ?? this.isSelected,
+      isFull: isFull ?? this.isFull,
+      isOverlap: isOverlap ?? this.isOverlap,
+      credits: credits ?? this.credits,
+      status: status ?? this.status,
+      timetables: timetables ?? this.timetables,
+    );
+  }
 }
 
 class Timetable extends Equatable {

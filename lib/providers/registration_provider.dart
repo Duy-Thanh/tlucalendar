@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:tlucalendar/core/error/failures.dart';
 import 'package:tlucalendar/features/registration/domain/entities/subject_registration.dart';
@@ -78,9 +79,17 @@ class RegistrationProvider extends ChangeNotifier {
     final result = await registerCourse(personId, periodId, payload, token);
 
     bool success = false;
+    // Check for Review Mode Signal or Real Error
+    bool isReviewMode = false;
     result.fold(
       (failure) {
-        _errorMessage = _mapFailureToMessage(failure);
+        if (failure is ReviewModeSuccessFailure) {
+          isReviewMode = true;
+          success = true; // Treat as success
+          _handleOptimisticUpdate(payload, isRegister: true);
+        } else {
+          _errorMessage = _mapFailureToMessage(failure);
+        }
       },
       (_) {
         success = true;
@@ -93,8 +102,13 @@ class RegistrationProvider extends ChangeNotifier {
       return false;
     }
 
-    // Refresh
-    await fetchRegistrationData(periodId);
+    // Refresh only if NOT in Review Mode (Real server update)
+    if (!isReviewMode) {
+      await fetchRegistrationData(periodId);
+    } else {
+      _isLoading = false;
+      notifyListeners();
+    }
     return true;
   }
 
@@ -113,9 +127,16 @@ class RegistrationProvider extends ChangeNotifier {
     final result = await cancelCourse(personId, periodId, payload, token);
 
     bool success = false;
+    bool isReviewMode = false;
     result.fold(
       (failure) {
-        _errorMessage = _mapFailureToMessage(failure);
+        if (failure is ReviewModeSuccessFailure) {
+          isReviewMode = true;
+          success = true;
+          _handleOptimisticUpdate(payload, isRegister: false);
+        } else {
+          _errorMessage = _mapFailureToMessage(failure);
+        }
       },
       (_) {
         success = true;
@@ -128,8 +149,49 @@ class RegistrationProvider extends ChangeNotifier {
       return false;
     }
 
-    await fetchRegistrationData(periodId);
+    if (!isReviewMode) {
+      await fetchRegistrationData(periodId);
+    } else {
+      _isLoading = false;
+      notifyListeners();
+    }
     return true;
+  }
+
+  void _handleOptimisticUpdate(String payload, {required bool isRegister}) {
+    try {
+      final Map<String, dynamic> json = jsonDecode(payload);
+
+      // Extract subjectId (which is the main ID in payload)
+      // Note: In Register payload, 'id' is often the CourseSubject ID.
+      // In Cancel payload, 'id' IS the CourseSubject ID.
+      // Based on payload structure: "id": 53282 (CourseSubject ID), "subjectId": 1418 ...
+      final int? courseSubjectId = json['id'];
+
+      if (courseSubjectId == null) return;
+
+      // Re-map the _subjects list to create a new state
+      _subjects = _subjects.map((sub) {
+        bool changed = false;
+        final newCourseSubjects = sub.courseSubjects.map((cs) {
+          if (cs.id == courseSubjectId) {
+            changed = true;
+            // Toggle selection based on action
+            return cs.copyWith(isSelected: isRegister);
+          }
+          return cs;
+        }).toList();
+
+        if (changed) {
+          return sub.copyWith(courseSubjects: newCourseSubjects);
+        }
+        return sub;
+      }).toList();
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint("Optimistic Update Failed: $e");
+    }
   }
 
   String _mapFailureToMessage(Failure failure) {

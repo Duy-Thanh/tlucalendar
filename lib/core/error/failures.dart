@@ -33,3 +33,7 @@ class CachedDataFailure<T> extends Failure {
 class AuthFailure extends Failure {
   const AuthFailure(super.message);
 }
+
+class ReviewModeSuccessFailure extends Failure {
+  const ReviewModeSuccessFailure() : super("Thao tác thành công (Review Mode)");
+}
