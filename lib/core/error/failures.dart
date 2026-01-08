@@ -36,4 +36,9 @@ class AuthFailure extends Failure {
 
 class ReviewModeSuccessFailure extends Failure {
   const ReviewModeSuccessFailure() : super("Thao tác thành công (Review Mode)");
+
+  @override
+  String toString() {
+    return "ReviewModeSuccessFailure";
+  }
 }
