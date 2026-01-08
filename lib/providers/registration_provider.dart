@@ -83,7 +83,9 @@ class RegistrationProvider extends ChangeNotifier {
     bool isReviewMode = false;
     result.fold(
       (failure) {
-        if (failure is ReviewModeSuccessFailure) {
+        // Robust check: Type check OR String check (to handle hot-reload/runtime ghosts)
+        if (failure is ReviewModeSuccessFailure ||
+            failure.toString().contains("ReviewMode")) {
           isReviewMode = true;
           success = true; // Treat as success
           _handleOptimisticUpdate(payload, isRegister: true);
@@ -130,7 +132,9 @@ class RegistrationProvider extends ChangeNotifier {
     bool isReviewMode = false;
     result.fold(
       (failure) {
-        if (failure is ReviewModeSuccessFailure) {
+        // Robust check: Type check OR String check
+        if (failure is ReviewModeSuccessFailure ||
+            failure.toString().contains("ReviewMode")) {
           isReviewMode = true;
           success = true;
           _handleOptimisticUpdate(payload, isRegister: false);
@@ -219,12 +223,19 @@ class RegistrationProvider extends ChangeNotifier {
   }
 
   String _mapFailureToMessage(Failure failure) {
+    debugPrint(
+      "MapFailure: RuntimeType=${failure.runtimeType}, Message=${failure.message}",
+    );
     if (failure is ServerFailure) {
       return failure.message;
     } else if (failure is CacheFailure) {
       return failure.message;
+    } else if (failure is ReviewModeSuccessFailure) {
+      return failure
+          .message; // Should have been handled above, but just in case
     } else {
-      return 'Unexpected error';
+      return failure
+          .toString(); // Fallback that explains the "ReviewModeSuccessFailure(...)" output we saw!
     }
   }
 }
