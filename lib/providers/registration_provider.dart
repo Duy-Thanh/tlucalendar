@@ -160,15 +160,28 @@ class RegistrationProvider extends ChangeNotifier {
 
   void _handleOptimisticUpdate(String payload, {required bool isRegister}) {
     try {
+      debugPrint("Optimistic Update: Payload=$payload");
       final Map<String, dynamic> json = jsonDecode(payload);
 
-      // Extract subjectId (which is the main ID in payload)
-      // Note: In Register payload, 'id' is often the CourseSubject ID.
-      // In Cancel payload, 'id' IS the CourseSubject ID.
-      // Based on payload structure: "id": 53282 (CourseSubject ID), "subjectId": 1418 ...
-      final int? courseSubjectId = json['id'];
+      // Robust ID parsing
+      dynamic idVal = json['id'];
+      int? courseSubjectId;
+      if (idVal is int) {
+        courseSubjectId = idVal;
+      } else if (idVal is String) {
+        courseSubjectId = int.tryParse(idVal);
+      }
 
-      if (courseSubjectId == null) return;
+      debugPrint(
+        "Optimistic Update: TargetID=$courseSubjectId, isRegister=$isRegister",
+      );
+
+      if (courseSubjectId == null) {
+        debugPrint("Optimistic Update: TargetID is null. Aborting.");
+        return;
+      }
+
+      bool found = false;
 
       // Re-map the _subjects list to create a new state
       _subjects = _subjects.map((sub) {
@@ -176,6 +189,10 @@ class RegistrationProvider extends ChangeNotifier {
         final newCourseSubjects = sub.courseSubjects.map((cs) {
           if (cs.id == courseSubjectId) {
             changed = true;
+            found = true;
+            debugPrint(
+              "Optimistic Update: Found match! Toggling isSelected to $isRegister",
+            );
             // Toggle selection based on action
             return cs.copyWith(isSelected: isRegister);
           }
@@ -188,9 +205,16 @@ class RegistrationProvider extends ChangeNotifier {
         return sub;
       }).toList();
 
-      notifyListeners();
-    } catch (e) {
-      debugPrint("Optimistic Update Failed: $e");
+      if (found) {
+        notifyListeners();
+        debugPrint("Optimistic Update: Listeners notified.");
+      } else {
+        debugPrint(
+          "Optimistic Update: No matching CourseSubject found for ID $courseSubjectId",
+        );
+      }
+    } catch (e, stack) {
+      debugPrint("Optimistic Update Failed: $e\n$stack");
     }
   }
 
