@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:tlucalendar/providers/registration_provider.dart';
 import 'package:tlucalendar/features/registration/domain/entities/subject_registration.dart';
 import 'package:tlucalendar/features/schedule/domain/entities/semester_register_period.dart';
-
+import 'package:tlucalendar/providers/schedule_provider.dart';
 import 'dart:convert'; // For jsonEncode
 
 class CourseRegistrationScreen extends StatefulWidget {
@@ -394,32 +394,132 @@ class _CourseSubjectItemState extends State<_CourseSubjectItem> {
     });
 
     // Construct payload. C# expects JSON of CourseSubjectDto.
+    final scheduleProvider = context.read<ScheduleProvider>();
+    final courseHours = scheduleProvider.courseHours;
+
+    Map<String, dynamic> buildHourObj(int index) {
+      final h = courseHours.where((e) => e.indexNumber == index).firstOrNull;
+
+      return {
+        "id": h?.id,
+        "name": h?.name,
+        "start": null,
+        "startString": h?.startString,
+        "end": null,
+        "endString": h?.endString,
+        "indexNumber": index,
+        "type": null,
+      };
+    }
+
     final Map<String, dynamic> payloadMap = {
+      "createDate": null,
+      "createdBy": null,
+      "modifyDate": null,
+      "modifiedBy": null,
       "id": widget.course.id,
+      "voided": false,
       "code": widget.course.code,
-      "displayCode": widget.course.displayCode,
-      "maxStudent": widget.course.maxStudent,
-      "numberStudent": widget.course.numberStudent,
-      "isSelected": widget.course.isSelected,
+      "shortCode": null,
+      "subjectId": null, // We don't have this, sending null
+      "subjectName": widget.course.name,
+      "subjectCode": null,
+      "parent": null,
+      "subCourseSubjects": null,
+      "isUsingConfig": false,
       "isFullClass": widget.course.isFull,
-      "numberOfCredit": widget.course.credits,
-      "status": widget.course.status,
+      "courseSubjectConfigs": null,
       "timetables": widget.course.timetables
           .map(
             (t) => {
               "id": t.id,
+              "endHour": buildHourObj(t.endHour),
+              "startHour": buildHourObj(t.startHour),
+              "teacher": null, // Detailed teacher object missing
+              "assistantTeacher": null,
+              "room": {
+                "id": null,
+                "name": t.roomName,
+                "code": null,
+                "capacity": null,
+                "examCapacity": null,
+                "building": null,
+                "dupName": null,
+                "dupCode": null,
+                "duplicate": false,
+              },
+              "weekIndex": t.dayOfWeek,
+              "fromWeek": t.fromWeek,
+              "fromWeekStr": null,
+              "toWeek": t.toWeek,
+              "toWeekStr": null,
+              "start": null,
+              "end": null,
+              "teacherName": t.teacherName,
+              "roomName": t.roomName,
+              "roomCode": null,
+              "staffCode": null,
+              "assistantStaffCode": null,
+              "courseHourseStartCode": null,
+              "courseHourseEndCode": null,
+              "numberHours": null,
               "startDate": t.startDate,
               "endDate": t.endDate,
-              "fromWeek": t.fromWeek,
-              "toWeek": t.toWeek,
-              "weekIndex": t.dayOfWeek,
-              "startHour": {"indexNumber": t.startHour},
-              "endHour": {"indexNumber": t.endHour},
-              "roomName": t.roomName,
-              "teacherName": t.teacherName,
+              "subjectName": widget.course.name,
+              "courseSubjectCode": null,
+              "courseSubjectId": widget.course.id,
+              "group_by_key": false,
             },
           )
           .toList(),
+      "semesterSubject": null,
+      "maxStudent": widget.course.maxStudent,
+      "minStudent": null,
+      "numberStudent": widget.course.numberStudent,
+      "courseSubjectType": null,
+      "learningSkillId": null,
+      "learningSkillName": null,
+      "learningSkillCode": null,
+      "isSelected": widget.course.isSelected,
+      "children": null,
+      "hashCourseSubjects": null, // C# uses explicit type, but null is fine
+      "expanded": false,
+      "isGrantAll": false,
+      "isDeniedAll": false,
+      "trainingBase": null,
+      "isOvelapTime": widget.course.isOverlap, // Note correct key name
+      "overLapClasses": null,
+      "courseYearId": null,
+      "courseYearCode": null,
+      "courseYearName": null,
+      "displayName": widget.course.displayCode,
+      "numberOfCredit": widget.course.credits,
+      "isFeeByCourseSubject": null,
+      "feePerCredit": null,
+      "tuitionCoefficient": null,
+      "totalFee": null,
+      "feePerStudent": null,
+      "enrollmentClassId": null,
+      "enrollmentClassCode": null,
+      "numberHours": null,
+      "teacher": null,
+      "teacherName": null,
+      "teacherCode": null,
+      "startDate": null,
+      "endDate": null,
+      "learningMethod": null,
+      "status": int.tryParse(widget.course.status) ?? 0, // Should be int?
+      "subjectExams": null,
+      "semesterId": null,
+      "semesterCode": null,
+      "periodId": null,
+      "periodName": null,
+      "username": null,
+      "actionTime": null,
+      "logContent": null,
+      "numberLearningSkill": null,
+      "numberSubCourseSubject": null,
+      "check": false,
     };
 
     final payload = jsonEncode(payloadMap);
