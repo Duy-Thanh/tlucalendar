@@ -106,7 +106,7 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
     } on DioException catch (e) {
       throw ServerFailure(e.message ?? 'Unknown Dio Error');
     } catch (e) {
-      if (e is ServerFailure) rethrow;
+      if (e is ServerFailure || e is ReviewModeSuccessFailure) rethrow;
       throw ServerFailure(e.toString());
     }
   }
@@ -154,7 +154,7 @@ class RegistrationRemoteDataSourceImpl implements RegistrationRemoteDataSource {
     } on DioException catch (e) {
       throw ServerFailure(e.message ?? 'Unknown Dio Error');
     } catch (e) {
-      if (e is ServerFailure) rethrow;
+      if (e is ServerFailure || e is ReviewModeSuccessFailure) rethrow;
       throw ServerFailure(e.toString());
     }
   }
