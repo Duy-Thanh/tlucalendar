@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Nguyen Duy Thanh (@Nekkochan0x0007). All right reserved
+// Copyright (C) 2025 - 2026 Nguyen Duy Thanh (@Nekkochan0x0007). All right reserved
 
 buildscript {
     repositories {
@@ -55,7 +55,7 @@ android {
         // Version code with last is 30 is BETA CHANNEL
         // Version code with last is 40 is ALPHA CHANNEL
         // 21, 2x is INCREMENT VERSION for RELEASE CHANNEL
-        versionCode = 2026010821
+        versionCode = 2026011520
         versionName = flutter.versionName
 
         ndk {
