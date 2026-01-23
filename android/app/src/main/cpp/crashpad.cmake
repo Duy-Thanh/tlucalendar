@@ -8,6 +8,7 @@ include_directories(
     "${CRASHPAD_DIR}"
     "${CRASHPAD_DIR}/compat/android"
     "${CRASHPAD_DIR}/compat/linux"
+    "${CRASHPAD_DIR}/compat/non_win"
 )
 
 # Find system libraries
