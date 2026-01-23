@@ -44,4 +44,13 @@ if (-not (Test-Path $ZlibDir)) {
     Write-Host "Zlib directory already exists."
 }
 
+# Patch zlib_output_stream.cc for const correctness
+$ZlibOutputStream = Join-Path $CrashpadDir "util\stream\zlib_output_stream.cc"
+if (Test-Path $ZlibOutputStream) {
+    Write-Host "Patching zlib_output_stream.cc..."
+    (Get-Content $ZlibOutputStream) -replace 'zlib_stream_.next_in = data;', 'zlib_stream_.next_in = const_cast<Bytef*>(data);' | Set-Content $ZlibOutputStream
+} else {
+    Write-Host "Warning: zlib_output_stream.cc not found, cannot patch."
+}
+
 Write-Host "Done. Crashpad sources are ready."

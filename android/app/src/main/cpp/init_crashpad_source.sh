@@ -50,4 +50,15 @@ else
     echo "Zlib directory already exists."
 fi
 
+# Patch zlib_output_stream.cc for const correctness (Android NDK / newer clang issue)
+# Error: assigning to 'Bytef *' (aka 'unsigned char *') from 'const uint8_t *'
+ZLIB_OUTPUT_STREAM="$CRASHPAD_DIR/util/stream/zlib_output_stream.cc"
+if [ -f "$ZLIB_OUTPUT_STREAM" ]; then
+    echo "Patching zlib_output_stream.cc..."
+    # Use sed to cast data to Bytef* (removing const)
+    sed -i 's/zlib_stream_.next_in = data;/zlib_stream_.next_in = const_cast<Bytef*>(data);/g' "$ZLIB_OUTPUT_STREAM"
+else
+    echo "Warning: zlib_output_stream.cc not found, cannot patch."
+fi
+
 echo "Done. Crashpad sources are ready."
