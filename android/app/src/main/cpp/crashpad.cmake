@@ -61,6 +61,8 @@ target_link_libraries(crashpad_util mini_chromium crashpad_compat ${Z_LIB}) # Li
 
 # --- Crashpad Client ---
 file(GLOB_RECURSE CRASHPAD_CLIENT_SOURCES "${CRASHPAD_DIR}/client/*.cc")
+file(GLOB_RECURSE CRASHPAD_CLIENT_ASM "${CRASHPAD_DIR}/client/*.S")
+list(APPEND CRASHPAD_CLIENT_SOURCES ${CRASHPAD_CLIENT_ASM})
 list(FILTER CRASHPAD_CLIENT_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")
 list(FILTER CRASHPAD_CLIENT_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/ios_handler/|/mach/|/cros_|/test/")
 list(FILTER CRASHPAD_CLIENT_SOURCES EXCLUDE REGEX "_test(|_main|_module|_util)\\.cc$")
