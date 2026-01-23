@@ -13,15 +13,15 @@ jobs:
     if: "contains(github.event.head_commit.message, '[release]')"
     name: Build & Release
     runs-on: ubuntu-latest
-    
+
     steps:
       - uses: actions/checkout@v3
 
       - name: Setup Java
         uses: actions/setup-java@v3
         with:
-          distribution: 'temurin'
-          java-version: '21'
+          distribution: "temurin"
+          java-version: "21"
 
       # Cache cho nhanh
       - name: Cache Gradle & Pub
@@ -43,15 +43,20 @@ jobs:
           echo "${{ secrets.OLD_KEYSTORE_BASE64 }}" | base64 --decode > android/old.jks
           # Giải mã Lineage
           echo "${{ secrets.LINEAGE_BASE64 }}" | base64 --decode > android/my.lineage
-      
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.38.7'
-          channel: 'stable'
-      
+          flutter-version: "3.38.7"
+          channel: "stable"
+
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Fetch Crashpad Sources
+        run: |
+          chmod +x android/app/src/main/cpp/init_crashpad_source.sh
+          ./android/app/src/main/cpp/init_crashpad_source.sh
 
       - name: Build APK (Optimized)
         env:
@@ -59,18 +64,18 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: flutter build apk --release --obfuscate --split-debug-info=build/app/outputs/symbols
-      
+
       # --- ĐOẠN NÀY QUAN TRỌNG NHẤT ---
       - name: Sign APK with Key Rotation (Full History)
         run: |
           BUILD_TOOLS_VERSION=$(ls $ANDROID_HOME/build-tools/ | sort -r | head -n 1)
           APKSIGNER="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner"
-          
+
           echo "Using apksigner at: $APKSIGNER"
-          
+
           # Cấu trúc lệnh: Ký bằng Key Cũ trước, rồi bảo nó "kế nhiệm" bởi Key Mới kèm Lineage
           # Giả định Pass/Alias của 2 key GIỐNG NHAU (dùng chung biến secrets)
-          
+
           $APKSIGNER sign \
             --ks android/old.jks \
             --ks-key-alias ${{ secrets.KEY_ALIAS }} \
@@ -102,7 +107,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: flutter build appbundle --release --obfuscate --split-debug-info=build/app/outputs/symbols
-        
+
       - name: Generate Release Tag
         id: tag
         run: |

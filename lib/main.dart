@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:ui';
 
 import 'package:tlucalendar/providers/theme_provider.dart';
 import 'package:tlucalendar/providers/auth_provider.dart';
@@ -26,6 +27,21 @@ void main() async {
   await CrashpadService.initialize(
     uploadUrl: 'https://crashpad.javalorant.xyz/submit',
   );
+
+  // Capture Flutter Errors (Layout/Render)
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details); // Print to console/screen
+    CrashpadService.sendDartException(
+      details.exception,
+      details.stack ?? StackTrace.empty,
+    );
+  };
+
+  // Capture Async/Platform Errors
+  PlatformDispatcher.instance.onError = (error, stack) {
+    CrashpadService.sendDartException(error, stack);
+    return true; // Prevent app crash
+  };
 
   // Initialize Service Locator (Dependency Injection)
   await di.init();

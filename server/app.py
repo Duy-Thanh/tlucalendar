@@ -24,7 +24,13 @@ def upload_minidump():
         # Generate a unique filename using timestamp and UUID
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         unique_id = str(uuid.uuid4())[:8]
-        filename = f"crash_{timestamp}_{unique_id}.dmp"
+        
+        # Preserve original extension (e.g., .txt for Dart logs, .dmp for Native)
+        _, ext = os.path.splitext(file.filename)
+        if not ext:
+            ext = ".dmp"
+            
+        filename = f"crash_{timestamp}_{unique_id}{ext}"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         
         file.save(filepath)
