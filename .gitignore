@@ -54,6 +54,7 @@ key.properties
 !assets/lottie/*.json
 *.html
 output.txt
+android/app/src/main/cpp/crashpad/*
 
 # DISABLE IOS AND MACOS UPDATE CODEBASE
 ios/*
