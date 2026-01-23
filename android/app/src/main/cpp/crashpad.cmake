@@ -10,6 +10,10 @@ include_directories(
     "${CRASHPAD_DIR}/compat/linux"
 )
 
+# Find system libraries
+find_library(LOG_LIB log)
+find_library(Z_LIB z)
+
 # --- Mini Chromium Base ---
 file(GLOB_RECURSE MINI_CHROMIUM_SOURCES "${MINI_CHROMIUM_DIR}/base/*.cc")
 # Filter out Mac/Win specific files
@@ -17,11 +21,21 @@ list(FILTER MINI_CHROMIUM_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia)\\.cc$")
 list(FILTER MINI_CHROMIUM_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/mach/")
 list(FILTER MINI_CHROMIUM_SOURCES EXCLUDE REGEX "(_test|_test_util)\\.cc$")
 
+list(FILTER MINI_CHROMIUM_SOURCES EXCLUDE REGEX "(_test|_test_util)\\.cc$")
+
+# Check sources
+list(LENGTH MINI_CHROMIUM_SOURCES MINI_CHROMIUM_LEN)
+if(MINI_CHROMIUM_LEN EQUAL 0)
+    message(FATAL_ERROR "No Mini Chromium sources found in ${MINI_CHROMIUM_DIR}/base")
+else()
+    message(STATUS "Found ${MINI_CHROMIUM_LEN} Mini Chromium source files")
+endif()
+
 add_library(mini_chromium STATIC ${MINI_CHROMIUM_SOURCES})
 target_compile_definitions(mini_chromium PUBLIC -D__ANDROID__)
 add_definitions(-DCRASHPAD_LSS_SOURCE_EMBEDDED) # Tell Crashpad to look for LSS in third_party/lss/lss
 add_definitions(-DCRASHPAD_ZLIB_SOURCE_SYSTEM) # Use Android NDK's system zlib
-target_link_libraries(mini_chromium log)
+target_link_libraries(mini_chromium ${LOG_LIB})
 
 # --- Crashpad Compat ---
 file(GLOB_RECURSE CRASHPAD_COMPAT_SOURCES "${CRASHPAD_DIR}/compat/*.cc")
@@ -38,11 +52,10 @@ list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/
 list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "_test(|_main|_util|_util_linux)\\.cc$")
 
 add_library(crashpad_util STATIC ${CRASHPAD_UTIL_SOURCES})
-target_link_libraries(crashpad_util mini_chromium crashpad_compat z) # Link system zlib
+target_link_libraries(crashpad_util mini_chromium crashpad_compat ${Z_LIB}) # Link system zlib
 
-# ... (omitted)
-
-target_link_libraries(crashpad_handler crashpad_client crashpad_util mini_chromium crashpad_compat log) # removed system z
+# ... (omitted) line removed
+# premature target_link_libraries removed
 
 # --- Crashpad Client ---
 file(GLOB_RECURSE CRASHPAD_CLIENT_SOURCES "${CRASHPAD_DIR}/client/*.cc")
@@ -83,7 +96,7 @@ add_executable(crashpad_handler
     ${CRASHPAD_TOOLS_SOURCES}
 )
 
-target_link_libraries(crashpad_handler crashpad_client crashpad_util mini_chromium crashpad_compat log)
+target_link_libraries(crashpad_handler crashpad_client crashpad_util mini_chromium crashpad_compat ${LOG_LIB})
 
 # Rename to libcrashpad_handler.so so Android extracts it
 set_target_properties(crashpad_handler PROPERTIES OUTPUT_NAME "crashpad_handler")
