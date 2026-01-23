@@ -50,6 +50,7 @@ list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia)\\.cc$")
 list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/mach/")
 # Exclude tests
 list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "_test(|_main|_util|_util_linux)\\.cc$")
+list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "http_transport_libcurl\\.cc$")
 
 add_library(crashpad_util STATIC ${CRASHPAD_UTIL_SOURCES})
 target_link_libraries(crashpad_util mini_chromium crashpad_compat ${Z_LIB}) # Link system zlib
