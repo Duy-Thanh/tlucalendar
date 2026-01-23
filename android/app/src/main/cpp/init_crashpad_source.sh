@@ -28,4 +28,16 @@ else
      echo "Mini Chromium directory already exists."
 fi
 
+# Clone Linux Syscall Support (LSS) - Required for Android/Linux
+LSS_DIR="$CRASHPAD_DIR/third_party/lss/lss"
+if [ ! -d "$LSS_DIR" ]; then
+    echo "Downloading LSS..."
+    mkdir -p "$LSS_DIR"
+    # Clone into temp and move files to avoid 'non-empty dir' git errors if any specific issues arise, 
+    # but cloning into empty dir is fine.
+    git clone https://chromium.googlesource.com/linux-syscall-support "$LSS_DIR"
+else
+    echo "LSS directory already exists."
+fi
+
 echo "Done. Crashpad sources are ready."

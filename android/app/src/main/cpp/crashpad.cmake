@@ -18,6 +18,7 @@ list(FILTER MINI_CHROMIUM_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/
 
 add_library(mini_chromium STATIC ${MINI_CHROMIUM_SOURCES})
 target_compile_definitions(mini_chromium PUBLIC -D__ANDROID__)
+add_definitions(-DCRASHPAD_LSS_SOURCE_EMBEDDED) # Tell Crashpad to look for LSS in third_party/lss/lss
 target_link_libraries(mini_chromium log)
 
 # --- Crashpad Compat ---

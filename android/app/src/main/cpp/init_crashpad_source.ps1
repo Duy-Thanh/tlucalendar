@@ -24,4 +24,14 @@ if (-not (Test-Path $MiniChromiumDir)) {
     Write-Host "Mini Chromium directory already exists."
 }
 
+# Clone LSS
+$LssDir = Join-Path $CrashpadDir "third_party\lss\lss"
+if (-not (Test-Path $LssDir)) {
+    Write-Host "Downloading LSS..."
+    New-Item -ItemType Directory -Force -Path $LssDir | Out-Null
+    git clone https://chromium.googlesource.com/linux-syscall-support $LssDir
+} else {
+    Write-Host "LSS directory already exists."
+}
+
 Write-Host "Done. Crashpad sources are ready."
