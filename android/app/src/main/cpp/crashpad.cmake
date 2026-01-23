@@ -91,6 +91,7 @@ file(GLOB_RECURSE CRASHPAD_TOOLS_SOURCES "${CRASHPAD_DIR}/tools/*.cc")
 list(FILTER CRASHPAD_TOOLS_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")
 list(FILTER CRASHPAD_TOOLS_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/ios_handler/|/mach/|/cros_|/test/")
 list(FILTER CRASHPAD_TOOLS_SOURCES EXCLUDE REGEX "_test(|_main|_module|_util)\\.cc$")
+list(FILTER CRASHPAD_TOOLS_SOURCES EXCLUDE REGEX "(base94_encoder|crashpad_database_util|crashpad_http_upload|dump_minidump_annotations|generate_dump|run_with_crashpad)\\.cc$")
 
 add_executable(crashpad_handler 
     ${CRASHPAD_HANDLER_SOURCES}
@@ -98,6 +99,9 @@ add_executable(crashpad_handler
     ${CRASHPAD_MINIDUMP_SOURCES}
     ${CRASHPAD_TOOLS_SOURCES}
 )
+
+# Exclude duplicate main symbols from handler sources
+list(FILTER CRASHPAD_HANDLER_SOURCES EXCLUDE REGEX "(crashpad_handler_test_extended_handler|handler_trampoline)\\.cc$")
 
 target_link_libraries(crashpad_handler crashpad_client crashpad_util mini_chromium crashpad_compat ${LOG_LIB})
 
