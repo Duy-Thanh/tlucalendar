@@ -42,7 +42,7 @@ target_link_libraries(mini_chromium ${LOG_LIB})
 file(GLOB_RECURSE CRASHPAD_COMPAT_SOURCES "${CRASHPAD_DIR}/compat/*.cc")
 list(FILTER CRASHPAD_COMPAT_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")
 list(FILTER CRASHPAD_COMPAT_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/ios_handler/|/mach/|/cros_")
-list(FILTER CRASHPAD_COMPAT_SOURCES EXCLUDE REGEX "(_test|_test_util)\\.cc$")
+list(FILTER CRASHPAD_COMPAT_SOURCES EXCLUDE REGEX "(_test|_test_util|_test_module)\\.cc$")
 add_library(crashpad_compat STATIC ${CRASHPAD_COMPAT_SOURCES})
 
 # --- Crashpad Util ---
@@ -50,7 +50,7 @@ file(GLOB_RECURSE CRASHPAD_UTIL_SOURCES "${CRASHPAD_DIR}/util/*.cc")
 list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")
 list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/ios_handler/|/mach/|/cros_")
 # Exclude tests
-list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "_test(|_main|_util|_util_linux|_server)\\.cc$")
+list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "_test(|_main|_util|_util_linux|_server|_module)\\.cc$")
 list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "http_transport_libcurl\\.cc$")
 
 add_library(crashpad_util STATIC ${CRASHPAD_UTIL_SOURCES})
@@ -63,7 +63,7 @@ target_link_libraries(crashpad_util mini_chromium crashpad_compat ${Z_LIB}) # Li
 file(GLOB_RECURSE CRASHPAD_CLIENT_SOURCES "${CRASHPAD_DIR}/client/*.cc")
 list(FILTER CRASHPAD_CLIENT_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")
 list(FILTER CRASHPAD_CLIENT_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/ios_handler/|/mach/|/cros_")
-list(FILTER CRASHPAD_CLIENT_SOURCES EXCLUDE REGEX "_test(|_main)\\.cc$")
+list(FILTER CRASHPAD_CLIENT_SOURCES EXCLUDE REGEX "_test(|_main|_module)\\.cc$")
 
 add_library(crashpad_client STATIC ${CRASHPAD_CLIENT_SOURCES})
 target_link_libraries(crashpad_client crashpad_util)
@@ -72,24 +72,24 @@ target_link_libraries(crashpad_client crashpad_util)
 file(GLOB_RECURSE CRASHPAD_HANDLER_SOURCES "${CRASHPAD_DIR}/handler/*.cc")
 list(FILTER CRASHPAD_HANDLER_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")
 list(FILTER CRASHPAD_HANDLER_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/ios_handler/|/mach/|/cros_")
-list(FILTER CRASHPAD_HANDLER_SOURCES EXCLUDE REGEX "_test(|_main)\\.cc$")
+list(FILTER CRASHPAD_HANDLER_SOURCES EXCLUDE REGEX "_test(|_main|_module)\\.cc$")
 
 # Common snapshot/minidump sources needed by handler
 file(GLOB_RECURSE CRASHPAD_SNAPSHOT_SOURCES "${CRASHPAD_DIR}/snapshot/*.cc")
 list(FILTER CRASHPAD_SNAPSHOT_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")
 list(FILTER CRASHPAD_SNAPSHOT_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/ios_handler/|/mach/|/cros_")
-list(FILTER CRASHPAD_SNAPSHOT_SOURCES EXCLUDE REGEX "_test(|_main)\\.cc$")
+list(FILTER CRASHPAD_SNAPSHOT_SOURCES EXCLUDE REGEX "_test(|_main|_module)\\.cc$")
 
 file(GLOB_RECURSE CRASHPAD_MINIDUMP_SOURCES "${CRASHPAD_DIR}/minidump/*.cc")
 list(FILTER CRASHPAD_MINIDUMP_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")
 list(FILTER CRASHPAD_MINIDUMP_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/ios_handler/|/mach/|/cros_")
-list(FILTER CRASHPAD_MINIDUMP_SOURCES EXCLUDE REGEX "_test(|_main)\\.cc$")
+list(FILTER CRASHPAD_MINIDUMP_SOURCES EXCLUDE REGEX "_test(|_main|_module)\\.cc$")
 
 # Tool support
 file(GLOB_RECURSE CRASHPAD_TOOLS_SOURCES "${CRASHPAD_DIR}/tools/*.cc")
 list(FILTER CRASHPAD_TOOLS_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")
 list(FILTER CRASHPAD_TOOLS_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/ios_handler/|/mach/|/cros_")
-list(FILTER CRASHPAD_TOOLS_SOURCES EXCLUDE REGEX "_test(|_main)\\.cc$")
+list(FILTER CRASHPAD_TOOLS_SOURCES EXCLUDE REGEX "_test(|_main|_module)\\.cc$")
 
 add_executable(crashpad_handler 
     ${CRASHPAD_HANDLER_SOURCES}
