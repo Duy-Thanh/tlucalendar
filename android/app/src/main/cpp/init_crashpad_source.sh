@@ -61,4 +61,16 @@ else
     echo "Warning: zlib_output_stream.cc not found, cannot patch."
 fi
 
+# Patch system_snapshot_linux.cc to disable __system_property_read_callback (API 26+)
+# This function is not available on Android 24, causing build failure.
+SYSTEM_SNAPSHOT_LINUX="$CRASHPAD_DIR/snapshot/linux/system_snapshot_linux.cc"
+if [ -f "$SYSTEM_SNAPSHOT_LINUX" ]; then
+    echo "Patching system_snapshot_linux.cc (disable __system_property_read_callback)..."
+    # Comment out the line: __system_property_read_callback(prop, ReadPropertyCallback, &data);
+    # matches the function call and replaces it with // comment
+    sed -i 's/__system_property_read_callback(prop, ReadPropertyCallback, &data);/\/\/ __system_property_read_callback(prop, ReadPropertyCallback, \&data);/g' "$SYSTEM_SNAPSHOT_LINUX"
+else
+    echo "Warning: system_snapshot_linux.cc not found, cannot patch."
+fi
+
 echo "Done. Crashpad sources are ready."

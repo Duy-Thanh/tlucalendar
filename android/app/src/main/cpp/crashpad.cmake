@@ -79,6 +79,7 @@ file(GLOB_RECURSE CRASHPAD_SNAPSHOT_SOURCES "${CRASHPAD_DIR}/snapshot/*.cc")
 list(FILTER CRASHPAD_SNAPSHOT_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")
 list(FILTER CRASHPAD_SNAPSHOT_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/ios/|/ios_handler/|/mach/|/cros_")
 list(FILTER CRASHPAD_SNAPSHOT_SOURCES EXCLUDE REGEX "_test(|_main|_module)\\.cc$")
+list(FILTER CRASHPAD_SNAPSHOT_SOURCES EXCLUDE REGEX "test_modules\\.cc$")
 
 file(GLOB_RECURSE CRASHPAD_MINIDUMP_SOURCES "${CRASHPAD_DIR}/minidump/*.cc")
 list(FILTER CRASHPAD_MINIDUMP_SOURCES EXCLUDE REGEX "(_mac|_win|_fuchsia|_ios|_tvos)\\.cc$")

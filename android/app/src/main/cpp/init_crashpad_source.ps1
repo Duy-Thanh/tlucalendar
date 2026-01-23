@@ -53,4 +53,14 @@ if (Test-Path $ZlibOutputStream) {
     Write-Host "Warning: zlib_output_stream.cc not found, cannot patch."
 }
 
+# Patch system_snapshot_linux.cc to disable __system_property_read_callback (API 26+)
+$SystemSnapshotLinux = Join-Path $CrashpadDir "snapshot\linux\system_snapshot_linux.cc"
+if (Test-Path $SystemSnapshotLinux) {
+    Write-Host "Patching system_snapshot_linux.cc..."
+    # Escape parenthesis for regex
+    (Get-Content $SystemSnapshotLinux) -replace '__system_property_read_callback\(prop, ReadPropertyCallback, &data\);', '// __system_property_read_callback(prop, ReadPropertyCallback, &data);' | Set-Content $SystemSnapshotLinux
+} else {
+    Write-Host "Warning: system_snapshot_linux.cc not found, cannot patch."
+}
+
 Write-Host "Done. Crashpad sources are ready."
