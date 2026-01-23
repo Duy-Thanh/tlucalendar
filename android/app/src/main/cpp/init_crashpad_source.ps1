@@ -34,4 +34,14 @@ if (-not (Test-Path $LssDir)) {
     Write-Host "LSS directory already exists."
 }
 
+# Clone Zlib
+$ZlibDir = Join-Path $CrashpadDir "third_party\zlib\zlib"
+if (-not (Test-Path $ZlibDir)) {
+    Write-Host "Downloading Zlib..."
+    New-Item -ItemType Directory -Force -Path $ZlibDir | Out-Null
+    git clone https://chromium.googlesource.com/chromium/src/third_party/zlib $ZlibDir
+} else {
+    Write-Host "Zlib directory already exists."
+}
+
 Write-Host "Done. Crashpad sources are ready."

@@ -40,4 +40,14 @@ else
     echo "LSS directory already exists."
 fi
 
+# Clone Zlib - Crashpad needs it
+ZLIB_DIR="$CRASHPAD_DIR/third_party/zlib/zlib"
+if [ ! -d "$ZLIB_DIR" ]; then
+    echo "Downloading Zlib..."
+    mkdir -p "$ZLIB_DIR"
+    git clone https://chromium.googlesource.com/chromium/src/third_party/zlib "$ZLIB_DIR"
+else
+    echo "Zlib directory already exists."
+fi
+
 echo "Done. Crashpad sources are ready."

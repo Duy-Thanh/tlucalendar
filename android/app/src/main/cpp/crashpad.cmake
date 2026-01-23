@@ -10,6 +10,13 @@ include_directories(
     "${CRASHPAD_DIR}/compat/linux"
 )
 
+# --- ZLIB (Embedded) ---
+file(GLOB ZLIB_SOURCES "${CRASHPAD_DIR}/third_party/zlib/zlib/*.c")
+# Exclude test files/examples if any
+list(FILTER ZLIB_SOURCES EXCLUDE REGEX "(_test|test/|example).*")
+add_library(embedded_zlib STATIC ${ZLIB_SOURCES})
+target_include_directories(embedded_zlib PUBLIC "${CRASHPAD_DIR}/third_party/zlib/zlib")
+
 # --- Mini Chromium Base ---
 file(GLOB_RECURSE MINI_CHROMIUM_SOURCES "${MINI_CHROMIUM_DIR}/base/*.cc")
 # Filter out Mac/Win specific files
@@ -20,6 +27,7 @@ list(FILTER MINI_CHROMIUM_SOURCES EXCLUDE REGEX "(_test|_test_util)\\.cc$")
 add_library(mini_chromium STATIC ${MINI_CHROMIUM_SOURCES})
 target_compile_definitions(mini_chromium PUBLIC -D__ANDROID__)
 add_definitions(-DCRASHPAD_LSS_SOURCE_EMBEDDED) # Tell Crashpad to look for LSS in third_party/lss/lss
+add_definitions(-DCRASHPAD_ZLIB_SOURCE_EMBEDDED) # Tell Crashpad to look for Zlib in third_party/zlib/zlib
 target_link_libraries(mini_chromium log)
 
 # --- Crashpad Compat ---
@@ -37,7 +45,11 @@ list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "/mac/|/win/|/fuchsia/|/apple/|/
 list(FILTER CRASHPAD_UTIL_SOURCES EXCLUDE REGEX "_test(|_main|_util|_util_linux)\\.cc$")
 
 add_library(crashpad_util STATIC ${CRASHPAD_UTIL_SOURCES})
-target_link_libraries(crashpad_util mini_chromium crashpad_compat)
+target_link_libraries(crashpad_util mini_chromium crashpad_compat embedded_zlib) # Link embedded zlib
+
+# ... (omitted)
+
+target_link_libraries(crashpad_handler crashpad_client crashpad_util mini_chromium crashpad_compat log) # removed system z
 
 # --- Crashpad Client ---
 file(GLOB_RECURSE CRASHPAD_CLIENT_SOURCES "${CRASHPAD_DIR}/client/*.cc")
@@ -78,7 +90,7 @@ add_executable(crashpad_handler
     ${CRASHPAD_TOOLS_SOURCES}
 )
 
-target_link_libraries(crashpad_handler crashpad_client crashpad_util mini_chromium crashpad_compat log z)
+target_link_libraries(crashpad_handler crashpad_client crashpad_util mini_chromium crashpad_compat log)
 
 # Rename to libcrashpad_handler.so so Android extracts it
 set_target_properties(crashpad_handler PROPERTIES OUTPUT_NAME "crashpad_handler")
