@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.22.1)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+enable_language(ASM)
+
 # Optimization flags for Low Memory / Size
 # -Os: Simplify code, reduce binary size (good for instruction cache on low RAM)
 # -fvisibility=hidden: Hide internal symbols to reduce export table size
