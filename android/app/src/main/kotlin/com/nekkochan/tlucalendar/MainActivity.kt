@@ -47,5 +47,9 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+
+        // Initialize Crashpad Channel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CrashpadService.CHANNEL)
+            .setMethodCallHandler(CrashpadService(this))
     }
 }

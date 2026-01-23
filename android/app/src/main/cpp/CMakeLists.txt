@@ -7,11 +7,16 @@ cmake_minimum_required(VERSION 3.22.1)
 add_compile_options(-O3 -fvisibility=hidden -ffunction-sections -fdata-sections)
 add_link_options(-Wl,--gc-sections)
 
+
+# Include Crashpad Build logic
+include(crashpad.cmake)
+
 add_library( 
         nekkoFramework
         SHARED
         yyjson.c
-        native-lib.cpp)
+        native-lib.cpp
+        crashpad_adapter.cpp) # Added adapter
 
 find_library( 
         log-lib
@@ -19,4 +24,5 @@ find_library(
 
 target_link_libraries( 
         nekkoFramework
-        ${log-lib})
+        ${log-lib}
+        crashpad_client) # Link Client

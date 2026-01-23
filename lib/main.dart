@@ -15,11 +15,17 @@ import 'package:tlucalendar/theme/app_theme.dart';
 import 'package:tlucalendar/screens/app_initializer.dart';
 import 'package:tlucalendar/injection_container.dart' as di;
 
+import 'package:tlucalendar/services/crashpad_service.dart';
 import 'package:tlucalendar/services/daily_notification_service.dart';
 import 'package:tlucalendar/services/auto_refresh_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Crashpad (Raw Integration)
+  await CrashpadService.initialize(
+    uploadUrl: 'https://crashpad.javalorant.xyz/submit',
+  );
 
   // Initialize Service Locator (Dependency Injection)
   await di.init();

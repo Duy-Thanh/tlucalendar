@@ -1,0 +1,14 @@
+[Unit]
+Description=Crashpad Receiver Server
+After=network.target
+
+[Service]
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/home/ec2-user/crashpad-server
+Environment="PATH=/home/ec2-user/crashpad-server/venv/bin"
+ExecStart=/home/ec2-user/crashpad-server/venv/bin/gunicorn --workers 3 --bind 0.0.0.0:5000 app:app
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
