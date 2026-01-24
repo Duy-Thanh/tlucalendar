@@ -23,9 +23,10 @@ class MainActivity : FlutterActivity() {
         // Enable edge-to-edge layout
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
-        // Set navigation bar color to transparent
+        // Set navigation bar and status bar color to transparent
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.navigationBarColor = android.graphics.Color.TRANSPARENT
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
         }
     }
 

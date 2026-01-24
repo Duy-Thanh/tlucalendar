@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui';
 
 import 'package:tlucalendar/providers/theme_provider.dart';
@@ -22,6 +23,9 @@ import 'package:tlucalendar/services/auto_refresh_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Enable Edge-to-Edge for Transparent Status/Nav Bars
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
   // Initialize Crashpad (Raw Integration)
   await CrashpadService.initialize(
