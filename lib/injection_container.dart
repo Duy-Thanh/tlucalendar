@@ -38,6 +38,12 @@ import 'package:tlucalendar/features/registration/domain/usecases/register_cours
 import 'package:tlucalendar/features/registration/domain/usecases/cancel_course.dart';
 import 'package:tlucalendar/providers/registration_provider.dart';
 
+import 'package:tlucalendar/features/grades/data/datasources/grade_remote_data_source.dart';
+import 'package:tlucalendar/features/grades/data/repositories/grade_repository_impl.dart';
+import 'package:tlucalendar/features/grades/domain/repositories/grade_repository.dart';
+import 'package:tlucalendar/features/grades/domain/usecases/get_grades.dart';
+import 'package:tlucalendar/providers/grade_provider.dart';
+
 final sl = GetIt.instance;
 
 Future<void> init() async {
@@ -117,9 +123,22 @@ Future<void> init() async {
     () => RegistrationRepositoryImpl(remoteDataSource: sl()),
   );
 
-  // Data Sources
   sl.registerLazySingleton<RegistrationRemoteDataSource>(
     () => RegistrationRemoteDataSourceImpl(client: sl()),
+  );
+
+  //! Features - Grades
+  // UseCases
+  sl.registerLazySingleton(() => GetGrades(sl()));
+
+  // Repository
+  sl.registerLazySingleton<GradeRepository>(
+    () => GradeRepositoryImpl(remoteDataSource: sl()),
+  );
+
+  // Data Sources
+  sl.registerLazySingleton<GradeRemoteDataSource>(
+    () => GradeRemoteDataSourceImpl(client: sl()),
   );
 
   //! Core
@@ -156,4 +175,5 @@ Future<void> init() async {
       cancelCourse: sl(),
     ),
   );
+  sl.registerLazySingleton(() => GradeProvider(getGradesUseCase: sl()));
 }

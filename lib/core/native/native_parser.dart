@@ -12,6 +12,7 @@ import 'package:tlucalendar/features/schedule/data/models/semester_register_peri
 import 'package:tlucalendar/features/schedule/domain/entities/course_hour.dart';
 import 'package:tlucalendar/features/auth/data/models/user_model.dart';
 import 'package:tlucalendar/features/registration/data/models/subject_registration_model.dart';
+import 'package:tlucalendar/features/grades/data/models/student_mark_model.dart';
 
 // --- FFI Structs matching C++ ---
 
@@ -373,6 +374,37 @@ class NotificationNativeModel {
   });
 }
 
+final class StudentMarkNative extends Struct {
+  external Pointer<Utf8> subjectCode;
+  external Pointer<Utf8> subjectName;
+  @Int32()
+  external int numberOfCredit;
+  @Double()
+  external double mark;
+  @Double()
+  external double markQT;
+  @Double()
+  external double markTHI;
+  external Pointer<Utf8> charMark;
+  @Int32()
+  external int studyTime;
+  @Int32()
+  external int examRound;
+  @Bool()
+  external bool isCalculateMark;
+  external Pointer<Utf8> semesterCode;
+  external Pointer<Utf8> semesterName;
+  @Int32()
+  external int semesterId;
+}
+
+final class StudentMarkResult extends Struct {
+  @Int32()
+  external int count;
+  external Pointer<StudentMarkNative> marks;
+  external Pointer<Utf8> errorMessage;
+}
+
 // --- Function Signatures ---
 
 typedef ParseExamDetailsFunc =
@@ -447,6 +479,13 @@ typedef FreeRegistrationActionResultFunc =
     Void Function(Pointer<RegistrationActionNative>);
 typedef FreeRegistrationActionResult =
     void Function(Pointer<RegistrationActionNative>);
+
+typedef ParseStudentMarksFunc =
+    Pointer<StudentMarkResult> Function(Pointer<Utf8>);
+typedef ParseStudentMarks = Pointer<StudentMarkResult> Function(Pointer<Utf8>);
+
+typedef FreeStudentMarkResultFunc = Void Function(Pointer<StudentMarkResult>);
+typedef FreeStudentMarkResult = void Function(Pointer<StudentMarkResult>);
 
 class NativeParser {
   static DynamicLibrary? _lib;
@@ -1325,6 +1364,74 @@ class NativeParser {
       } catch (e) {
         return 0;
       }
+    }
+  }
+
+  static List<StudentMarkModel> parseStudentMarks(String jsonStr) {
+    if (jsonStr.isEmpty) return [];
+    try {
+      final func = _library
+          .lookupFunction<ParseStudentMarksFunc, ParseStudentMarks>(
+            'parse_student_marks',
+          );
+      final freeFunc = _library
+          .lookupFunction<FreeStudentMarkResultFunc, FreeStudentMarkResult>(
+            'free_student_mark_result',
+          );
+
+      final jsonPtr = jsonStr.toNativeUtf8();
+      final resultPtr = func(jsonPtr);
+      malloc.free(jsonPtr);
+
+      if (resultPtr == nullptr) return [];
+      final result = resultPtr.ref;
+
+      if (result.errorMessage != nullptr) {
+        debugPrint(
+          "Native Parse Error (Grades): ${result.errorMessage.toDartString()}",
+        );
+        freeFunc(resultPtr);
+        return [];
+      }
+
+      final List<StudentMarkModel> list = [];
+      final count = result.count;
+      final marksPtr = result.marks;
+
+      for (int i = 0; i < count; i++) {
+        final m = marksPtr[i];
+        list.add(
+          StudentMarkModel(
+            subjectCode: m.subjectCode != nullptr
+                ? m.subjectCode.toDartString()
+                : '',
+            subjectName: m.subjectName != nullptr
+                ? m.subjectName.toDartString()
+                : '',
+            numberOfCredit: m.numberOfCredit,
+            mark: m.mark,
+            markQT: m.markQT,
+            markTHI: m.markTHI,
+            charMark: m.charMark != nullptr ? m.charMark.toDartString() : '',
+            studyTime: m.studyTime,
+            examRound: m.examRound,
+            isCalculateMark: m.isCalculateMark,
+            semesterCode: m.semesterCode != nullptr
+                ? m.semesterCode.toDartString()
+                : '',
+            semesterName: m.semesterName != nullptr
+                ? m.semesterName.toDartString()
+                : '',
+            semesterId: m.semesterId,
+          ),
+        );
+      }
+
+      freeFunc(resultPtr);
+      return list;
+    } catch (e) {
+      debugPrint("Native Logic Error (Grades): $e");
+      return [];
     }
   }
 }

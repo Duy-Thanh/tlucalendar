@@ -1533,6 +1533,108 @@ extern "C" {
         return result;
     }
 
+
+    // --- Student Mark Structs ---
+    struct StudentMarkNative {
+        char* subjectCode;
+        char* subjectName;
+        int numberOfCredit;
+        double mark;            // tongkethocphan
+        double markQT;          // diemquatrinh
+        double markTHI;         // diemthi
+        char* charMark;         // diemchu
+        int studyTime;          // lanhoc
+        int examRound;          // lanthi
+        bool isCalculateMark;   // tinhdiem
+        char* semesterCode;
+        char* semesterName;
+        int semesterId;         // New field for sorting
+    };
+
+    struct StudentMarkResult {
+        int count;
+        struct StudentMarkNative* marks;
+        char* errorMessage;
+    };
+
+    // --- Exported Helper for Freeing StudentMarkResult ---
+    __attribute__((visibility("default"))) __attribute__((used))
+    void free_student_mark_result(struct StudentMarkResult* result) {
+        if (!result) return;
+        if (result->marks) {
+            // Strings allocated via safe_strdup MUST be freed
+            for (int i = 0; i < result->count; ++i) {
+                struct StudentMarkNative* m = &result->marks[i];
+                free(m->subjectCode);
+                free(m->subjectName);
+                free(m->charMark);
+                free(m->semesterCode);
+                free(m->semesterName);
+            }
+            free(result->marks);
+        }
+        free(result->errorMessage);
+        free(result);
+    }
+
+    // --- Parser for Student Marks ---
+    __attribute__((visibility("default"))) __attribute__((used))
+    struct StudentMarkResult* parse_student_marks(const char* json_str) {
+        struct StudentMarkResult* result = (struct StudentMarkResult*)calloc(1, sizeof(struct StudentMarkResult));
+        if (!json_str) {
+            result->errorMessage = strdup("Null JSON string");
+            return result;
+        }
+
+        yyjson_doc *doc = yyjson_read(json_str, strlen(json_str), 0);
+        if (!doc) {
+            result->errorMessage = strdup("Failed to parse JSON");
+            return result;
+        }
+
+        yyjson_val *root = yyjson_doc_get_root(doc);
+        if (!yyjson_is_arr(root)) {
+             result->errorMessage = strdup("Root is not an array");
+             yyjson_doc_free(doc);
+             return result;
+        }
+
+        result->count = (int)yyjson_arr_size(root);
+        result->marks = (struct StudentMarkNative*)calloc(result->count, sizeof(struct StudentMarkNative));
+
+        size_t idx, max;
+        yyjson_val *item;
+        yyjson_arr_foreach(root, idx, max, item) {
+                struct StudentMarkNative* mark = &result->marks[idx];
+
+                mark->mark = yyjson_get_num(yyjson_obj_get(item, "mark"));
+                mark->markQT = yyjson_get_num(yyjson_obj_get(item, "markQT"));
+                mark->markTHI = yyjson_get_num(yyjson_obj_get(item, "markTHI"));
+                
+                mark->charMark = safe_strdup(yyjson_get_str(yyjson_obj_get(item, "charMark")));
+                mark->studyTime = get_json_int(yyjson_obj_get(item, "studyTime"));
+                mark->examRound = get_json_int(yyjson_obj_get(item, "examRound"));
+
+                yyjson_val *subject = yyjson_obj_get(item, "subject");
+                if (subject) {
+                    mark->subjectCode = safe_strdup(yyjson_get_str(yyjson_obj_get(subject, "subjectCode")));
+                    mark->subjectName = safe_strdup(yyjson_get_str(yyjson_obj_get(subject, "subjectName")));
+                    mark->numberOfCredit = get_json_int(yyjson_obj_get(subject, "numberOfCredit"));
+                    mark->isCalculateMark = yyjson_get_bool(yyjson_obj_get(subject, "isCalculateMark"));
+                }
+
+                yyjson_val *semester = yyjson_obj_get(item, "semester");
+                if (semester) {
+                    mark->semesterCode = safe_strdup(yyjson_get_str(yyjson_obj_get(semester, "semesterCode")));
+                    mark->semesterName = safe_strdup(yyjson_get_str(yyjson_obj_get(semester, "semesterName")));
+                    mark->semesterId = get_json_int(yyjson_obj_get(semester, "id"));
+                }
+        }
+
+        yyjson_doc_free(doc);
+        return result;
+    }
+
 }
 
 extern "C" JNIEXPORT jstring JNICALL

@@ -23,6 +23,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'package:tlucalendar/features/registration/presentation/pages/registration_period_selection_screen.dart';
+import 'package:tlucalendar/features/grades/presentation/pages/grade_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -665,33 +666,53 @@ class SettingsScreen extends StatelessWidget {
         SliverToBoxAdapter(
           child: Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ListTile(
-              leading: const Icon(Icons.app_registration_rounded),
-              title: const Text('Đăng ký học'),
-              subtitle: const Text('Đăng ký môn học, hủy học phần'),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Text(
-                  'HOT',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.app_registration_rounded),
+                  title: const Text('Đăng ký học'),
+                  subtitle: const Text('Đăng ký môn học, hủy học phần'),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Text(
+                      'HOT',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const RegistrationPeriodSelectionScreen(),
+                      ),
+                    );
+                  },
                 ),
-              ),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const RegistrationPeriodSelectionScreen(),
-                  ),
-                );
-              },
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.analytics_outlined),
+                  title: const Text('Tra cứu điểm'),
+                  subtitle: const Text('Xem điểm tổng hợp, điểm thành phần'),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const GradeScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ),
